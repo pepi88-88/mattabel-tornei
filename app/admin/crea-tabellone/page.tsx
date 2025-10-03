@@ -104,18 +104,11 @@ function loadGroupsLS(tour: string, tappa: string): GroupMeta[] {
     }
   } catch {}
 
-  try {
-    const raw = localStorage.getItem(keySources(tour, tappa))
-    if (!raw) return []  
-    const js = JSON.parse(raw) as Sources
-    // PATCH: filtra squadre in attesa
-    const av = Array.isArray(js.avulsa) ? js.avulsa.filter(x => !String(x).toLowerCase().includes('waiting')) : []
-    return { ...js, avulsa: av }
-  } catch { 
-    return null 
-  }
-
-
+ // 1-bis) fallback: prendi i gruppi dallo snapshot “sources:*”
+{
+  const snapGroups = loadGroupsFromSnapshot(tour, tappa)
+  if (snapGroups.length) return snapGroups
+}
 
   // 2) fallback alle chiavi “storiche” (se per caso esistono)
   const GROUP_KEYS = [
@@ -140,16 +133,58 @@ function loadGroupsLS(tour: string, tappa: string): GroupMeta[] {
 
 
 /* ---- snapshot sorgenti (gironi/avulsa) ---- */
-type Sources = { gironi: string[]; avulsa: string[]; createdAt: string }
+/** NOTA: GroupMeta è già usato in questo file: non ridefinirlo qui. */
+type Sources = { gironi: GroupMeta[]; avulsa: string[]; createdAt: string }
+
 const keySources = (tour: string, tappa: string) => `sources:${tour}:${tappa}`
-function saveSources(tour: string, tappa: string, s: Sources) { try { localStorage.setItem(keySources(tour, tappa), JSON.stringify(s)) } catch {} }
-function loadSources(tour: string, tappa: string): Sources | null { try { const raw = localStorage.getItem(keySources(tour, tappa)); return raw ? JSON.parse(raw) : null } catch { return null } }
+
+function saveSources(tour: string, tappa: string, s: Sources) {
+  try {
+    localStorage.setItem(keySources(tour, tappa), JSON.stringify(s))
+  } catch {}
+}
+
+/** Carica lo snapshot COMPLETO (gironi + avulsa) dal localStorage.
+ *  Applica anche il filtro “no waiting / waitlist” su avulsa. */
+function loadSourcesRaw(tour: string, tappa: string): Sources | null {
+  try {
+    const raw = localStorage.getItem(keySources(tour, tappa))
+    if (!raw) return null
+    const js = JSON.parse(raw) as Sources
+    const av = Array.isArray(js.avulsa)
+      ? js.avulsa.filter(s => {
+          const v = String(s).toLowerCase()
+          return !v.includes('waiting') && !v.includes('waitlist')
+        })
+      : []
+    return { ...js, avulsa: av }
+  } catch {
+    return null
+  }
+}
+
+/** Usa questa quando ti serve SOLO l'array dei gruppi (tipo: GroupMeta[]) */
+function loadGroupsFromSnapshot(tour: string, tappa: string): GroupMeta[] {
+  return loadSourcesRaw(tour, tappa)?.gironi ?? []
+}
+
+/** Usa questa quando ti serve l’array “avulsa” (già filtrato) */
+function loadAvulsaFromSnapshot(tour: string, tappa: string): string[] {
+  return loadSourcesRaw(tour, tappa)?.avulsa ?? []
+}
+
 async function fetchRegistrationsCount(tId: string): Promise<number> {
   if (!tId) return 0
   try {
     const r = await fetch(`/api/registrations/by-tournament?tournament_id=${tId}`, { cache: 'no-store' })
     const j = await r.json()
     const items = Array.isArray(j?.items) ? j.items : []
+    return items.length
+  } catch {
+    return 0
+  }
+}
+
 async function fetchRegistrationsFiltered(tId: string) {
   if (!tId) return []
   try {
@@ -160,15 +195,18 @@ async function fetchRegistrationsFiltered(tId: string) {
       const status = String(x?.status ?? '').toLowerCase()
       return status !== 'waiting' && status !== 'waitlist'
     })
-  } catch { return [] }
+  } catch { 
+    return [] 
+  }
 }
 
-    // stati da ESCLUDERE (non attivi / non confermati)
-    const BAD = new Set([
-      'waiting', 'waitlist', 'pending', 'on_hold',
-      'canceled', 'cancelled', 'withdrawn', 'deleted',
-      'rejected', 'refused', 'draft'
-    ])
+// stati da ESCLUDERE (non attivi / non confermati)
+const BAD = new Set([
+  'waiting', 'waitlist', 'pending', 'on_hold',
+  'canceled', 'cancelled', 'withdrawn', 'deleted',
+  'rejected', 'refused', 'draft'
+])
+
 
     const isEligible = (x: any) => {
       const status = String(x?.status ?? '').toLowerCase().trim()
@@ -984,14 +1022,11 @@ const realGironiCodes = useMemo(() => {
   // Gironi: SOLO codici reali (derivati dal gm live + groupsCount)
   const gironiOps = realGironiCodes
 
-    // Avulsa: usa il numero di squadre REALMENTE assegnate ai gironi (da gmSE.assign).
-  // Se per qualche motivo non ho gmSE, cado su snapshot o, in ultima istanza, su tappaSize.
-  const snap = loadSources(tourId, tId)
-  const snapCount = Array.isArray(snap?.avulsa) ? snap!.avulsa.length : 0
-  const gmAssignedCount = gmSE ? new Set(Object.values(gmSE.assign || {})).size : 0
-  const avCount = gmAssignedCount || snapCount || tappaSize
-  const avulsaOps = Array.from({ length: Math.max(0, avCount) }, (_, i) => String(i + 1))
-
+   // Avulsa: preferisci quanti sono realmente assegnati; poi snapshot; poi tappaSize
+const gmAssignedCount = gmSE ? new Set(Object.values(gmSE.assign || {})).size : 0
+const snapAvulsaCount = loadAvulsaFromSnapshot(tourId, tId).length
+const avCount = gmAssignedCount || snapAvulsaCount || tappaSize
+const avulsaOps = Array.from({ length: Math.max(0, avCount) }, (_, i) => String(i + 1))
 
   // Eliminati
   const loser = active?.fromTableId ? brackets.find(b => b.id === active.fromTableId) : null
