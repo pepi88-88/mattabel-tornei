@@ -1,0 +1,2 @@
+import { NextRequest } from 'next/server'
+export function requireAdmin(req:NextRequest){ const c=req.cookies.get('admin_session')?.value; if(c==='1') return true; const a=req.headers.get('authorization')||''; if(a.startsWith('Basic ')){ const [,b]=a.split(' '); try{ const [u,p]=Buffer.from(b,'base64').toString().split(':'); return u===process.env.ADMIN_USER && p===process.env.ADMIN_PASS }catch{}} return false }
