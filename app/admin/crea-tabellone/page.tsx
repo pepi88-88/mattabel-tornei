@@ -1162,22 +1162,40 @@ return (
     <button className="btn h-12" onClick={addBracket} disabled={locked}>+ Aggiungi tabellone</button>
 <button
   className="btn h-12"
-  onClick={() => {
-    const meta = loadGroupsLS(tourId, tId)
-    const gironi: string[] = []
-    if (meta.length) {
-      const ord = [...meta].sort((a,b)=>a.key.localeCompare(b.key))
-      for (const g of ord) for (let p=1;p<=g.size;p++) gironi.push(`${g.key}${p}`)
+ onClick={() => {
+  // prendi i meta reali dei gironi (key/size) se esistono
+  const meta = loadGroupsLS(tourId, tId)
+
+  // vogliamo salvare GroupMeta[] (non le posizioni A1/A2…)
+  let groupsMeta: GroupMeta[] = []
+
+  if (meta.length) {
+    // ordina A, B, C… e usa direttamente key/size
+    groupsMeta = [...meta].sort((a, b) => a.key.localeCompare(b.key))
+  } else if (tappaSize > 0) {
+    // fallback: crea gironi “finti” da tappaSize (blocchi da 4)
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    let remaining = tappaSize, li = 0
+    while (remaining > 0) {
+      const size = Math.min(4, remaining)
+      const key = (letters[li] || `G${li + 1}`).toUpperCase()
+      groupsMeta.push({ key, size })
+      li++
+      remaining -= size
     }
-    // se meta vuota, fai fallback veloce con tappaSize
-    if (!gironi.length && tappaSize > 0) {
-      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''); let remaining = tappaSize, li = 0
-      while (remaining > 0) { const size = Math.min(4, remaining); const L = letters[li++] || String.fromCharCode(64+li); for (let p=1;p<=size;p++) gironi.push(`${L}${p}`); remaining -= size }
-    }
-    const av = Array.from({length: Math.max(0, tappaSize)}, (_,i)=>`${i+1}`)
-    saveSources(tourId, tId, { gironi, avulsa: av, createdAt: new Date().toISOString() })
-  }}
->
+  }
+
+  // avulsa resta un array di stringhe "1","2",...
+  const av = Array.from({ length: Math.max(0, tappaSize) }, (_, i) => `${i + 1}`)
+
+  // salva lo snapshot corretto
+  saveSources(tourId, tId, {
+    gironi: groupsMeta,   // <-- ORA è GroupMeta[]
+    avulsa: av,
+    createdAt: new Date().toISOString(),
+  })
+}}
+
   Rigenera sorgenti
 </button>
 
