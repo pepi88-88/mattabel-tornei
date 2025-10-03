@@ -109,7 +109,7 @@ function pointsOfBucket(pos: number | undefined, total: number, mult: number, se
 }
 
 /* ================== UI helpers ================== */
-type TabBtnProps = {
+type TabButtonProps = {
   active?: boolean
   onClick?: () => void
   href?: string
@@ -117,7 +117,7 @@ type TabBtnProps = {
   children?: React.ReactNode
 }
 
-function TabBtn({ active, onClick, href, children, title }: TabBtnProps) {
+function TabButton({ active, onClick, href, children, title }: TabButtonProps) {
   const cls = [
     'btn','btn-sm','transition-all',
     active
