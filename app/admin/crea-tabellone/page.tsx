@@ -106,7 +106,7 @@ function loadGroupsLS(tour: string, tappa: string): GroupMeta[] {
 
   try {
     const raw = localStorage.getItem(keySources(tour, tappa))
-    if (!raw) return null
+    if (!raw) return []  
     const js = JSON.parse(raw) as Sources
     // PATCH: filtra squadre in attesa
     const av = Array.isArray(js.avulsa) ? js.avulsa.filter(x => !String(x).toLowerCase().includes('waiting')) : []

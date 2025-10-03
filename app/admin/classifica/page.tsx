@@ -109,39 +109,17 @@ function pointsOfBucket(pos: number | undefined, total: number, mult: number, se
 }
 
 /* ================== UI helpers ================== */
-type TabButtonProps = {
-  active?: boolean
-  onClick?: () => void
-  href?: string
-  title?: string
-  children?: React.ReactNode
-}
-
-const TabButton: React.FC<TabButtonProps> = ({
-  active, onClick, href, children, title
-}) => {
+const TabButton: React.FC<{active?:boolean; onClick?:()=>void; href?:string; title?:string}> =
+({active,onClick,href,children,title})=>{
   const cls = [
     'btn','btn-sm','transition-all',
     active
       ? 'btn-primary border-2 border-primary ring-2 ring-primary/30'
       : 'btn-outline border-2 border-neutral-700 hover:border-neutral-500'
   ].join(' ')
-
-  if (href) {
-    return (
-      <a className={cls} href={href} title={title} aria-current={active ? 'page' : undefined}>
-        {children}
-      </a>
-    )
-  }
-  return (
-    <button className={cls} onClick={onClick} title={title} aria-pressed={!!active}>
-      {children}
-    </button>
-  )
-}
-
-
+  if (href) return <a className={cls} href={href} title={title} aria-current={active?'page':undefined}>{children}</a>
+  return <button className={cls} onClick={onClick} title={title} aria-pressed={!!active}>{children}</button>
+}; // 👈 chiusura corretta del componente
 
 /* ================== Pagina ================== */
 export default function SemiManualLeaderboardPage() {
