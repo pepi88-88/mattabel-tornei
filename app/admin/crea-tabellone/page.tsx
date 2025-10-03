@@ -207,26 +207,32 @@ const BAD = new Set([
   'rejected', 'refused', 'draft'
 ])
 
+// Conta SOLO le iscrizioni valide (no waiting/waitlist/pending... e, se presente, payment ok)
+async function fetchRegistrationsCount(tId: string): Promise<number> {
+  if (!tId) return 0
+  try {
+    const r = await fetch(`/api/registrations/by-tournament?tournament_id=${tId}`, { cache: 'no-store' })
+    const j = await r.json()
+    const items = Array.isArray(j?.items) ? j.items : []
 
     const isEligible = (x: any) => {
       const status = String(x?.status ?? '').toLowerCase().trim()
       const waitingFlag =
         x?.waiting === true || x?.is_waiting === true || x?.on_waitlist === true
 
-      // se hai un campo “payment_status”, considera solo pagati/confermati
+      // se c'è “payment_status”, consideriamo validi solo paid/confirmed/completed
       const payment = String(x?.payment_status ?? '').toLowerCase().trim()
       const paymentOk = !payment || ['paid', 'confirmed', 'completed'].includes(payment)
 
       return !waitingFlag && !BAD.has(status) && paymentOk
-   
+    }
+
     const valid = items.filter(isEligible)
     return valid.length
   } catch {
     return 0
   }
 }
-
-
 /* ---- Tours/Tappe ---- */
 async function fetchTours() { try { const r = await fetch('/api/tours'); const j = await r.json(); return Array.isArray(j?.items) ? j.items : [] } catch { return [] } }
 async function fetchTappe(tourId: string) {
