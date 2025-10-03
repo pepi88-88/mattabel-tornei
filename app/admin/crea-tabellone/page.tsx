@@ -173,33 +173,6 @@ function loadAvulsaFromSnapshot(tour: string, tappa: string): string[] {
   return loadSourcesRaw(tour, tappa)?.avulsa ?? []
 }
 
-async function fetchRegistrationsCount(tId: string): Promise<number> {
-  if (!tId) return 0
-  try {
-    const r = await fetch(`/api/registrations/by-tournament?tournament_id=${tId}`, { cache: 'no-store' })
-    const j = await r.json()
-    const items = Array.isArray(j?.items) ? j.items : []
-    return items.length
-  } catch {
-    return 0
-  }
-}
-
-async function fetchRegistrationsFiltered(tId: string) {
-  if (!tId) return []
-  try {
-    const r = await fetch(`/api/registrations/by-tournament?tournament_id=${tId}`)
-    const j = await r.json()
-    const items = Array.isArray(j?.items) ? j.items : []
-    return items.filter((x: any) => {
-      const status = String(x?.status ?? '').toLowerCase()
-      return status !== 'waiting' && status !== 'waitlist'
-    })
-  } catch { 
-    return [] 
-  }
-}
-
 // stati da ESCLUDERE (non attivi / non confermati)
 const BAD = new Set([
   'waiting', 'waitlist', 'pending', 'on_hold',
@@ -217,22 +190,40 @@ async function fetchRegistrationsCount(tId: string): Promise<number> {
 
     const isEligible = (x: any) => {
       const status = String(x?.status ?? '').toLowerCase().trim()
-      const waitingFlag =
-        x?.waiting === true || x?.is_waiting === true || x?.on_waitlist === true
-
-      // se c'è “payment_status”, consideriamo validi solo paid/confirmed/completed
+      const waitingFlag = x?.waiting === true || x?.is_waiting === true || x?.on_waitlist === true
       const payment = String(x?.payment_status ?? '').toLowerCase().trim()
       const paymentOk = !payment || ['paid', 'confirmed', 'completed'].includes(payment)
-
       return !waitingFlag && !BAD.has(status) && paymentOk
     }
 
-    const valid = items.filter(isEligible)
-    return valid.length
+    return items.filter(isEligible).length
   } catch {
     return 0
   }
 }
+
+// Versione che restituisce l'array filtrato
+async function fetchRegistrationsFiltered(tId: string) {
+  if (!tId) return []
+  try {
+    const r = await fetch(`/api/registrations/by-tournament?tournament_id=${tId}`)
+    const j = await r.json()
+    const items = Array.isArray(j?.items) ? j.items : []
+
+    const isEligible = (x: any) => {
+      const status = String(x?.status ?? '').toLowerCase().trim()
+      const waitingFlag = x?.waiting === true || x?.is_waiting === true || x?.on_waitlist === true
+      const payment = String(x?.payment_status ?? '').toLowerCase().trim()
+      const paymentOk = !payment || ['paid', 'confirmed', 'completed'].includes(payment)
+      return !waitingFlag && !BAD.has(status) && paymentOk
+    }
+
+    return items.filter(isEligible)
+  } catch {
+    return []
+  }
+}
+
 /* ---- Tours/Tappe ---- */
 async function fetchTours() { try { const r = await fetch('/api/tours'); const j = await r.json(); return Array.isArray(j?.items) ? j.items : [] } catch { return [] } }
 async function fetchTappe(tourId: string) {
