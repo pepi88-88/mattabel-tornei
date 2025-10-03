@@ -218,8 +218,7 @@ const BAD = new Set([
       const paymentOk = !payment || ['paid', 'confirmed', 'completed'].includes(payment)
 
       return !waitingFlag && !BAD.has(status) && paymentOk
-    }
-
+   
     const valid = items.filter(isEligible)
     return valid.length
   } catch {
