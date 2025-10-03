@@ -193,19 +193,39 @@ React.useEffect(()=>{
   },[tappa,setCfg])
 
   // Tab bar: M/F tornano alla classifica
-  const TabLink: React.FC<{active?:boolean; label:string; gender?:Gender}> = ({active,label,gender:targetGender})=>{
-    const cls = `btn ${active?'btn-primary border-2 border-primary ring-2 ring-primary/30':'btn-outline border-2 border-neutral-700 hover:border-neutral-500'} btn-sm`
-    if (!targetGender) return <span className={`${cls} pointer-events-none`}>{label}</span>
-    return (
-      <a
-        className={cls}
-        href="/admin/classifica"
-        onClick={()=>{
-          if (targetGender) localStorage.setItem('semi:lastGender', targetGender)
-        }}
-      >{label}</a>
-    )
+  type TabLinkProps = {
+  active?: boolean
+  label?: string
+  gender?: Gender
+  children?: React.ReactNode
+}
+
+function TabLink({ active, label, gender: targetGender, children }: TabLinkProps) {
+  const cls =
+    `btn ${active
+      ? 'btn-primary border-2 border-primary ring-2 ring-primary/30'
+      : 'btn-outline border-2 border-neutral-700 hover:border-neutral-500'
+    } btn-sm`
+
+  const text = children ?? label ?? ''
+
+  if (!targetGender) {
+    return <span className={`${cls} pointer-events-none`}>{text}</span>
   }
+
+  return (
+    <a
+      className={cls}
+      href="/admin/classifica"
+      onClick={() => {
+        localStorage.setItem('semi:lastGender', targetGender)
+      }}
+    >
+      {text}
+    </a>
+  )
+}
+
 
   return (
     <div className="p-6 space-y-6">
