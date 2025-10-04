@@ -1,3 +1,5 @@
+// app/atleta/classifica/ClassificaInner.tsx
+'use client'
 
 import * as React from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -53,8 +55,9 @@ function pointsOfBucket(pos: number | undefined, total: number, mult: number, se
   return Math.round(raw * mult)
 }
 
-/* ===== page ===== */
-export default function AthleteClassificaPage({ params }: { params: URLSearchParams })
+export default function ClassificaInner() {
+  const params = useSearchParams()
+
   // tendina tour popolata dal server
   const [availableTours, setAvailableTours] = React.useState<string[]>([])
   React.useEffect(()=>{ 
@@ -66,9 +69,15 @@ export default function AthleteClassificaPage({ params }: { params: URLSearchPar
   },[])
 
   // stato iniziale tour/genere
-  const initialTour = params.get('tour') || (typeof window !== 'undefined' ? localStorage.getItem('semi:lastTour') : '') || (availableTours[0] || 'Tour Demo')
+  const initialTour =
+    params.get('tour')
+    || (typeof window !== 'undefined' ? localStorage.getItem('semi:lastTour') : '')
+    || (availableTours[0] || 'Tour Demo')
+
   const [tour, setTour] = React.useState<string>(initialTour)
-  const [gender, setGender] = React.useState<Gender>(()=> (typeof window !== 'undefined' ? (localStorage.getItem('semi:lastGender') as Gender|null) : null) || 'M')
+  const [gender, setGender] = React.useState<Gender>(() =>
+    (typeof window !== 'undefined' ? (localStorage.getItem('semi:lastGender') as Gender|null) : null) || 'M'
+  )
 
   // persistenza lato client
   React.useEffect(()=>{ if (typeof window!=='undefined') localStorage.setItem('semi:lastTour', tour) },[tour])
@@ -111,7 +120,11 @@ export default function AthleteClassificaPage({ params }: { params: URLSearchPar
       }
       return { player:p, total, bestPos }
     })
-    out.sort((a,b)=> (b.total - a.total) || ((a.bestPos===b.bestPos?0:(a.bestPos - b.bestPos))) || a.player.name.localeCompare(b.player.name,'it'))
+    out.sort((a,b)=>
+      (b.total - a.total)
+      || ((a.bestPos===b.bestPos?0:(a.bestPos - b.bestPos)))
+      || a.player.name.localeCompare(b.player.name,'it')
+    )
     return out
   },[state, scoreSet])
 
@@ -157,7 +170,7 @@ export default function AthleteClassificaPage({ params }: { params: URLSearchPar
                 <th className="text-left py-2 pr-2 w-10">#</th>
                 <th className="text-left py-2 pr-4 w-[360px]">Nome</th>
                 <th className="text-left py-2 pr-2 w-[100px]">Totale</th>
-                {state.tappe.map((t)=>( 
+                {state.tappe.map((t)=>(
                   <th key={t.id} className="text-left py-2 pr-2 border-l border-neutral-800 pl-3">
                     <div className="font-medium">{t.title}</div>
                     <div className="text-xs">× {t.multiplier.toFixed(2)} — {t.date || 'gg/mm'}</div>
@@ -189,7 +202,7 @@ export default function AthleteClassificaPage({ params }: { params: URLSearchPar
                     </span>
                   </td>
                   <td className="py-2 pr-2 tabular-nums font-semibold">{r.total}</td>
-                  {state.tappe.map((t)=> {
+                  {state.tappe.map((t)=>{
                     const pos = state.results[r.player.id]?.[t.id]?.pos
                     const pts = pointsOfBucket(pos, t.totalTeams, t.multiplier, scoreSet)
                     return (
