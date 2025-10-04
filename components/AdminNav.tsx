@@ -43,9 +43,8 @@ export default function AdminNav() {
   if (!role) return null
 
   // atleta: nessun menu staff
-  if (role === 'athlete') return null
-
-  const visible = ITEMS.filter(it => it.roles.includes(role))
+  if (role === 'athlete' || role === undefined) return null
+const visible = ITEMS.filter(it => it.roles.includes(role))
 
   return (
     <aside className="w-40 shrink-0 p-2 border-r border-neutral-800">
