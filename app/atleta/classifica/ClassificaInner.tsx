@@ -1,4 +1,3 @@
-'use client'
 
 import * as React from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -55,9 +54,7 @@ function pointsOfBucket(pos: number | undefined, total: number, mult: number, se
 }
 
 /* ===== page ===== */
-export default function AthleteClassificaPage(){
-  const params = useSearchParams()
-
+export default function AthleteClassificaPage({ params }: { params: URLSearchParams })
   // tendina tour popolata dal server
   const [availableTours, setAvailableTours] = React.useState<string[]>([])
   React.useEffect(()=>{ 
