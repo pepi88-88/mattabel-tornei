@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   // Accetto: slot | position | index
   const { data: regs, error: rErr } = groupIds.length
     ? await sb.from('group_registrations').select('*').in('group_id', groupIds)
-    : { data: [], error: null as any }
+    : { data: [] as any[] } // <-- niente "error" qui
 
   if (rErr) return NextResponse.json({ error: rErr.message }, { status: 500 })
 
@@ -56,14 +56,27 @@ export async function GET(req: NextRequest) {
 
   // ==== 3) LABELS: teams -> team_players -> players
   const teamIds = Array.from(new Set((regs ?? []).map(r => r.team_id).filter(Boolean)))
-  const { data: teamPlayers } = teamIds.length
-    ? await sb.from('team_players').select('team_id, player_id').in('team_id', teamIds)
-    : { data: [], error: null }
 
-  const playerIds = Array.from(new Set((teamPlayers ?? []).map(tp => tp.player_id).filter(Boolean)))
-  const { data: players } = playerIds.length
-    ? await sb.from('players').select('id, first_name, last_name, name')
-    : { data: [], error: null }
+  // --- FIX: niente ternario con { error } nel ramo else ---
+  let teamPlayers: Array<{ team_id: string; player_id: string }> = []
+  if (teamIds.length) {
+    const { data } = await sb
+      .from('team_players')
+      .select('team_id, player_id')
+      .in('team_id', teamIds)
+    teamPlayers = data ?? []
+  }
+
+  const playerIds = Array.from(new Set(teamPlayers.map(tp => tp.player_id).filter(Boolean)))
+
+  let players: Array<{ id: string; first_name?: string; last_name?: string; name?: string }> = []
+  if (playerIds.length) {
+    const { data } = await sb
+      .from('players')
+      .select('id, first_name, last_name, name')
+      .in('id', playerIds)
+    players = data ?? []
+  }
 
   const playersById: Record<string, any> = {}
   for (const p of (players ?? [])) playersById[String(p.id)] = p
