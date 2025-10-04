@@ -2,6 +2,8 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
+export const dynamic = 'force-dynamic'
+
 const TABLE = 'leaderboard_settings'
 
 // GET /api/leaderboard/settings?tour=...&gender=M|F
