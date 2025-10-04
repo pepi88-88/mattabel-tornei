@@ -10,8 +10,7 @@
 import useSWR from 'swr'
 import { useEffect, useMemo, useState } from 'react'
 import RegistrationList from '@/components/RegistrationList'
-import PlayerPicker from '@/components/PlayerPicker'
-
+import type { Player as PickerPlayer } from '@/components/PlayerPicker'
 
 const fetcher = (url: string) =>
   fetch(url, { headers: { 'x-role': 'admin' } }).then(r => r.json())
@@ -132,9 +131,9 @@ const items = useMemo(() => {
   }
 
   // form SOLO ricerca
-  const [playerA, setPlayerA] = useState<Player | null>(null)
+ const [playerA, setPlayerA] = useState<PickerPlayer | null>(null)
   const [bMode, setBMode] = useState<'player'|'looking'|'cdc'>('player')
-  const [playerB, setPlayerB] = useState<Player | null>(null)
+  const [playerB, setPlayerB] = useState<PickerPlayer | null>(null)
 
   async function createTeam() {
     if (!tId) return
