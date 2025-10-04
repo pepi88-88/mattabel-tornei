@@ -19,12 +19,12 @@ export async function GET(req: Request) {
     // console.log('[GET settings] params', { tour, gender })
 
    const sb = getSupabaseAdmin()
-const { data, error } = await sb.
-      .from(TABLE)
-      .select('settings')
-      .eq('tour', tour)
-      .eq('gender', gender)
-      .maybeSingle()
+const { data, error } = await sb
+  .from(TABLE)
+  .select('settings')
+  .eq('tour', tour)
+  .eq('gender', gender)
+  .maybeSingle()
 
     if (error) {
       console.error('[GET settings] supabase error', error)
@@ -54,14 +54,13 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Invalid settings' }, { status: 400 })
     }
 
-   const sb = getSupabaseAdmin()
-const { error } = await sb.
-      .from(TABLE)
-      .upsert(
-        { tour, gender, settings },                // << usa la colonna `settings`
-        { onConflict: 'tour,gender' }              // << richiede il UNIQUE che hai creato
-      )
-      .select('tour')                              // forza l’esecuzione
+  const sb = getSupabaseAdmin()
+
+const { error } = await sb
+  .from(TABLE)
+  .upsert({ tour, gender, settings }, { onConflict: 'tour,gender' })
+  .select('tour')
+
 
     if (error) {
       console.error('[PUT settings] supabase error', error)
