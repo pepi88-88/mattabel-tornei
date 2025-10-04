@@ -1,12 +1,12 @@
+// app/atleta/classifica/page.tsx
+'use client'
 import { Suspense } from 'react'
-import ClassificaClient from './ClassificaClient'
-
-export const dynamic = 'force-dynamic'
+import ClassificaInner from './ClassificaInner'
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="p-4 text-neutral-400">Caricamento classifica…</div>}>
-      <ClassificaClient />
+    <Suspense fallback={<div className="p-4 text-sm text-neutral-500">Carico…</div>}>
+      <ClassificaInner />
     </Suspense>
   )
 }
