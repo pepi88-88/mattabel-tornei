@@ -465,7 +465,7 @@ if (alive) setAvulsa(avNames)
   const createdAt = new Date().toISOString()
   saveSources(tourId, tappaId, {
     gironi: expandGironi(groupsMeta),
-    avulsa: avulsa, // 👈 ora usiamo lo state con i nomi, non più la variabile vecchia
+    avulsa: avulsa ?? [], // ✅ garantisce string[]
     createdAt
   })
   setSnapTs(createdAt)
