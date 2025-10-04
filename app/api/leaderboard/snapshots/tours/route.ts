@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
-
+export const dynamic = 'force-dynamic'
 // obbliga runtime dinamico (evita prerender degli endpoint)
 export const dynamic = 'force-dynamic'
 
