@@ -4,8 +4,16 @@
 import * as React from 'react'
 import Link from 'next/link'
 
-type Tournament = { id: string; name: string; title?: string; event_date?: string|null; archived?: boolean|null; max_teams?: number|null }
-
+type Tournament = {
+  id: string
+  name: string
+  title?: string
+  event_date?: string | null
+  archived?: boolean | null
+  max_teams?: number | null
+  /** opzionale: alcune API possono restituirlo */
+  multiplier?: number | null
+}
 
 export default function AthleteTourHome({ params }: { params: { tour: string } }) {
   const tourName = decodeURIComponent(params.tour)
@@ -15,7 +23,6 @@ export default function AthleteTourHome({ params }: { params: { tour: string } }
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
-    // l’ID del tour lo abbiamo già salvato quando lo selezioni in /admin/tour
     const tid = localStorage.getItem('selectedTourId')
     setTourId(tid)
     if (!tid) { setItems([]); setLoading(false); return }
@@ -24,18 +31,26 @@ export default function AthleteTourHome({ params }: { params: { tour: string } }
     fetch(`/api/tournaments/by-tour?tour_id=${tid}`)
       .then(r => r.json())
       .then(js => {
-        const arr = Array.isArray(js?.items) ? js.items : []
+        const arr = Array.isArray(js?.items) ? js.items as Tournament[] : []
         setItems(arr)
       })
       .catch(() => setItems([]))
       .finally(() => setLoading(false))
   }, [tourName])
 
-// 🔽 cache per le pagine figlie (titolo & max iscritti)
-items.forEach(t => {
-  if (t?.name || t?.title) localStorage.setItem(`tournamentTitle:${t.id}`, (t.name || t.title || ''))
-  if (t?.max_teams != null) localStorage.setItem(`tournamentMaxTeams:${t.id}`, String(t.max_teams))
-})
+  // cache alcuni campi delle tappe (titolo & max iscritti)
+  React.useEffect(() => {
+    items.forEach(t => {
+      if (t?.name || t?.title) {
+        localStorage.setItem(`tournamentTitle:${t.id}`, (t.name || t.title || ''))
+      }
+      if (t?.max_teams != null) {
+        localStorage.setItem(`tournamentMaxTeams:${t.id}`, String(t.max_teams))
+      }
+    })
+  }, [items])
+
+  const tourSeg = tourId ?? tourName // fallback se tourId non disponibile
 
   return (
     <div className="space-y-4">
@@ -60,35 +75,35 @@ items.forEach(t => {
             {items.map(t => (
               <li key={t.id} className="flex items-center justify-between gap-3 border-b border-neutral-800 py-2">
                 <div className="min-w-0">
-                  <div className="font-medium truncate">{t.title}</div>
-                 <div className="text-xs text-neutral-500">
-  × {(t.multiplier ?? 1).toFixed(2)} • {t.event_date ?? 'gg/mm'} • tot: {t.max_teams ?? '—'}
-</div>
+                  <div className="font-medium truncate">{t.title || t.name}</div>
+                  <div className="text-xs text-neutral-500">
+                    {/* multiplier è opzionale: fallback 1 */}
+                    × {Number(t.multiplier ?? 1).toFixed(2)} • {t.event_date ?? 'gg/mm'} • tot: {t.max_teams ?? '—'}
+                  </div>
                 </div>
 
                 <div className="flex gap-2 shrink-0">
                   {/* Passo tid e tname: la pagina Iscritti/Gironi li usa */}
-                 <Link
-  className="btn btn-ghost btn-sm"
-  href={`/atleta/tornei/${encodeURIComponent(tourId)}/iscritti?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}
->
-  Iscritti
-</Link>
+                  <Link
+                    className="btn btn-ghost btn-sm"
+                    href={`/atleta/tornei/${encodeURIComponent(tourSeg)}/iscritti?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}
+                  >
+                    Iscritti
+                  </Link>
 
-<Link
-  className="btn btn-ghost btn-sm"
-  href={`/atleta/tornei/${encodeURIComponent(tourId)}/gironi?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}
->
-  Gironi
-</Link>
+                  <Link
+                    className="btn btn-ghost btn-sm"
+                    href={`/atleta/tornei/${encodeURIComponent(tourSeg)}/gironi?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}
+                  >
+                    Gironi
+                  </Link>
 
-<Link
-  className="btn btn-ghost btn-sm"
-  href={`/atleta/tornei/${encodeURIComponent(tourId)}/risultati?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}
->
-  Risultati
-</Link>
-
+                  <Link
+                    className="btn btn-ghost btn-sm"
+                    href={`/atleta/tornei/${encodeURIComponent(tourSeg)}/risultati?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}
+                  >
+                    Risultati
+                  </Link>
                 </div>
               </li>
             ))}
