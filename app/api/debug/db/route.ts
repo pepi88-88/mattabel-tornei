@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import db from '@/lib/db'   // <-- default import
 
 export async function GET() {
   try {
-    const r = await db.query('select now() as ts')
-    return NextResponse.json({ ok: true, ts: r.rows[0].ts })
-  } catch (e:any) {
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 })
+    const { rows } = await db.query('select 1 as ok')
+    return NextResponse.json({ ok: true, rows })
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 })
   }
 }
