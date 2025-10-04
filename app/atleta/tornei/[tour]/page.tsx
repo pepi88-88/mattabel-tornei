@@ -11,7 +11,7 @@ export default function AthleteTourHome({ params }: { params: { tour: string } }
   const tourName = decodeURIComponent(params.tour)
 
   const [tourId, setTourId] = React.useState<string | null>(null)
-  const [items, setItems] = React.useState<Tourn[]>([])
+  const [items, setItems] = React.useState<Tournament[]>([])
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
@@ -30,7 +30,7 @@ export default function AthleteTourHome({ params }: { params: { tour: string } }
       .catch(() => setItems([]))
       .finally(() => setLoading(false))
   }, [tourName])
-setTappe(items)
+
 // 🔽 cache per le pagine figlie (titolo & max iscritti)
 items.forEach(t => {
   if (t?.name || t?.title) localStorage.setItem(`tournamentTitle:${t.id}`, (t.name || t.title || ''))
