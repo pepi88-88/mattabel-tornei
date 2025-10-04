@@ -1162,42 +1162,39 @@ return (
     <button className="btn h-12" onClick={addBracket} disabled={locked}>+ Aggiungi tabellone</button>
 <button
   className="btn h-12"
- onClick={() => {
-  // prendi i meta reali dei gironi (key/size) se esistono
-  const meta = loadGroupsLS(tourId, tId)
+  onClick={() => {
+    // prendi i meta reali dei gironi (key/size) se esistono
+    const meta = loadGroupsLS(tourId, tId)
 
-  // vogliamo salvare GroupMeta[] (non le posizioni A1/A2…)
-  let groupsMeta: GroupMeta[] = []
+    // vogliamo salvare GroupMeta[] (non le posizioni A1/A2…)
+    let groupsMeta: GroupMeta[] = []
 
-  if (meta.length) {
-    // ordina A, B, C… e usa direttamente key/size
-    groupsMeta = [...meta].sort((a, b) => a.key.localeCompare(b.key))
-  } else if (tappaSize > 0) {
-    // fallback: crea gironi “finti” da tappaSize (blocchi da 4)
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    let remaining = tappaSize, li = 0
-    while (remaining > 0) {
-      const size = Math.min(4, remaining)
-      const key = (letters[li] || `G${li + 1}`).toUpperCase()
-      groupsMeta.push({ key, size })
-      li++
-      remaining -= size
+    if (meta.length) {
+      groupsMeta = [...meta].sort((a, b) => a.key.localeCompare(b.key))
+    } else if (tappaSize > 0) {
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      let remaining = tappaSize, li = 0
+      while (remaining > 0) {
+        const size = Math.min(4, remaining)
+        const key = (letters[li] || `G${li + 1}`).toUpperCase()
+        groupsMeta.push({ key, size })
+        li++
+        remaining -= size
+      }
     }
-  }
 
-  // avulsa resta un array di stringhe "1","2",...
-  const av = Array.from({ length: Math.max(0, tappaSize) }, (_, i) => `${i + 1}`)
+    const av = Array.from({ length: Math.max(0, tappaSize) }, (_, i) => `${i + 1}`)
 
-  // salva lo snapshot corretto
-  saveSources(tourId, tId, {
-    gironi: groupsMeta,   // <-- ORA è GroupMeta[]
-    avulsa: av,
-    createdAt: new Date().toISOString(),
-  })
-}}
-
+    saveSources(tourId, tId, {
+      gironi: groupsMeta,
+      avulsa: av,
+      createdAt: new Date().toISOString(),
+    })
+  }}
+>
   Rigenera sorgenti
 </button>
+
 
     {/* Tab dei tabelloni (dopo i 3 bottoni) */}
     <div className="flex flex-wrap items-end gap-2">
