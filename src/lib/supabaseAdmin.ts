@@ -1,19 +1,22 @@
 // src/lib/supabaseAdmin.ts
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-// Preferisci env “server-only”; se mancano, fai fallback alle public (per build locali)
-const url =
-  process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
-const serviceKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+let client: SupabaseClient | null = null
 
-if (!url) {
-  throw new Error('SUPABASE_URL (o NEXT_PUBLIC_SUPABASE_URL) non è definita')
+export function getSupabaseAdmin(): SupabaseClient {
+  if (client) return client
+
+  // Preferisci var server, altrimenti fallback alle NEXT_PUBLIC per ambienti locali
+  const url =
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !key) {
+    // ⚠️ errore solo quando CERCHI di usare il client, non a import-time
+    throw new Error('Supabase non configurato: definisci SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (o le NEXT_PUBLIC_*)')
+  }
+
+  client = createClient(url, key, { auth: { persistSession: false } })
+  return client
 }
-if (!serviceKey) {
-  throw new Error('SUPABASE_SERVICE_ROLE_KEY (o NEXT_PUBLIC_SUPABASE_ANON_KEY) non è definita')
-}
-
-export const supabaseAdmin = createClient(url, serviceKey, {
-  auth: { persistSession: false },
-})
