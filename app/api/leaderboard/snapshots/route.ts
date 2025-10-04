@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
+export const dynamic = 'force-dynamic' // 👈 evita prerender statico
+
 const TABLE = 'leaderboard_snapshots'
 
 export async function GET(req: Request) {
@@ -13,7 +15,6 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Missing tour/gender' }, { status: 400 })
     }
 
-    // 👇 QUI: ottieni il client chiamando la funzione
     const sb = getSupabaseAdmin()
 
     const { data, error } = await sb
@@ -31,7 +32,7 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({ data: data?.data ?? null })
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: 'Unexpected error' }, { status: 500 })
   }
 }
@@ -49,9 +50,7 @@ export async function PUT(req: Request) {
 
     const sb = getSupabaseAdmin()
 
-    const { error } = await sb
-      .from(TABLE)
-      .insert({ tour, gender, data })
+    const { error } = await sb.from(TABLE).insert({ tour, gender, data })
 
     if (error) {
       console.error('[PUT snapshots] supabase error', error)
