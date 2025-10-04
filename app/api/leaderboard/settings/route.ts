@@ -18,7 +18,8 @@ export async function GET(req: Request) {
     // magari log utile in dev
     // console.log('[GET settings] params', { tour, gender })
 
-    const { data, error } = await getSupabaseAdmin
+   const sb = getSupabaseAdmin()
+const { data, error } = await sb.
       .from(TABLE)
       .select('settings')
       .eq('tour', tour)
@@ -53,7 +54,8 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Invalid settings' }, { status: 400 })
     }
 
-    const { error } = await getSupabaseAdmin
+   const sb = getSupabaseAdmin()
+const { error } = await sb.
       .from(TABLE)
       .upsert(
         { tour, gender, settings },                // << usa la colonna `settings`
