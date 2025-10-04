@@ -10,7 +10,7 @@
 import useSWR from 'swr'
 import { useEffect, useMemo, useState } from 'react'
 import RegistrationList from '@/components/RegistrationList'
-import type { Player as PickerPlayer } from '@/components/PlayerPicker'
+import PlayerPicker, { type Player as PickerPlayer } from '@/components/PlayerPicker'
 
 const fetcher = (url: string) =>
   fetch(url, { headers: { 'x-role': 'admin' } }).then(r => r.json())
