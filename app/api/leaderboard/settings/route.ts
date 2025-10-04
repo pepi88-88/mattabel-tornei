@@ -1,6 +1,6 @@
 // app/api/leaderboard/settings/route.ts
 import { NextResponse } from 'next/server'
-import { getsupabaseAdmin } from '@/lib/supabaseAdmin'
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
 const TABLE = 'leaderboard_settings'
 
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     // magari log utile in dev
     // console.log('[GET settings] params', { tour, gender })
 
-    const { data, error } = await getsupabaseAdmin
+    const { data, error } = await getSupabaseAdmin
       .from(TABLE)
       .select('settings')
       .eq('tour', tour)
@@ -53,7 +53,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Invalid settings' }, { status: 400 })
     }
 
-    const { error } = await getsupabaseAdmin
+    const { error } = await getSupabaseAdmin
       .from(TABLE)
       .upsert(
         { tour, gender, settings },                // << usa la colonna `settings`
