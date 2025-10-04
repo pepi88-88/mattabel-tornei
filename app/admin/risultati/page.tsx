@@ -30,7 +30,21 @@ function rrPairs(n: number) {
   }
   return out
 }
+type Meta = { capacity: number; format: 'pool' | 'ita' }
 
+function normalizeMeta(
+  meta: Record<string, { capacity: number; format?: 'pool' | 'ita' }> | undefined
+): Record<string, Meta> {
+  const out: Record<string, Meta> = {}
+  for (const [k, v] of Object.entries(meta || {})) {
+    out[k] = {
+      capacity: Number(v?.capacity ?? 0),
+      // default sicuro: se manca o è invalido, usa 'pool'
+      format: v?.format === 'ita' ? 'ita' : 'pool',
+    }
+  }
+  return out
+}
 // ------------------------------------------------------------
 // Helper nomi brevi (cognomi) + risolutore token→nome
 // ------------------------------------------------------------
@@ -80,25 +94,11 @@ function makeSlotResolver(
 
     return token
   }
-type Meta = { capacity: number; format: 'pool' | 'ita' }
 
-function normalizeMeta(
-  meta: Record<string, { capacity: number; format?: 'pool' | 'ita' }> | undefined
-): Record<string, Meta> {
-  const out: Record<string, Meta> = {}
-  for (const [k, v] of Object.entries(meta || {})) {
-    out[k] = {
-      capacity: Number(v?.capacity ?? 0),
-      // default sicuro: se manca o è invalido, usa 'pool'
-      format: v?.format === 'ita' ? 'ita' : 'pool',
-    }
-  }
-  return out
-}
 
   // wrapper: prima chiedi all’external (Perdente/Vincente …), poi normalizza
-  return (token: string): string => {
-    const ext = externalResolver?.(token) // es. “C3”, “A1”, “2”
+ return (token: string): string => {
+    const ext = externalResolver?.(token)
     if (ext) return basic(ext)
     return basic(token)
   }
@@ -473,7 +473,6 @@ const fetcher = (u: string) => fetch(u).then(r => r.json()).catch(() => null)
 
 type Tour = { id: string; name: string }
 type Tournament = { id: string; name: string; date?: string }
-type Meta = { capacity: number; format: 'pool' | 'ita' }
 type Persist = {
   groupsCount: number
   meta: Record<string, Meta>
