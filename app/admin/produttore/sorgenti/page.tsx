@@ -608,10 +608,10 @@ function labelBySlot(L: string, slot: number): string {
 
     const rows = scheduleRows(L)
     const sc = scores[L] ?? []
-    const apply = (slotA?:number, slotB?:number, idx:number) => {
-      if (!slotA || !slotB) return
-      const a = Number(sc[idx]?.a), b = Number(sc[idx]?.b)
-      if (!Number.isFinite(a) || !Number.isFinite(b)) return
+  const apply = (slotA: number | undefined, slotB: number | undefined, idx: number) => {
+  if (slotA == null || slotB == null) return
+  const a = Number(sc[idx]?.a), b = Number(sc[idx]?.b)
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return
       init[slotA].PF += a; init[slotA].PS += b
       init[slotB].PF += b; init[slotB].PS += a
       if (a > b) init[slotA].W += 1; else if (b > a) init[slotB].W += 1
