@@ -23,9 +23,9 @@ type Sources = { gironi: string[]; avulsa: string[]; createdAt: string }
 // struttura gm salvata da /admin/gironi (e letta anche da /admin/risultati)
 type GmStore = {
   groupsCount: number
-  meta: Record<string, { capacity: number; format: 'pool'|'ita' }>
-  assign: Record<string, string>                 // "A-1" -> registrationId
-  labels?: Record<string, string>                // registrationId -> "Rossi Luca — Bianchi Marco"
+  meta: Record<string, { capacity: number; format?: "pool" | "ita" }>
+  assign: Record<string, any>
+  labels: Record<string, any>
 }
 type Score = { a: string; b: string }            // punteggi salvati in gm:${tId}:scores
 
