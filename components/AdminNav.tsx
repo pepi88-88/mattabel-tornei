@@ -4,49 +4,50 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-// Helper: leggi ruolo dal localStorage
+// ---- ruolo da localStorage
 function useRole(): 'admin' | 'coach' | 'athlete' | undefined {
-  const [role, setRole] = React.useState<'admin'|'coach'|'athlete'|undefined>(undefined)
+  const [role, setRole] = React.useState<'admin'|'coach'|'athlete'|undefined>()
   React.useEffect(() => {
     try {
       const v = localStorage.getItem('role')
-      if (v === 'admin' || v === 'coach' || v === 'athlete') setRole(v)
-      else setRole(undefined)
+      setRole(v === 'admin' || v === 'coach' || v === 'athlete' ? v : undefined)
     } catch { setRole(undefined) }
   }, [])
   return role
 }
 
-// Definisci qui il menu e i ruoli ammessi per ciascuna voce
+// ---- menu
 type Item = { href: string; label: string; roles: Array<'admin'|'coach'> }
 const ITEMS: Item[] = [
-{ href: '/admin/tour',              label: 'Gestione Tour/Tappa',                 roles: ['admin'] },
-{ href: '/admin/giocatori',         label: 'Crea giocatore',            roles: ['admin', 'coach'] },
-{ href: '/admin/iscrizioni',        label: 'Iscrizioni',           roles: ['admin', 'coach'] },
-  { href: '/admin/pagamenti',         label: 'Pagamenti',            roles: ['admin', 'coach'] },          // solo admin (se vuoi aprirla al coach, aggiungi 'coach')
- { href: '/admin/gironi',            label: 'Crea Gironi',               roles: ['admin', 'coach'] },
- { href: '/admin/crea-tabellone', label: 'Creazione Tabellone', roles: ['admin'] },
- { href: '/admin/risultati',         label: 'Risultati Girone/Tabellone',            roles: ['admin', 'coach'] },
- { href: '/admin/classifica',        label: 'Classifica',           roles: ['admin', 'coach'] },
-  { href: '/admin/stampa',            label: 'Stampa',               roles: ['admin'] },
-   { href: '/admin/gestione',   label: 'Gestione torneo Test',      roles: ['admin'] },
+  { href: '/admin/tour',          label: 'Gestione Tour/Tappa',          roles: ['admin'] },
+  { href: '/admin/giocatori',     label: 'Crea giocatore',               roles: ['admin','coach'] },
+  { href: '/admin/iscrizioni',    label: 'Iscrizioni',                   roles: ['admin','coach'] },
+  { href: '/admin/pagamenti',     label: 'Pagamenti',                    roles: ['admin','coach'] },
+  { href: '/admin/gironi',        label: 'Crea Gironi',                  roles: ['admin','coach'] },
+  { href: '/admin/crea-tabellone',label: 'Creazione Tabellone',          roles: ['admin'] },
+  { href: '/admin/risultati',     label: 'Risultati Girone/Tabellone',   roles: ['admin','coach'] },
+  { href: '/admin/classifica',    label: 'Classifica',                   roles: ['admin','coach'] },
+  { href: '/admin/stampa',        label: 'Stampa',                       roles: ['admin'] },
+  { href: '/admin/gestione',      label: 'Gestione torneo Test',         roles: ['admin'] },
 ]
 
-export default function AdminNav() {
-// ← disattiva la sidebar ovunque cancella solo returnnull
-  return null
+// ---- type guard
+function isStaffRole(r: unknown): r is 'admin'|'coach' {
+  return r === 'admin' || r === 'coach'
+}
 
+export default function AdminNav() {
   const role = useRole()
   const pathname = usePathname()
 
-  // finché non leggo il ruolo, evito flash del menu
-  if (!role) return null
+  // evita flash finché non conosciamo il ruolo
+  if (role === undefined) return null
 
-  // atleta: nessun menu staff
- if (role !== 'admin' && role !== 'coach') return null
+  // niente sidebar per athlete o ruoli non-ammessi
+  if (!isStaffRole(role)) return null
 
-// qui TypeScript capisce che role è 'admin' | 'coach'
-const visible = ITEMS.filter(it => it.roles.includes(role))
+  // da qui role è ristretto a 'admin' | 'coach'
+  const visible = ITEMS.filter(it => it.roles.includes(role))
 
   return (
     <aside className="w-40 shrink-0 p-2 border-r border-neutral-800">
@@ -66,7 +67,6 @@ const visible = ITEMS.filter(it => it.roles.includes(role))
         })}
       </nav>
 
-      {/* opzionale: pulsante uscita ruolo */}
       <div className="mt-4">
         <button
           className="btn btn-ghost btn-xs w-full text-neutral-400"
@@ -79,8 +79,3 @@ const visible = ITEMS.filter(it => it.roles.includes(role))
     </aside>
   )
 }
-
-
-
- 
- 
