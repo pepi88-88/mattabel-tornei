@@ -43,7 +43,9 @@ export default function AdminNav() {
   if (!role) return null
 
   // atleta: nessun menu staff
-  if (role === 'athlete' || role === undefined) return null
+ if (role !== 'admin' && role !== 'coach') return null
+
+// qui TypeScript capisce che role è 'admin' | 'coach'
 const visible = ITEMS.filter(it => it.roles.includes(role))
 
   return (
