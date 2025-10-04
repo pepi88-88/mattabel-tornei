@@ -1,27 +1,28 @@
-// app/api/leaderboard/snapshots/route.ts
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
 const TABLE = 'leaderboard_snapshots'
 
-/** GET /api/leaderboard/snapshots?tour=...&gender=M|F */
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
     const tour = searchParams.get('tour') || ''
     const gender = searchParams.get('gender') || ''
+
     if (!tour || !gender) {
-      console.error('[GET snapshots] Missing query', { tour, gender })
-      return NextResponse.json({ error: 'missing query' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing tour/gender' }, { status: 400 })
     }
 
-    console.log('[GET snapshots] params', { tour, gender })
+    // 👇 QUI: ottieni il client chiamando la funzione
+    const sb = getSupabaseAdmin()
 
-    const { data, error } = await getSupabaseAdmin
+    const { data, error } = await sb
       .from(TABLE)
       .select('data')
       .eq('tour', tour)
       .eq('gender', gender)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
     if (error) {
@@ -30,45 +31,27 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({ data: data?.data ?? null })
-  } catch (err: any) {
-    console.error('[GET snapshots] fatal', err)
-    return NextResponse.json({ error: String(err?.message || err) }, { status: 500 })
+  } catch (e) {
+    return NextResponse.json({ error: 'Unexpected error' }, { status: 500 })
   }
 }
 
-/** PUT /api/leaderboard/snapshots  body: { tour, gender, data } */
 export async function PUT(req: Request) {
   try {
-    const body = await req.json().catch(() => null)
-    // VALIDAZIONE MINIMA
-    if (!body || typeof body !== 'object') {
-      console.error('[PUT snapshots] Body parse failed', body)
-      return NextResponse.json({ error: 'invalid body' }, { status: 400 })
-    }
-    const { tour, gender, data } = body
-    if (!tour || !gender || !data) {
-      console.error('[PUT snapshots] Missing fields', { tour, gender, hasData: !!data })
-      return NextResponse.json({ error: 'missing fields' }, { status: 400 })
-    }
-    if (!['M', 'F'].includes(gender)) {
-      console.error('[PUT snapshots] Bad gender', gender)
-      return NextResponse.json({ error: 'bad gender' }, { status: 400 })
-    }
-    // Log diagnostico
-    console.log('[PUT snapshots] upsert', {
-      tour,
-      gender,
-      players: Array.isArray(data?.players) ? data.players.length : 'NO',
-      tappe: Array.isArray(data?.tappe) ? data.tappe.length : 'NO',
-      resultsKeys: data?.results ? Object.keys(data.results).length : 'NO',
-    })
+    const body = await req.json().catch(() => ({}))
+    const tour = (body?.tour || '').trim()
+    const gender = (body?.gender || '').trim()
+    const data = body?.data ?? null
 
-    const { error } = await getSupabaseAdmin
+    if (!tour || (gender !== 'M' && gender !== 'F')) {
+      return NextResponse.json({ error: 'Invalid tour/gender' }, { status: 400 })
+    }
+
+    const sb = getSupabaseAdmin()
+
+    const { error } = await sb
       .from(TABLE)
-      .upsert(
-        { tour, gender, data, updated_at: new Date().toISOString() },
-        { onConflict: 'tour,gender' } // PK composta
-      )
+      .insert({ tour, gender, data })
 
     if (error) {
       console.error('[PUT snapshots] supabase error', error)
@@ -76,8 +59,7 @@ export async function PUT(req: Request) {
     }
 
     return NextResponse.json({ ok: true })
-  } catch (err: any) {
-    console.error('[PUT snapshots] fatal', err)
-    return NextResponse.json({ error: String(err?.message || err) }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Unexpected error' }, { status: 500 })
   }
 }
