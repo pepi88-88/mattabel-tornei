@@ -80,6 +80,21 @@ function makeSlotResolver(
 
     return token
   }
+type Meta = { capacity: number; format: 'pool' | 'ita' }
+
+function normalizeMeta(
+  meta: Record<string, { capacity: number; format?: 'pool' | 'ita' }> | undefined
+): Record<string, Meta> {
+  const out: Record<string, Meta> = {}
+  for (const [k, v] of Object.entries(meta || {})) {
+    out[k] = {
+      capacity: Number(v?.capacity ?? 0),
+      // default sicuro: se manca o è invalido, usa 'pool'
+      format: v?.format === 'ita' ? 'ita' : 'pool',
+    }
+  }
+  return out
+}
 
   // wrapper: prima chiedi all’external (Perdente/Vincente …), poi normalizza
   return (token: string): string => {
@@ -771,12 +786,12 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato �
     const gm = await loadGroupsStateFromSupabase(tId)
     if (cancelled) return
     setStore({
-      groupsCount: gm.groupsCount,
-      meta: gm.meta,
-      assign: gm.assign,
-      labels: gm.labels,
-      times: gm.times,
-    })
+  groupsCount: gm.groupsCount,
+  meta: normalizeMeta(gm.meta),   // <-- qui la fix
+  assign: gm.assign,
+  labels: gm.labels,
+  times: gm.times,
+})
     setTimes(gm.times)
     setScores(gm.scores)
     setGroupsConfirmed(gm.groupsConfirmed)
