@@ -1,6 +1,6 @@
 // app/api/leaderboard/snapshots/route.ts
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { getsupabaseAdmin } from '@/lib/supabaseAdmin'
 
 const TABLE = 'leaderboard_snapshots'
 
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
     console.log('[GET snapshots] params', { tour, gender })
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await getsupabaseAdmin
       .from(TABLE)
       .select('data')
       .eq('tour', tour)
@@ -63,7 +63,7 @@ export async function PUT(req: Request) {
       resultsKeys: data?.results ? Object.keys(data.results).length : 'NO',
     })
 
-    const { error } = await supabaseAdmin
+    const { error } = await getsupabaseAdmin
       .from(TABLE)
       .upsert(
         { tour, gender, data, updated_at: new Date().toISOString() },
