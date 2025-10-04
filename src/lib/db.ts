@@ -1,4 +1,5 @@
-import { Pool, PoolClient } from 'pg'
+// src/lib/db.ts
+import { Pool } from 'pg'
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -11,7 +12,7 @@ async function query(text: string, params?: any[]) {
 }
 
 // Transazione garantendo la stessa connessione
-async function tx<T>(fn: (c: PoolClient) => Promise<T>) {
+async function tx<T>(fn: (c: any) => Promise<T>) {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -26,4 +27,9 @@ async function tx<T>(fn: (c: PoolClient) => Promise<T>) {
   }
 }
 
-export const db = { query, tx }
+// Compat: per codice che fa `const client = await db.connect()`
+async function connect() {
+  return pool.connect()
+}
+
+export const db = { query, tx, connect }
