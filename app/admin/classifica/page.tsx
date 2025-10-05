@@ -365,15 +365,18 @@ const removeTappa = React.useCallback((tappaId: string) => {
 
 
   // pos
+   // pos
   function setPos(playerId: string, tappaId: string, pos: number | undefined) {
     setResults(prev => {
       const row = { ...(prev[playerId] || {}) }
       row[tappaId] = { pos }
       const next = { ...prev, [playerId]: row }
-      
+      // ⬇️ salva SUBITO lo snapshot quando cambi una posizione
+      saveNow(players, tappe, next)
       return next
     })
   }
+
 
   // computed
   const computed = React.useMemo(()=>{
