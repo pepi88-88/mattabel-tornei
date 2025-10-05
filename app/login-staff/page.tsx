@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 
 export default function LoginStaffPage() {
   const [err, setErr] = React.useState<string | undefined>()
@@ -17,8 +18,7 @@ export default function LoginStaffPage() {
         return
       }
       const role = js.role as 'admin' | 'coach'
-      localStorage.setItem('role', role)             // 👈 fondamentale per il menu/permessi
-      // stessa landing per entrambi (il menu filtra già per ruolo)
+      localStorage.setItem('role', role)
       location.href = '/admin/iscrizioni'
     } catch {
       setErr('Errore di rete')
@@ -26,7 +26,12 @@ export default function LoginStaffPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-[url('/bg-texture.svg')] bg-cover">
+    <main className="relative min-h-screen flex items-center justify-center bg-[url('/bg-texture.svg')] bg-cover">
+      {/* ← pulsante Home */}
+      <Link href="/" className="btn btn-ghost absolute top-4 left-4">
+        ← Home
+      </Link>
+
       <div className="card p-8 w-[90%] max-w-md space-y-6">
         <h1 className="text-xl font-semibold text-center">Login Staff</h1>
         <form onSubmit={onSubmit} className="space-y-3">
@@ -41,7 +46,13 @@ export default function LoginStaffPage() {
           {err && <div className="text-sm text-red-400">{err}</div>}
           <button type="submit" className="btn w-full">Entra</button>
         </form>
+
+        {/* opzionale: tasto Indietro con cronologia */}
+        <button className="btn btn-ghost w-full" onClick={() => history.back()}>
+          ← Indietro
+        </button>
       </div>
     </main>
   )
 }
+
