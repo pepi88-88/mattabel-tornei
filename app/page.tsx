@@ -1,56 +1,41 @@
+// app/page.tsx
 'use client'
 
-import * as React from 'react'
-import Link from 'next/link'
+import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 
-export default function LoginStaffPage() {
-  const [err, setErr] = React.useState<string | undefined>()
+export default function Home() {
+  const router = useRouter()
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setErr(undefined)
-    const fd = new FormData(e.currentTarget)
-    try {
-      const r = await fetch('/api/auth/login', { method: 'POST', body: fd })
-      const js = await r.json().catch(() => ({} as any))
-      if (!r.ok || !js?.ok) {
-        setErr(js?.error || 'Login fallito')
-        return
-      }
-      const role = js.role as 'admin' | 'coach'
-      localStorage.setItem('role', role)
-      location.href = '/admin/iscrizioni'
-    } catch {
-      setErr('Errore di rete')
-    }
+  function goAthlete() {
+    localStorage.setItem('role', 'athlete')
+    router.replace('/atleta/tornei') // o la tua pagina pubblica preferita
+  }
+
+  function goStaff() {
+    router.replace('/login-staff')
   }
 
   return (
-    <main className="relative min-h-screen flex items-center justify-center bg-[url('/bg-texture.svg')] bg-cover">
-   
+    <main className="min-h-screen flex items-center justify-center bg-[url('/bg-texture.svg')] bg-cover">
+      <div className="card p-8 text-center space-y-6 max-w-xl w-[90%]">
+        <div className="flex justify-center">
+          <Image
+            src="/logo-mattabel.png"
+            width={220}
+            height={220}
+            alt="Mattabel Beach Volley"
+            priority
+          />
+        </div>
 
-      <div className="card p-8 w-[90%] max-w-md space-y-6">
-        <h1 className="text-xl font-semibold text-center">Login Staff</h1>
+        <h1 className="text-2xl font-semibold">Benvenuto</h1>
+        <p className="text-neutral-400">Scegli il tuo accesso:</p>
 
-        <form onSubmit={onSubmit} className="space-y-3">
-          <div>
-            <div className="text-xs mb-1">Utente</div>
-            <input name="user" className="input w-full" autoComplete="username" />
-          </div>
-          <div>
-            <div className="text-xs mb-1">Password</div>
-            <input name="pass" type="password" className="input w-full" autoComplete="current-password" />
-          </div>
-
-          {err && <div className="text-sm text-red-400">{err}</div>}
-
-          <button type="submit" className="btn w-full">Entra</button>
-        </form>
-
-        {/* Seconda via d’uscita: back del browser */}
-        <button className="btn btn-ghost w-full" onClick={() => history.back()}>
-          ← Indietro
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button className="btn" onClick={goAthlete}>Atleta</button>
+          <button className="btn" onClick={goStaff}>Staff</button>
+        </div>
       </div>
     </main>
   )
