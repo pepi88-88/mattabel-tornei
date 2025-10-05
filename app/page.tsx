@@ -27,14 +27,7 @@ export default function LoginStaffPage() {
 
   return (
     <main className="relative min-h-screen flex items-center justify-center bg-[url('/bg-texture.svg')] bg-cover">
-      {/* Pulsante Home sempre visibile in alto a sinistra */}
-      <Link
-        href="/"
-        className="btn btn-ghost btn-sm absolute top-4 left-4 z-10"
-        aria-label="Torna alla home"
-      >
-        ← Home
-      </Link>
+   
 
       <div className="card p-8 w-[90%] max-w-md space-y-6">
         <h1 className="text-xl font-semibold text-center">Login Staff</h1>
