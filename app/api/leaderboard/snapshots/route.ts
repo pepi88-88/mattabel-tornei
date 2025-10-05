@@ -17,15 +17,18 @@ export async function GET(req: Request) {
     const sb = getSupabaseAdmin()
     const { data, error } = await sb
       .from(TABLE)
-      .select('data')
+      .select('data, updated_at')
       .eq('tour', tour)
       .eq('gender', gender)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
     if (error) {
       console.error('[GET snapshots] supabase error', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
     return NextResponse.json({ data: data?.data ?? null })
   } catch (e: any) {
     console.error('[GET snapshots] unexpected', e)
@@ -44,10 +47,10 @@ export async function PUT(req: Request) {
     }
 
     const sb = getSupabaseAdmin()
-    // titolo facoltativo: se la tabella lo richiede, lo mettiamo noi
+    // payload: opzionale "title" se ce l'hai in tabella
     const payload = { tour, gender, data, title: 'Classifica' as const }
 
-    // ✅ vero UPSERT sul vincolo (tour,gender)
+    // ✅ UPSERT reale sul vincolo (tour,gender)
     const { error } = await sb
       .from(TABLE)
       .upsert(payload, { onConflict: 'tour,gender' })
