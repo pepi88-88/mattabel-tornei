@@ -33,7 +33,7 @@ export default function LoginStaffPage() {
       if (user) localStorage.setItem('user', user)
 
       // ✅ Redirect dove ti serve
-      router.replace('/tour')
+      router.replace('/admin/tour')
       // in alternativa: location.assign('/tour') se vuoi un reload completo
     } catch {
       setErr('Errore di rete')
