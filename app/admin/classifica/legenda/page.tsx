@@ -250,13 +250,7 @@ function TabLink({ active, label, gender: targetGender, children }: TabLinkProps
             {availableTours.length===0 && <option value={tour}>{tour}</option>}
             {availableTours.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={()=>{
-              const name = prompt('Nuovo tour?')
-              if (name && name.trim()) setTour(name.trim())
-            }}
-          >+ Nuovo tour</button>
+         
         </div>
       </div>
 
