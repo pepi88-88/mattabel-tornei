@@ -1,92 +1,61 @@
 // app/login-staff/page.tsx
 'use client'
 
-import { useState } from 'react'
-import Image from 'next/image'
+import * as React from 'react'
 import { useRouter } from 'next/navigation'
 
-export default function LoginStaff() {
+export default function LoginStaffPage() {
   const router = useRouter()
-  const [username, setUsername] = useState('')     // <-- era email
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [err, setErr] = React.useState<string | undefined>()
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setError(null)
-    setLoading(true)
+    setErr(undefined)
+    const fd = new FormData(e.currentTarget)
+
     try {
-      // TODO: sostituisci con la tua logica di auth (es. verifica su DB username/password)
-      if (username.trim() && password.trim()) {
-        localStorage.setItem('role', 'staff')
-        router.replace('/admin')
-      } else {
-        throw new Error('Inserisci username e password.')
+      const r = await fetch('/api/auth/login', { method: 'POST', body: fd })
+      const js = await r.json().catch(() => ({} as any))
+      if (!r.ok || !js?.ok) {
+        setErr(js?.error || 'Login fallito')
+        return
       }
-    } catch (err: any) {
-      setError(err?.message ?? 'Errore di accesso')
-    } finally {
-      setLoading(false)
+
+      // 🔑 Ruolo coerente con il menu/permessi lato UI
+      // Se il server ti restituisce "admin" o "coach", mappalo a "staff"
+      const serverRole = (js.role as 'admin' | 'coach' | 'staff') ?? 'staff'
+      const uiRole = serverRole === 'admin' || serverRole === 'coach' ? 'staff' : serverRole
+
+      // Salva anche il nome utente (spesso l'header lo usa)
+      const user = String(fd.get('user') ?? '').trim()
+
+      localStorage.setItem('role', uiRole)        // es.: "staff"
+      if (user) localStorage.setItem('user', user)
+
+      // ✅ Redirect dove ti serve
+      router.replace('/tour')
+      // in alternativa: location.assign('/tour') se vuoi un reload completo
+    } catch {
+      setErr('Errore di rete')
     }
   }
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-[url('/bg-texture.svg')] bg-cover">
-      <div className="card p-6 w-[90%] max-w-md space-y-6">
-        <div className="flex justify-center">
-          <Image
-            src="/logo-mattabel.png"
-            width={160}
-            height={160}
-            alt="Mattabel Beach Volley"
-            priority
-          />
-        </div>
-
-        <h1 className="text-xl font-semibold text-center">Accesso Staff</h1>
-
+      <div className="card p-8 w-[90%] max-w-md space-y-6">
+        <h1 className="text-xl font-semibold text-center">Login Staff</h1>
         <form onSubmit={onSubmit} className="space-y-3">
-          <label className="block">
-            <span className="text-sm">Username</span>
-            <input
-              type="text"                     // <-- niente vincolo "@" come type="email"
-              autoComplete="username"
-              className="input w-full"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-sm">Password</span>
-            <input
-              type="password"
-              autoComplete="current-password"
-              className="input w-full"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </label>
-
-          {error ? <p className="text-sm text-red-500">{error}</p> : null}
-
-          <button type="submit" className="btn w-full" disabled={loading}>
-            {loading ? 'Accesso…' : 'Entra'}
-          </button>
+          <div>
+            <div className="text-xs mb-1">Utente</div>
+            <input name="user" className="input w-full" autoComplete="username" />
+          </div>
+          <div>
+            <div className="text-xs mb-1">Password</div>
+            <input name="pass" type="password" className="input w-full" autoComplete="current-password" />
+          </div>
+          {err && <div className="text-sm text-red-400">{err}</div>}
+          <button type="submit" className="btn w-full">Entra</button>
         </form>
-
-        {/* Se vuoi tenere il pulsante home, rimuovi i commenti sotto
-        <button
-          type="button"
-          className="text-xs text-neutral-500 hover:text-neutral-300"
-          onClick={() => router.replace('/')}
-        >
-          ← Torna alla home
-        </button>
-        */}
       </div>
     </main>
   )
