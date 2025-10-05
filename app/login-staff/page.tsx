@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 
 export default function LoginStaff() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')     // <-- era email
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,12 +17,12 @@ export default function LoginStaff() {
     setError(null)
     setLoading(true)
     try {
-      // TODO: sostituisci con la tua logica di auth (es. Supabase)
-      if (email.trim() && password.trim()) {
+      // TODO: sostituisci con la tua logica di auth (es. verifica su DB username/password)
+      if (username.trim() && password.trim()) {
         localStorage.setItem('role', 'staff')
         router.replace('/admin')
       } else {
-        throw new Error('Inserisci email e password.')
+        throw new Error('Inserisci username e password.')
       }
     } catch (err: any) {
       setError(err?.message ?? 'Errore di accesso')
@@ -48,12 +48,13 @@ export default function LoginStaff() {
 
         <form onSubmit={onSubmit} className="space-y-3">
           <label className="block">
-            <span className="text-sm">Email</span>
+            <span className="text-sm">Username</span>
             <input
-              type="email"
+              type="text"                     // <-- niente vincolo "@" come type="email"
+              autoComplete="username"
               className="input w-full"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
           </label>
@@ -62,6 +63,7 @@ export default function LoginStaff() {
             <span className="text-sm">Password</span>
             <input
               type="password"
+              autoComplete="current-password"
               className="input w-full"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -76,6 +78,7 @@ export default function LoginStaff() {
           </button>
         </form>
 
+        {/* Se vuoi tenere il pulsante home, rimuovi i commenti sotto
         <button
           type="button"
           className="text-xs text-neutral-500 hover:text-neutral-300"
@@ -83,6 +86,7 @@ export default function LoginStaff() {
         >
           ← Torna alla home
         </button>
+        */}
       </div>
     </main>
   )
