@@ -25,34 +25,36 @@ export default function LoginStaffPage() {
     }
   }
 
-  return (
-    <main className="relative min-h-screen flex items-center justify-center bg-[url('/bg-texture.svg')] bg-cover">
-      {/* ← pulsante Home */}
-      <Link href="/" className="btn btn-ghost absolute top-4 left-4">
-        ← Home
-      </Link>
-
-      <div className="card p-8 w-[90%] max-w-md space-y-6">
-        <h1 className="text-xl font-semibold text-center">Login Staff</h1>
-        <form onSubmit={onSubmit} className="space-y-3">
-          <div>
-            <div className="text-xs mb-1">Utente</div>
-            <input name="user" className="input w-full" autoComplete="username" />
-          </div>
-          <div>
-            <div className="text-xs mb-1">Password</div>
-            <input name="pass" type="password" className="input w-full" autoComplete="current-password" />
-          </div>
-          {err && <div className="text-sm text-red-400">{err}</div>}
-          <button type="submit" className="btn w-full">Entra</button>
-        </form>
-
-        {/* opzionale: tasto Indietro con cronologia */}
-        <button className="btn btn-ghost w-full" onClick={() => history.back()}>
-          ← Indietro
-        </button>
+ return (
+  <main className="min-h-screen flex items-center justify-center bg-[url('/bg-texture.svg')] bg-cover">
+    <div className="card relative p-8 w-[90%] max-w-md space-y-6">
+      {/* ← pulsante Home ben visibile dentro la card */}
+      <div className="absolute -top-3 left-3">
+        <Link href="/" className="btn btn-sm btn-ghost z-10">
+          ← Home
+        </Link>
       </div>
-    </main>
-  )
-}
+
+      <h1 className="text-xl font-semibold text-center">Login Staff</h1>
+
+      <form onSubmit={onSubmit} className="space-y-3">
+        <div>
+          <div className="text-xs mb-1">Utente</div>
+          <input name="user" className="input w-full" autoComplete="username" />
+        </div>
+        <div>
+          <div className="text-xs mb-1">Password</div>
+          <input name="pass" type="password" className="input w-full" autoComplete="current-password" />
+        </div>
+        {err && <div className="text-sm text-red-400">{err}</div>}
+        <button type="submit" className="btn w-full">Entra</button>
+      </form>
+
+      {/* opzionale: tasto Indietro */}
+      <button className="btn btn-ghost w-full" onClick={() => history.back()}>
+        ← Indietro
+      </button>
+    </div>
+  </main>
+)
 
