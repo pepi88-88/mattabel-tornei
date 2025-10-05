@@ -271,10 +271,14 @@ React.useEffect(()=>{
 
 
   // saveNow per salvataggi immediati
- const saveNow = React.useCallback((nextPlayers:PlayerRow[], nextTappe:Tappa[], nextResults:Results)=>{
+const saveNow = React.useCallback((nextPlayers:PlayerRow[], nextTappe:Tappa[], nextResults:Results)=>{
   apiUpsertSnapshot(tour, gender, { players: nextPlayers, tappe: nextTappe, results: nextResults })
-    .catch(()=>{/* ignora, ci pensa l’autosave successivo */})
+    .catch((e:any)=>{
+      alert('Errore salvataggio: ' + (e?.message || ''));
+      console.error('[saveNow] snapshot put failed', e);
+    })
 },[tour, gender])
+
 
 
   // players
