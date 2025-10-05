@@ -177,14 +177,14 @@ React.useEffect(()=>{
 },[])
 
  // header state (persist) — no SSR localStorage
-const [tour, setTour] = React.useState<string>('Tour Demo')
+const [tour, setTour] = React.useState<string>('')
 const [gender, setGender] = React.useState<Gender>('M')
 
 // leggi localStorage SOLO al mount, lato client
 React.useEffect(() => {
   const lastTour = typeof window !== 'undefined' ? localStorage.getItem('semi:lastTour') : null
   const lastGender = typeof window !== 'undefined' ? (localStorage.getItem('semi:lastGender') as Gender | null) : null
-  setTour(lastTour || 'Tour Demo')
+  setTour((lastTour || '').trim())
   setGender(lastGender || 'M')
 }, [])
 
@@ -259,10 +259,9 @@ React.useEffect(()=>{
 
 
 
-  React.useEffect(() => {
+ React.useEffect(() => {
   if (!loaded) return
 
-  // 🚫 evita di sovrascrivere con snapshot "vuoto"
   const isEmpty =
     players.length === 0 &&
     tappe.length === 0 &&
@@ -279,7 +278,6 @@ React.useEffect(()=>{
 
   return () => clearTimeout(t)
 }, [tour, gender, players, tappe, results, loaded])
-
 
 
   // saveNow per salvataggi immediati
@@ -384,13 +382,11 @@ function setPos(playerId: string, tappaId: string, pos: number | undefined) {
     const row = { ...(prev[playerId] || {}) }
     row[tappaId] = { pos }
     const next = { ...prev, [playerId]: row }
-    // ⬅️ salva SUBITO lo snapshot quando cambi una posizione
+    // salva subito lo snapshot
     saveNow(players, tappe, next)
     return next
   })
 }
-
-
 
   // computed
   const computed = React.useMemo(()=>{
@@ -429,14 +425,18 @@ function setPos(playerId: string, tappaId: string, pos: number | undefined) {
            <span className="text-sm text-neutral-300 mr-2">Tour</span>
 
 <select
-  className="input input-sm w-[220px]"   // usa il nostro stile scuro
+  className="input input-sm w-[220px]"
   value={tour}
-  onChange={(e)=>setTour(e.target.value)}
+  onChange={(e) => setTour(e.target.value.trim())}
 >
+  {(!availableTours.length || !tour) && (
+    <option value="" disabled>Seleziona un tour…</option>
+  )}
+  {availableTours.map((t) => (
+    <option key={t} value={t}>{t}</option>
+  ))}
+</select>
 
-              {availableTours.length===0 && <option value={tour}>{tour}</option>}
-              {availableTours.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
 
             {/* La rinomina/elimina si fanno da /admin/tour — qui solo scelta */}
 <a href="/admin/tour" className="btn btn-ghost btn-sm" title="Gestione tour">
