@@ -259,10 +259,10 @@ React.useEffect(()=>{
 
 
 
-  // autosave SOLO dopo il primo load
-React.useEffect(() => {
+  React.useEffect(() => {
   if (!loaded) return
-  // 🚫 non salvare uno snapshot completamente vuoto (evita di cancellare il precedente)
+
+  // 🚫 evita di sovrascrivere con snapshot "vuoto"
   const isEmpty =
     players.length === 0 &&
     tappe.length === 0 &&
@@ -378,18 +378,18 @@ const removeTappa = React.useCallback((tappaId: string) => {
 }, [players, tour, gender, saveNow])
 
 
-  // pos
-   // pos
-  function setPos(playerId: string, tappaId: string, pos: number | undefined) {
-    setResults(prev => {
-      const row = { ...(prev[playerId] || {}) }
-      row[tappaId] = { pos }
-      const next = { ...prev, [playerId]: row }
-      // ⬇️ salva SUBITO lo snapshot quando cambi una posizione
-      saveNow(players, tappe, next)
-      return next
-    })
-  }
+// pos
+function setPos(playerId: string, tappaId: string, pos: number | undefined) {
+  setResults(prev => {
+    const row = { ...(prev[playerId] || {}) }
+    row[tappaId] = { pos }
+    const next = { ...prev, [playerId]: row }
+    // ⬅️ salva SUBITO lo snapshot quando cambi una posizione
+    saveNow(players, tappe, next)
+    return next
+  })
+}
+
 
 
   // computed
