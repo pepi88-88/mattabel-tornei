@@ -37,28 +37,30 @@ export async function GET(req: Request) {
   }
 }
 
+// app/api/leaderboard/snapshots/route.ts (solo PUT)
 export async function PUT(req: Request) {
   try {
-    const body = await req.json().catch(() => ({}))
-    const tour = (body?.tour || '').trim()
-    const gender = (body?.gender || '').trim()
-    const data = body?.data ?? null
+    const body = await req.json().catch(() => ({} as any))
+    const tour   = String(body?.tour   || '').trim()
+    const gender = String(body?.gender || '').trim()
+    const data   = body?.data ?? {}
 
-    if (!tour || (gender !== 'M' && gender !== 'F')) {
-      return NextResponse.json({ error: 'Invalid tour/gender' }, { status: 400 })
+    if (!tour || !gender) {
+      return NextResponse.json({ error: 'Missing tour/gender' }, { status: 400 })
     }
 
     const sb = getSupabaseAdmin()
 
-    const { error } = await sb.from(TABLE).insert({ tour, gender, data })
+    // ✅ upsert su (tour, gender)
+    const { error } = await sb
+      .from('leaderboard_snapshots')
+      .upsert({ tour, gender, data })
+      .eq('tour', tour)
+      .eq('gender', gender)
 
-    if (error) {
-      console.error('[PUT snapshots] supabase error', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
-  } catch {
-    return NextResponse.json({ error: 'Unexpected error' }, { status: 500 })
+  } catch (e: any) {
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 })
   }
 }
