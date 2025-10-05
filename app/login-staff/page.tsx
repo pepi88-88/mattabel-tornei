@@ -1,60 +1,89 @@
+// app/login-staff/page.tsx
 'use client'
 
-import * as React from 'react'
-import Link from 'next/link'
+import { useState } from 'react'
+import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 
-export default function LoginStaffPage() {
-  const [err, setErr] = React.useState<string | undefined>()
+export default function LoginStaff() {
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setErr(undefined)
-    const fd = new FormData(e.currentTarget)
+    setError(null)
+    setLoading(true)
     try {
-      const r = await fetch('/api/auth/login', { method: 'POST', body: fd })
-      const js = await r.json().catch(() => ({} as any))
-      if (!r.ok || !js?.ok) {
-        setErr(js?.error || 'Login fallito')
-        return
+      // TODO: sostituisci con la tua logica di auth (es. Supabase)
+      if (email.trim() && password.trim()) {
+        localStorage.setItem('role', 'staff')
+        router.replace('/admin')
+      } else {
+        throw new Error('Inserisci email e password.')
       }
-      const role = js.role as 'admin' | 'coach'
-      localStorage.setItem('role', role)
-      location.href = '/admin/iscrizioni'
-    } catch {
-      setErr('Errore di rete')
+    } catch (err: any) {
+      setError(err?.message ?? 'Errore di accesso')
+    } finally {
+      setLoading(false)
     }
   }
 
- return (
-  <main className="min-h-screen flex items-center justify-center bg-[url('/bg-texture.svg')] bg-cover">
-    <div className="card relative p-8 w-[90%] max-w-md space-y-6">
-      {/* ← pulsante Home ben visibile dentro la card */}
-      <div className="absolute -top-3 left-3">
-        <Link href="/" className="btn btn-sm btn-ghost z-10">
-          ← Home
-        </Link>
+  return (
+    <main className="min-h-screen flex items-center justify-center bg-[url('/bg-texture.svg')] bg-cover">
+      <div className="card p-6 w-[90%] max-w-md space-y-6">
+        <div className="flex justify-center">
+          <Image
+            src="/logo-mattabel.png"
+            width={160}
+            height={160}
+            alt="Mattabel Beach Volley"
+            priority
+          />
+        </div>
+
+        <h1 className="text-xl font-semibold text-center">Accesso Staff</h1>
+
+        <form onSubmit={onSubmit} className="space-y-3">
+          <label className="block">
+            <span className="text-sm">Email</span>
+            <input
+              type="email"
+              className="input w-full"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm">Password</span>
+            <input
+              type="password"
+              className="input w-full"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </label>
+
+          {error ? <p className="text-sm text-red-500">{error}</p> : null}
+
+          <button type="submit" className="btn w-full" disabled={loading}>
+            {loading ? 'Accesso…' : 'Entra'}
+          </button>
+        </form>
+
+        <button
+          type="button"
+          className="text-xs text-neutral-500 hover:text-neutral-300"
+          onClick={() => router.replace('/')}
+        >
+          ← Torna alla home
+        </button>
       </div>
-
-      <h1 className="text-xl font-semibold text-center">Login Staff</h1>
-
-      <form onSubmit={onSubmit} className="space-y-3">
-        <div>
-          <div className="text-xs mb-1">Utente</div>
-          <input name="user" className="input w-full" autoComplete="username" />
-        </div>
-        <div>
-          <div className="text-xs mb-1">Password</div>
-          <input name="pass" type="password" className="input w-full" autoComplete="current-password" />
-        </div>
-        {err && <div className="text-sm text-red-400">{err}</div>}
-        <button type="submit" className="btn w-full">Entra</button>
-      </form>
-
-      {/* opzionale: tasto Indietro */}
-      <button className="btn btn-ghost w-full" onClick={() => history.back()}>
-        ← Indietro
-      </button>
-    </div>
-  </main>
-)
-
+    </main>
+  )
+}
