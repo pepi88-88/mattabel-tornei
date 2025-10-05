@@ -47,13 +47,11 @@ export async function PUT(req: Request) {
     }
 
     const sb = getSupabaseAdmin()
-    // payload: opzionale "title" se ce l'hai in tabella
-    const payload = { tour, gender, data, title: 'Classifica' as const }
 
-    // ✅ UPSERT reale sul vincolo (tour,gender)
-    const { error } = await sb
-      .from(TABLE)
-      .upsert(payload, { onConflict: 'tour,gender' })
+// ✅ upsert sul vincolo (tour,gender) senza colonne extra
+const { error } = await sb
+  .from(TABLE)
+  .upsert({ tour, gender, data }, { onConflict: 'tour,gender' })
 
     if (error) {
       console.error('[PUT snapshots] supabase error', error)
