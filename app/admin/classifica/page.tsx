@@ -321,10 +321,11 @@ React.useEffect(()=>{
     }
 
     setTappe(prev => {
-      const nextTappe = [...prev, t]
-
-      return nextTappe
-    })
+  const nextTappe = [...prev, t]
+  // salva subito lo snapshot, così anche se fai F5 non perdi la modifica
+  saveNow(players, nextTappe, results)
+  return nextTappe
+})
 
     setNewTitle(''); setNewDate(''); setNewMult(1); setNewTotal(8)
 
