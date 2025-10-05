@@ -260,14 +260,26 @@ React.useEffect(()=>{
 
 
   // autosave SOLO dopo il primo load
-  React.useEffect(()=>{
+React.useEffect(() => {
   if (!loaded) return
-  const t = setTimeout(()=>{
+  // 🚫 non salvare uno snapshot completamente vuoto (evita di cancellare il precedente)
+  const isEmpty =
+    players.length === 0 &&
+    tappe.length === 0 &&
+    Object.keys(results || {}).length === 0
+
+  if (isEmpty) return
+
+  const t = setTimeout(() => {
     apiUpsertSnapshot(tour, gender, { players, tappe, results })
-      .catch(()=>{/* silenzioso, ritenta con la prossima modifica */})
+      .catch((e:any) => {
+        console.error('[autosave] snapshot put failed', e)
+      })
   }, 300)
-  return ()=> clearTimeout(t)
-},[tour, gender, players, tappe, results, loaded])
+
+  return () => clearTimeout(t)
+}, [tour, gender, players, tappe, results, loaded])
+
 
 
   // saveNow per salvataggi immediati
@@ -278,8 +290,6 @@ const saveNow = React.useCallback((nextPlayers:PlayerRow[], nextTappe:Tappa[], n
       console.error('[saveNow] snapshot put failed', e);
     })
 },[tour, gender])
-
-
 
   // players
   const addPlayer = React.useCallback((p: PlayerLite) => {
