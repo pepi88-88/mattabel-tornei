@@ -2,17 +2,15 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'                     // 👈 AGGIUNGI QUESTO
 
 export default function LoginStaffPage() {
-  const router = useRouter()
   const [err, setErr] = React.useState<string | undefined>()
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setErr(undefined)
     const fd = new FormData(e.currentTarget)
-
     try {
       const r = await fetch('/api/auth/login', { method: 'POST', body: fd })
       const js = await r.json().catch(() => ({} as any))
@@ -20,21 +18,12 @@ export default function LoginStaffPage() {
         setErr(js?.error || 'Login fallito')
         return
       }
+      const role = js.role as 'admin' | 'coach' | 'staff' | undefined
+      const uiRole = role === 'admin' || role === 'coach' ? 'staff' : (role ?? 'staff')
+      localStorage.setItem('role', uiRole)       // 👈 fondamentale per il menu/permessi
 
-      // 🔑 Ruolo coerente con il menu/permessi lato UI
-      // Se il server ti restituisce "admin" o "coach", mappalo a "staff"
-      const serverRole = (js.role as 'admin' | 'coach' | 'staff') ?? 'staff'
-      const uiRole = serverRole === 'admin' || serverRole === 'coach' ? 'staff' : serverRole
-
-      // Salva anche il nome utente (spesso l'header lo usa)
-      const user = String(fd.get('user') ?? '').trim()
-
-      localStorage.setItem('role', uiRole)        // es.: "staff"
-      if (user) localStorage.setItem('user', user)
-
-      // ✅ Redirect dove ti serve
-      router.replace('/admin/tour')
-      // in alternativa: location.assign('/tour') se vuoi un reload completo
+      // stessa landing per tutti
+      location.assign('/tour')                   // 👈 reload pieno (fa comodo al menu in alto)
     } catch {
       setErr('Errore di rete')
     }
@@ -56,6 +45,13 @@ export default function LoginStaffPage() {
           {err && <div className="text-sm text-red-400">{err}</div>}
           <button type="submit" className="btn w-full">Entra</button>
         </form>
+
+        {/* 👇 Pulsante/Link per tornare alla home */}
+        <div className="pt-2">
+          <Link href="/" className="text-xs text-neutral-500 hover:text-neutral-300">
+            ← Torna alla home
+          </Link>
+        </div>
       </div>
     </main>
   )
