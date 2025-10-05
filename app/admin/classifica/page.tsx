@@ -34,11 +34,31 @@ async function apiUpsertSnapshot(tour: string, gender: Gender, data: SaveShape) 
 }
 
 async function apiListTours(): Promise<string[]> {
-  const r = await fetch(`/api/leaderboard/snapshots/tours`, { cache: 'no-store' })
-  if (!r.ok) return []
-  const j = await r.json()
-  return Array.isArray(j?.tours) ? j.tours : []
+  // 1) Elenco ufficiale dai TOUR (tabella `tours`)
+  try {
+    const r = await fetch('/api/tours', {
+      headers: { 'x-role': 'admin' },
+      cache: 'no-store',
+    })
+    const j = await r.json().catch(() => ({} as any))
+    if (r.ok && Array.isArray(j?.items)) {
+      // la tendina di Classifica usa il NOME del tour
+      return j.items
+        .map((t: any) => String(t?.name || '').trim())
+        .filter(Boolean)
+    }
+  } catch {}
+
+  // 2) Fallback: vecchio elenco dai snapshots (se per qualche motivo /api/tours fallisce)
+  try {
+    const r2 = await fetch(`/api/leaderboard/snapshots/tours`, { cache: 'no-store' })
+    const j2 = await r2.json().catch(() => ({} as any))
+    if (r2.ok && Array.isArray(j2?.tours)) return j2.tours
+  } catch {}
+
+  return []
 }
+
 
 async function apiRenameTour(oldName: string, newName: string) {
   const r = await fetch('/api/leaderboard/tours/rename', {
@@ -400,45 +420,20 @@ const removeTappa = React.useCallback((tappaId: string) => {
               {availableTours.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
 
-            <button
-  className="btn btn-ghost btn-sm"
-  onClick={async ()=>{
-  const name = prompt('Rinomina tour:', tour)
-  const next = name?.trim()
-  if (!next || next === tour) return
-  try {
-    await apiRenameTour(tour, next)
-    setTour(next)
-    alert('Tour rinominato.')
-  } catch (e:any) {
-    alert('Errore rinomina: ' + (e?.message || ''))
-  }
-}}
+            {/* La rinomina/elimina si fanno da /admin/tour — qui solo scelta */}
+<a href="/admin/tour" className="btn btn-ghost btn-sm" title="Gestione tour">
+  Gestisci tour
+</a>
 
->
-  Rinomina
-</button>
+{/* Se in futuro vorrai riattivarli, rimangono qui pronti:
+{false && (
+  <>
+    <button className="btn btn-ghost btn-sm" onClick={/* rename handler *!/}>Rinomina</button>
+    <button className="btn btn-outline btn-sm border-red-700 text-red-400 hover:border-red-500" onClick={/* delete handler *!/}>Elimina</button>
+  </>
+)}
+*/}
 
-
-            <button
-  className="btn btn-outline btn-sm border-red-700 text-red-400 hover:border-red-500"
- onClick={async ()=>{
-  if (!confirm(`Eliminare definitivamente il tour "${tour}"?`)) return
-  try {
-    await apiDeleteTour(tour)
-    // aggiorna la tendina: togli l’attuale
-    setAvailableTours(ts => ts.filter(x => x !== tour))
-    const next = (availableTours.find(x => x !== tour) || 'Tour Demo')
-    setTour(next)
-    alert('Tour eliminato.')
-  } catch (e:any) {
-    alert('Errore eliminazione: ' + (e?.message || ''))
-  }
-}}
-
->
-  Elimina
-</button>
 
           </div>
         </div>
