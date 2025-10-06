@@ -46,6 +46,30 @@ async function apiUpsertSnapshot(tour: string, gender: Gender, data: SaveShape) 
   }
   return js as { ok: true, saved?: { tour:string; gender:string; updated_at:string } }
 }
+async function apiListTours(): Promise<string[]> {
+  // 1) elenco ufficiale (tabella tours)
+  try {
+    const r = await fetch('/api/tours', {
+      headers: { 'x-role': 'admin' },
+      cache: 'no-store',
+    })
+    const j = await r.json().catch(() => ({} as any))
+    if (r.ok && Array.isArray(j?.items)) {
+      return j.items
+        .map((t: any) => String(t?.name || '').trim())
+        .filter(Boolean)
+    }
+  } catch {}
+
+  // 2) fallback: nomi tour presenti negli snapshot
+  try {
+    const r2 = await fetch('/api/leaderboard/snapshots/tours', { cache: 'no-store' })
+    const j2 = await r2.json().catch(() => ({} as any))
+    if (r2.ok && Array.isArray(j2?.tours)) return j2.tours
+  } catch {}
+
+  return []
+}
 
 
 
