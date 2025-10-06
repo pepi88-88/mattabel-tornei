@@ -1,8 +1,8 @@
+// app/api/leaderboard/snapshots/route.ts
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
 export const dynamic = 'force-dynamic'
-
 const TABLE = 'leaderboard_snapshots'
 
 export async function GET(req: Request) {
@@ -13,30 +13,25 @@ export async function GET(req: Request) {
 
     if (!tour || !gender) {
       return NextResponse.json(
-        { error: 'Missing tour/gender' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+        { data: null },
+        { status: 200, headers: { 'Cache-Control': 'no-store' } }
       )
     }
 
     const sb = getSupabaseAdmin()
-
-    // Riga più recente: prima updated_at poi created_at
     const { data, error } = await sb
       .from(TABLE)
       .select('data, updated_at, created_at')
       .eq('tour', tour)
       .eq('gender', gender)
-      .order('updated_at', { ascending: false })
+      .order('updated_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
     if (error) {
       console.error('[GET snapshots] supabase error', error)
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      )
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json(
@@ -45,10 +40,7 @@ export async function GET(req: Request) {
     )
   } catch (e: any) {
     console.error('[GET snapshots] unexpected', e)
-    return NextResponse.json(
-      { error: 'Unexpected error' },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } }
-    )
+    return NextResponse.json({ error: 'Unexpected error' }, { status: 500 })
   }
 }
 
@@ -67,11 +59,8 @@ export async function PUT(req: Request) {
     }
 
     const sb = getSupabaseAdmin()
-
-    // Forzo updated_at per avere ordinamenti coerenti
     const payload = { tour, gender, data, updated_at: new Date().toISOString() }
 
-    // Upsert sul vincolo (tour, gender) e ritorna la riga salvata
     const { data: saved, error } = await sb
       .from(TABLE)
       .upsert(payload, { onConflict: 'tour,gender' })
@@ -80,10 +69,7 @@ export async function PUT(req: Request) {
 
     if (error) {
       console.error('[PUT snapshots] supabase error', error)
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      )
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json(
@@ -92,9 +78,6 @@ export async function PUT(req: Request) {
     )
   } catch (e: any) {
     console.error('[PUT snapshots] unexpected', e)
-    return NextResponse.json(
-      { error: String(e?.message || e) },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } }
-    )
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 })
   }
 }
