@@ -204,8 +204,14 @@ React.useEffect(() => {
   const [scoreSet, setScoreSet] = React.useState<ScoreCfgSet>(DEFAULT_SET)
 
 // carica le impostazioni dei punti da Supabase quando cambiano tour/genere
-React.useEffect(()=> {
+React.useEffect(() => {
   let alive = true
+
+  if (!tour) {            // ⛔ senza tour, resetta ai default e basta
+    setScoreSet(DEFAULT_SET)
+    return () => { alive = false }
+  }
+
   apiGetSettings(tour, gender)
     .then(({ settings }) => {
       if (!alive) return
@@ -238,11 +244,19 @@ React.useEffect(() => {
   const [loaded, setLoaded]   = React.useState(false)
 
   // load
-React.useEffect(()=>{
+React.useEffect(() => {
   let alive = true
   setLoaded(false)
+
+  // ⛔ se il tour non è selezionato, non chiamare API (e svuota la UI)
+  if (!tour) {
+    setPlayers([]); setTappe([]); setResults({})
+    setLoaded(true)
+    return () => { alive = false }
+  }
+
   apiGetSnapshot(tour, gender)
-    .then(({data})=>{
+    .then(({ data }) => {
       const s: SaveShape = data ?? { players: [], tappe: [], results: {} }
       if (!alive) return
       setPlayers(Array.isArray(s.players) ? s.players : [])
@@ -250,14 +264,12 @@ React.useEffect(()=>{
       setResults(s.results && typeof s.results === 'object' ? s.results : {})
       setLoaded(true)
     })
-    .catch(()=>{
+    .catch(() => {
       if (!alive) return
       setPlayers([]); setTappe([]); setResults({}); setLoaded(true)
     })
-  return ()=>{ alive = false }
-},[tour, gender])
-
-
+  return () => { alive = false }
+}, [tour, gender])
 
  React.useEffect(() => {
   if (!loaded) return
@@ -281,13 +293,14 @@ React.useEffect(()=>{
 
 
   // saveNow per salvataggi immediati
-const saveNow = React.useCallback((nextPlayers:PlayerRow[], nextTappe:Tappa[], nextResults:Results)=>{
+const saveNow = React.useCallback((nextPlayers: PlayerRow[], nextTappe: Tappa[], nextResults: Results) => {
+  if (!tour) return  // ⛔ niente tour, niente salvataggio
   apiUpsertSnapshot(tour, gender, { players: nextPlayers, tappe: nextTappe, results: nextResults })
-    .catch((e:any)=>{
+    .catch((e: any) => {
       alert('Errore salvataggio: ' + (e?.message || ''));
-      console.error('[saveNow] snapshot put failed', e);
+      console.error('[saveNow] snapshot put failed', { tour, gender, e });
     })
-},[tour, gender])
+}, [tour, gender])
 
   // players
   const addPlayer = React.useCallback((p: PlayerLite) => {
