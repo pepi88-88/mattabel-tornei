@@ -217,7 +217,7 @@ React.useEffect(() => {
   }
 
   apiGetSettings(tour, gender)
-    .then(({ settings }) => {
+    .then(({ data }) => {
       if (!alive) return
       setScoreSet(settings ?? DEFAULT_SET)
     })
@@ -251,6 +251,11 @@ React.useEffect(() => {
   const playersRef = React.useRef<PlayerRow[]>(players)
   const tappeRef   = React.useRef<Tappa[]>(tappe)
   const resultsRef = React.useRef<Results>(results)
+  // identifica l'ultima save completata (per ignorare risposte vecchie)
+const saveSeqRef = React.useRef(0)
+// ho editato localmente dopo l'ultimo GET
+const editedRef = React.useRef(false)
+
 
   React.useEffect(() => { playersRef.current = players }, [players])
   React.useEffect(() => { tappeRef.current   = tappe   }, [tappe])
@@ -304,19 +309,43 @@ React.useEffect(() => {
 
 
   // saveNow per salvataggi immediati
-const saveNow = React.useCallback(async (nextPlayers: PlayerRow[], nextTappe: Tappa[], nextResults: Results) => {
+const saveNow = React.useCallback(async (
+  nextPlayers: PlayerRow[],
+  nextTappe: Tappa[],
+  nextResults: Results
+) => {
   if (!tour) return
+
+  // questa save è la #N
+  const mySeq = ++saveSeqRef.current
+  editedRef.current = true
+
   try {
-    await apiUpsertSnapshot(tour, gender, { players: nextPlayers, tappe: nextTappe, results: nextResults })
-    // rifresca dal server (solo se il tour/genere non sono cambiati nel frattempo)
+    // 1) SALVA
+    await apiUpsertSnapshot(tour, gender, {
+      players: nextPlayers,
+      tappe: nextTappe,
+      results: nextResults,
+    })
+    console.log('Snapshot salvato:', { tour, gender })
+
+    // 2) RILEGGI SUBITO DAL SERVER
     const { data } = await apiGetSnapshot(tour, gender)
-    const s: SaveShape = data ?? { players: [], tappe: [], results: {} }
-    setPlayers(Array.isArray(s.players) ? s.players : [])
-    setTappe(Array.isArray(s.tappe) ? s.tappe : [])
-    setResults(s.results && typeof s.results === 'object' ? s.results : {})
-  } catch (e:any) {
+
+    // se nel frattempo è partita un’altra save, scarta questa risposta
+    if (saveSeqRef.current !== mySeq) return
+
+    // applica SOLO se il server ha dato un oggetto valido
+    if (data && typeof data === 'object') {
+      setPlayers(Array.isArray(data.players) ? data.players : [])
+      setTappe(Array.isArray(data.tappe) ? data.tappe : [])
+      setResults(data.results && typeof data.results === 'object' ? data.results : {})
+      // abbiamo sincronizzato con il server: ora non siamo più "sporchi"
+      editedRef.current = false
+    }
+  } catch (e: any) {
+    console.error('[saveNow] snapshot put/get failed', e)
     alert('Errore salvataggio: ' + (e?.message || ''))
-    console.error('[saveNow] snapshot put failed', { tour, gender, e })
   }
 }, [tour, gender])
 
@@ -324,6 +353,7 @@ const saveNow = React.useCallback(async (nextPlayers: PlayerRow[], nextTappe: Ta
   // players
   const addPlayer = React.useCallback((p: PlayerLite) => {
     if (!loaded) return
+      editedRef.current = true
     setPlayers(prev => {
       if (prev.some(x => x.id === p.id)) return prev
       const nextPlayers = [...prev, { id: p.id, name: fullName(p) }]
@@ -341,6 +371,7 @@ const saveNow = React.useCallback(async (nextPlayers: PlayerRow[], nextTappe: Ta
    const removePlayer = React.useCallback((playerId: string) => {
     if (!loaded) return
     if (!confirm('Eliminare questo giocatore dalla classifica?')) return
+       editedRef.current = true
     setPlayers(prev => {
       const nextPlayers = prev.filter(p => p.id !== playerId)
       setResults(prevR => {
@@ -364,7 +395,7 @@ const saveNow = React.useCallback(async (nextPlayers: PlayerRow[], nextTappe: Ta
     if (!loaded) return
     if (!newTitle.trim()) { alert('Titolo tappa mancante'); return }
     if (newTotal < 1)     { alert('Totale squadre deve essere ≥ 1'); return }
-
+  editedRef.current = true
     const t: Tappa = {
       id: uid(),
       title: newTitle.trim(),
@@ -390,6 +421,7 @@ const saveNow = React.useCallback(async (nextPlayers: PlayerRow[], nextTappe: Ta
   const removeTappa = React.useCallback((tappaId: string) => {
     if (!loaded) return
     if (!confirm('Eliminare la tappa?')) return
+      editedRef.current = true
     setTappe(prev => {
       const nextTappe = prev.filter(t => t.id !== tappaId)
       setResults(prevR => {
@@ -415,6 +447,7 @@ const saveNow = React.useCallback(async (nextPlayers: PlayerRow[], nextTappe: Ta
 // pos
   function setPos(playerId: string, tappaId: string, pos: number | undefined) {
     if (!loaded) return
+      editedRef.current = true
     setResults(prev => {
       const row = { ...(prev[playerId] || {}) }
       row[tappaId] = { pos }
