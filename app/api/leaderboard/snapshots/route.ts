@@ -1,4 +1,3 @@
-// app/api/leaderboard/snapshots/route.ts
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
