@@ -169,6 +169,17 @@ React.useEffect(() => {
     .then(ts => setAvailableTours(ts))
     .catch(() => setAvailableTours([]))
 }, [])
+  
+// Se dopo aver caricato i tour il valore è ancora vuoto,
+// prova a ripristinare dal localStorage (ma solo se esiste davvero nella lista)
+React.useEffect(() => {
+  if (tour) return
+  if (typeof window === 'undefined') return
+  const last = (localStorage.getItem('semi:lastTour') || '').trim()
+  if (last && availableTours.includes(last)) {
+    setTour(last)
+  }
+}, [availableTours, tour])
 
 
  // header state (persist) — no SSR localStorage
@@ -186,9 +197,15 @@ React.useEffect(() => {
 // persisti quando cambiano (solo client)
 React.useEffect(() => {
   if (typeof window === 'undefined') return
+  if (!tour) return                   // ⛔ non scrivere '' in localStorage
   localStorage.setItem('semi:lastTour', tour)
-  setAvailableTours(ts => Array.from(new Set([...ts, tour])))
+  setAvailableTours(ts => {
+    if (!tour) return ts              // guardia extra
+    if (ts.includes(tour)) return ts
+    return [...ts, tour]
+  })
 }, [tour])
+
 
 React.useEffect(() => {
   if (typeof window === 'undefined') return
@@ -223,6 +240,7 @@ React.useEffect(() => {
 React.useEffect(() => {
   if (typeof window === 'undefined') return
   const onFocus = () => {
+    if (!tour) return                 // ⛔ senza tour non chiamare API
     apiGetSettings(tour, gender)
       .then(({ settings }) => setScoreSet(settings ?? DEFAULT_SET))
       .catch(() => {})
@@ -230,7 +248,6 @@ React.useEffect(() => {
   window.addEventListener('focus', onFocus)
   return () => window.removeEventListener('focus', onFocus)
 }, [tour, gender])
-
 
   // dati + flag loaded (per evitare autosave prima del load)
   const [players, setPlayers] = React.useState<PlayerRow[]>([])
