@@ -50,35 +50,21 @@ async function apiListTours(): Promise<string[]> {
 }
 
 
-  // 2) Fallback: vecchio elenco dai snapshots (se per qualche motivo /api/tours fallisce)
+async function apiListTours(): Promise<string[]> {
   try {
-    const r2 = await fetch(`/api/leaderboard/snapshots/tours`, { cache: 'no-store' })
-    const j2 = await r2.json().catch(() => ({} as any))
-    if (r2.ok && Array.isArray(j2?.tours)) return j2.tours
+    const r = await fetch('/api/tours', {
+      headers: { 'x-role': 'admin' },
+      cache: 'no-store',
+    })
+    const j = await r.json().catch(() => ({} as any))
+    if (r.ok && Array.isArray(j?.items)) {
+      return j.items
+        .map((t: any) => String(t?.name || '').trim())
+        .filter(Boolean)
+    }
   } catch {}
-
   return []
 }
-
-
-async function apiRenameTour(oldName: string, newName: string) {
-  const r = await fetch('/api/leaderboard/tours/rename', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ oldName, newName }),
-  })
-  if (!r.ok) throw new Error(await r.text())
-}
-
-async function apiDeleteTour(tour: string) {
-  const r = await fetch('/api/leaderboard/tours/delete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tour }),
-  })
-  if (!r.ok) throw new Error(await r.text())
-}
-
 
 /* ================== Tipi ================== */
 type Gender = 'M'|'F'
@@ -170,6 +156,10 @@ React.useEffect(() => {
     .catch(() => setAvailableTours([]))
 }, [])
   
+
+ // header state (persist) — no SSR localStorage
+const [tour, setTour] = React.useState<string>('')
+const [gender, setGender] = React.useState<Gender>('M')
 // Se dopo aver caricato i tour il valore è ancora vuoto,
 // prova a ripristinare dal localStorage (ma solo se esiste davvero nella lista)
 React.useEffect(() => {
@@ -180,12 +170,6 @@ React.useEffect(() => {
     setTour(last)
   }
 }, [availableTours, tour])
-
-
- // header state (persist) — no SSR localStorage
-const [tour, setTour] = React.useState<string>('')
-const [gender, setGender] = React.useState<Gender>('M')
-
 // leggi localStorage SOLO al mount, lato client
 React.useEffect(() => {
   const lastTour = typeof window !== 'undefined' ? localStorage.getItem('semi:lastTour') : null
