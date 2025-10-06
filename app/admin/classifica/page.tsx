@@ -29,25 +29,24 @@ async function apiUpsertSnapshot(tour: string, gender: Gender, data: SaveShape) 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tour, gender, data }),
   })
-  if (!r.ok) throw new Error('snapshot put failed')
-  return r.json() as Promise<{ ok: true }>
+
+  const txt = await r.text()  // leggiamo SEMPRE il corpo per capire eventuali errori
+  if (!r.ok) {
+    console.error('PUT /api/leaderboard/snapshots failed:', r.status, txt)
+    throw new Error(`snapshot put failed (${r.status}): ${txt}`)
+  }
+
+  let js: any = {}
+  try { js = JSON.parse(txt) } catch {}
+  // piccolo log di diagnosi
+  if (!js?.ok) {
+    console.warn('PUT /api/leaderboard/snapshots response without ok:true', js)
+  } else {
+    console.log('Snapshot salvato:', js?.saved)
+  }
+  return js as { ok: true, saved?: { tour:string; gender:string; updated_at:string } }
 }
 
-async function apiListTours(): Promise<string[]> {
-  try {
-    const r = await fetch('/api/tours', {
-      headers: { 'x-role': 'admin' },
-      cache: 'no-store',
-    })
-    const j = await r.json().catch(() => ({} as any))
-    if (r.ok && Array.isArray(j?.items)) {
-      return j.items
-        .map((t: any) => String(t?.name || '').trim())
-        .filter(Boolean)
-    }
-  } catch {}
-  return []
-}
 
 
 
