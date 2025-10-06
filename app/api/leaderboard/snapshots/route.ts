@@ -11,9 +11,10 @@ export async function GET(req: Request) {
     const tour = (searchParams.get('tour') || '').trim()
     const gender = (searchParams.get('gender') || '').trim()
     if (!tour || !gender) {
-      return NextResponse.json({ error: 'Missing tour/gender' }, { status: 400 })
-    }
-
+      return NextResponse.json(
+  { data: data?.data ?? null },
+  { headers: { 'Cache-Control': 'no-store' } }
+)
     const sb = getSupabaseAdmin()
     // Prendi SEMPRE la riga più recente: prima per updated_at, poi fallback su created_at
     const { data, error } = await sb
@@ -46,8 +47,10 @@ export async function PUT(req: Request) {
     const data = body?.data ?? {}
 
     if (!tour || !gender) {
-      return NextResponse.json({ error: 'Missing tour/gender' }, { status: 400 })
-    }
+      return NextResponse.json(
+  { ok: true },
+  { headers: { 'Cache-Control': 'no-store' } }
+)
 
     const sb = getSupabaseAdmin()
 
