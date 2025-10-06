@@ -290,11 +290,13 @@ React.useEffect(() => {
       setTappe(Array.isArray(s.tappe) ? s.tappe : [])
       setResults(s.results && typeof s.results === 'object' ? s.results : {})
       setLoaded(true)
+      editedRef.current = false
     })
     .catch(() => {
       if (!alive) return
       if (loadKeyRef.current !== myKey) return
       setPlayers([]); setTappe([]); setResults({}); setLoaded(true)
+      editedRef.current = false
     })
 
   return () => { alive = false }
@@ -326,6 +328,37 @@ const saveNow = React.useCallback(async (
     alert('Errore salvataggio: ' + (e?.message || ''))
     return
   }
+// AUTOSAVE: salva solo se ho modificato (editedRef) e lo snapshot NON è vuoto
+React.useEffect(() => {
+  if (!loaded) return
+  if (!tour) return
+  if (!editedRef.current) return
+
+  const isEmpty =
+    playersRef.current.length === 0 &&
+    tappeRef.current.length === 0 &&
+    Object.keys(resultsRef.current || {}).length === 0
+
+  if (isEmpty) return  // evita di sovrascrivere con vuoto
+
+  const t = setTimeout(() => {
+    apiUpsertSnapshot(tour, gender, {
+      players: playersRef.current,
+      tappe: tappeRef.current,
+      results: resultsRef.current,
+    })
+      .then(() => {
+        // salvataggio andato: non siamo più “sporchi”
+        editedRef.current = false
+      })
+      .catch((e) => {
+        console.error('[autosave] snapshot put failed', e)
+        // non azzero editedRef: ritenterà alla prossima modifica
+      })
+  }, 300)
+
+  return () => clearTimeout(t)
+}, [loaded, tour, gender, players, tappe, results])
 
   // Se nel frattempo è partito un altro save, non ricaricare
   if (mySeq !== saveSeqRef.current) return
