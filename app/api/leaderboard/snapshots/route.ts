@@ -44,25 +44,32 @@ export async function PUT(req: Request) {
     const tour = String(body?.tour || '').trim()
     const gender = String(body?.gender || '').trim()
     const data = body?.data ?? {}
+
     if (!tour || !gender) {
       return NextResponse.json({ error: 'Missing tour/gender' }, { status: 400 })
     }
 
     const sb = getSupabaseAdmin()
-    // Forziamo l’aggiornamento dell’updated_at per essere sicuri dell’ordinamento
+
+    // Forziamo l’updated_at per avere ordinamento coerente
     const payload = { tour, gender, data, updated_at: new Date().toISOString() }
 
-    const { error } = await sb
+    // ⬇️ Chiediamo a Supabase di restituire la riga aggiornata
+    const { data: saved, error } = await sb
       .from(TABLE)
       .upsert(payload, { onConflict: 'tour,gender' })
+      .select('tour, gender, updated_at')
+      .single()
 
     if (error) {
       console.error('[PUT snapshots] supabase error', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
-    return NextResponse.json({ ok: true })
+
+    return NextResponse.json({ ok: true, saved })
   } catch (e: any) {
     console.error('[PUT snapshots] unexpected', e)
     return NextResponse.json({ error: String(e?.message || e) }, { status: 500 })
   }
 }
+
