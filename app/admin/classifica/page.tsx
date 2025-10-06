@@ -248,25 +248,23 @@ React.useEffect(() => {
   const [results, setResults] = React.useState<Results>({})
   const [loaded, setLoaded]   = React.useState(false)
 
-  // 🔒 Sempre lo stato PIÙ RECENTE (evita salvataggi con valori “vecchi”)
-  const playersRef = React.useRef<PlayerRow[]>(players)
-  const tappeRef   = React.useRef<Tappa[]>(tappe)
-  const resultsRef = React.useRef<Results>(results)
-  // identifica l'ultima save completata (per ignorare risposte vecchie)
-const saveSeqRef = React.useRef(0)
-// ho editato localmente dopo l'ultimo GET
-const editedRef = React.useRef(false)
-// Ignora risposte GET “in ritardo”
+// 🔒 snapshot refs sempre aggiornati
+const playersRef = React.useRef<PlayerRow[]>([])
+const tappeRef   = React.useRef<Tappa[]>([])
+const resultsRef = React.useRef<Results>({})
+const editedRef  = React.useRef(false)
+
+// ignora risposte GET “in ritardo”
 const loadKeyRef = React.useRef<string>('')
 
-// Sequenziatore dei salvataggi: solo l’ultimo può aggiornare la UI
+// sequenziatore dei salvataggi: solo l’ultimo “vince”
 const saveSeqRef = React.useRef<number>(0)
 
-  React.useEffect(() => { playersRef.current = players }, [players])
-  React.useEffect(() => { tappeRef.current   = tappe   }, [tappe])
-  React.useEffect(() => { resultsRef.current = results }, [results])
+// tieni i ref allineati allo stato
+React.useEffect(() => { playersRef.current = players }, [players])
+React.useEffect(() => { tappeRef.current   = tappe   }, [tappe])
+React.useEffect(() => { resultsRef.current = results }, [results])
 
-  // load
 // load snapshot
 React.useEffect(() => {
   let alive = true
@@ -295,13 +293,12 @@ React.useEffect(() => {
     })
     .catch(() => {
       if (!alive) return
-      if (loadKeyRef.current !== myKey) return // anche qui, ignora vecchie
+      if (loadKeyRef.current !== myKey) return
       setPlayers([]); setTappe([]); setResults({}); setLoaded(true)
     })
 
   return () => { alive = false }
 }, [tour, gender])
-
 
   // saveNow per salvataggi immediati
 const saveNow = React.useCallback(async (
@@ -338,38 +335,17 @@ const saveNow = React.useCallback(async (
     const { data } = await apiGetSnapshot(tour, gender)
     if (mySeq !== saveSeqRef.current) return        // un altro save più nuovo? esci
     if (loadKeyRef.current !== myKey) return        // una GET più nuova ha cambiato chiave? esci
-    if (!data) return
+    if (!data || typeof data !== 'object') return
 
     setPlayers(Array.isArray(data.players) ? data.players : [])
     setTappe(Array.isArray(data.tappe) ? data.tappe : [])
     setResults(data.results && typeof data.results === 'object' ? data.results : {})
+    editedRef.current = false
   } catch (e) {
     console.warn('[saveNow] GET after save failed', e)
   }
 }, [tour, gender])
-
-
-    // 2) RILEGGI SUBITO DAL SERVER
-    const { data } = await apiGetSnapshot(tour, gender)
-
-    // se nel frattempo è partita un’altra save, scarta questa risposta
-    if (saveSeqRef.current !== mySeq) return
-
-    // applica SOLO se il server ha dato un oggetto valido
-    if (data && typeof data === 'object') {
-      setPlayers(Array.isArray(data.players) ? data.players : [])
-      setTappe(Array.isArray(data.tappe) ? data.tappe : [])
-      setResults(data.results && typeof data.results === 'object' ? data.results : {})
-      // abbiamo sincronizzato con il server: ora non siamo più "sporchi"
-      editedRef.current = false
-    }
-  } catch (e: any) {
-    console.error('[saveNow] snapshot put/get failed', e)
-    alert('Errore salvataggio: ' + (e?.message || ''))
-  }
-}, [tour, gender])
-
-
+  
   // players
   const addPlayer = React.useCallback((p: PlayerLite) => {
     if (!loaded) return
