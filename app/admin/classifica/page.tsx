@@ -274,28 +274,37 @@ React.useEffect(() => {
 
 
   // saveNow per salvataggi immediati
-const saveNow = React.useCallback((nextPlayers: PlayerRow[], nextTappe: Tappa[], nextResults: Results) => {
-  if (!tour) return  // ⛔ niente tour, niente salvataggio
-  apiUpsertSnapshot(tour, gender, { players: nextPlayers, tappe: nextTappe, results: nextResults })
-    .catch((e: any) => {
-      alert('Errore salvataggio: ' + (e?.message || ''));
-      console.error('[saveNow] snapshot put failed', { tour, gender, e });
-    })
+const saveNow = React.useCallback(async (nextPlayers: PlayerRow[], nextTappe: Tappa[], nextResults: Results) => {
+  if (!tour) return
+  try {
+    await apiUpsertSnapshot(tour, gender, { players: nextPlayers, tappe: nextTappe, results: nextResults })
+    // rifresca dal server (solo se il tour/genere non sono cambiati nel frattempo)
+    const { data } = await apiGetSnapshot(tour, gender)
+    const s: SaveShape = data ?? { players: [], tappe: [], results: {} }
+    setPlayers(Array.isArray(s.players) ? s.players : [])
+    setTappe(Array.isArray(s.tappe) ? s.tappe : [])
+    setResults(s.results && typeof s.results === 'object' ? s.results : {})
+  } catch (e:any) {
+    alert('Errore salvataggio: ' + (e?.message || ''))
+    console.error('[saveNow] snapshot put failed', { tour, gender, e })
+  }
 }, [tour, gender])
 
+
   // players
-  const addPlayer = React.useCallback((p: PlayerLite) => {
-    setPlayers(prev => {
-      if (prev.some(x => x.id === p.id)) return prev
-      const next = [...prev, { id: p.id, name: fullName(p) }]
-      setResults(r => (r[p.id] ? r : { ...r, [p.id]: {} }))
-      saveNow(next, tappe, { ...results, [p.id]: results[p.id] || {} })
-      return next
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[results, tappe, saveNow])
+ const addPlayer = React.useCallback((p: PlayerLite) => {
+  if (!loaded) { alert('Attendi il caricamento dello snapshot…'); return }  // ⬅️ aggiungi
+  setPlayers(prev => {
+    if (prev.some(x => x.id === p.id)) return prev
+    const next = [...prev, { id: p.id, name: fullName(p) }]
+    setResults(r => (r[p.id] ? r : { ...r, [p.id]: {} }))
+    saveNow(next, tappe, { ...results, [p.id]: results[p.id] || {} })
+    return next
+  })
+}, [results, tappe, saveNow, loaded])
 
   const removePlayer = React.useCallback((playerId: string) => {
+    if (!loaded) return
     if (!confirm('Eliminare questo giocatore dalla classifica?')) return
     setPlayers(prev => {
       const nextPlayers = prev.filter(p => p.id !== playerId)
@@ -316,6 +325,7 @@ const saveNow = React.useCallback((nextPlayers: PlayerRow[], nextTappe: Tappa[],
   const [newTotal, setNewTotal] = React.useState<number>(8)
 
   const addTappa = React.useCallback(()=>{
+     if (!loaded) { alert('Attendi il caricamento dello snapshot…'); return }
     if (!newTitle.trim()) { alert('Titolo tappa mancante'); return }
     if (newTotal < 1)     { alert('Totale squadre deve essere ≥ 1'); return }
     const t: Tappa = {
@@ -343,6 +353,7 @@ if (typeof window !== 'undefined') {
   },[newTitle,newDate,newMult,newTotal,players,results,tour,gender])
 
 const removeTappa = React.useCallback((tappaId: string) => {
+   if (!loaded) return
   if (!confirm('Eliminare la tappa?')) return
   setTappe(prev => {
     const nextTappe = prev.filter(t => t.id !== tappaId)
@@ -372,6 +383,7 @@ const removeTappa = React.useCallback((tappaId: string) => {
 
 // pos
 function setPos(playerId: string, tappaId: string, pos: number | undefined) {
+  if (!loaded) return
   setResults(prev => {
     const row = { ...(prev[playerId] || {}) }
     row[tappaId] = { pos }
@@ -453,10 +465,10 @@ function setPos(playerId: string, tappaId: string, pos: number | undefined) {
         {/* Tools: aggiungi giocatore & tappa */}
         <div className="card p-4 space-y-4">
           <div className="flex items-end gap-3">
-            <div className="w-64">
-              <div className="text-xs mb-1">Aggiungi giocatore</div>
-              <PlayerPicker onSelect={(p:any)=>addPlayer(p)} />
-            </div>
+            <div className={`w-64 ${!loaded ? 'opacity-60 pointer-events-none' : ''}`}>
+  <div className="text-xs mb-1">Aggiungi giocatore</div>
+  <PlayerPicker onSelect={(p:any)=>addPlayer(p)} />
+</div>
             <div className="text-xs text-neutral-500">I giocatori aggiunti compaiono nella tabella sotto.</div>
           </div>
 
@@ -480,7 +492,7 @@ function setPos(playerId: string, tappaId: string, pos: number | undefined) {
               <input className="input w-full" type="number" min={1} value={newTotal} onChange={e=>setNewTotal(Number(e.target.value))} />
             </div>
             <div className="col-span-3">
-              <button className="btn w-full" onClick={addTappa}>Aggiungi tappa</button>
+              <button className="btn w-full" onClick={addTappa} disabled={!loaded}>Aggiungi tappa</button>
             </div>
           </div>
         </div>
@@ -583,6 +595,7 @@ function setPos(playerId: string, tappaId: string, pos: number | undefined) {
           }}
           placeholder="—"
           title="Posizione finale"
+          disabled={!loaded} 
         />
         <div className="w-16 tabular-nums text-right">{pts}</div>
       </div>
