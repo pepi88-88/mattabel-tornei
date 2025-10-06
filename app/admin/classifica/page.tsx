@@ -319,24 +319,7 @@ const saveNow = React.useCallback((
   })
 }, [tour, gender])
 
-  // Se nel frattempo è partito un altro save, non ricaricare
-  if (mySeq !== saveSeqRef.current) return
-
-  // Round-trip: ricarico dal server (così la UI rispecchia SEMPRE il DB)
-  try {
-    const { data } = await apiGetSnapshot(tour, gender)
-    if (mySeq !== saveSeqRef.current) return        // un altro save più nuovo? esci
-    if (loadKeyRef.current !== myKey) return        // una GET più nuova ha cambiato chiave? esci
-    if (!data || typeof data !== 'object') return
-
-    setPlayers(Array.isArray(data.players) ? data.players : [])
-    setTappe(Array.isArray(data.tappe) ? data.tappe : [])
-    setResults(data.results && typeof data.results === 'object' ? data.results : {})
-    editedRef.current = false
-  } catch (e) {
-    console.warn('[saveNow] GET after save failed', e)
-  }
-}, [tour, gender])
+  
   // AUTOSAVE: salva solo se ho modificato (editedRef) e lo snapshot NON è vuoto
 React.useEffect(() => {
   if (!loaded) return
