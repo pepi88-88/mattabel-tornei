@@ -34,7 +34,6 @@ async function apiUpsertSnapshot(tour: string, gender: Gender, data: SaveShape) 
 }
 
 async function apiListTours(): Promise<string[]> {
-  // 1) Elenco ufficiale dai TOUR (tabella `tours`)
   try {
     const r = await fetch('/api/tours', {
       headers: { 'x-role': 'admin' },
@@ -42,12 +41,14 @@ async function apiListTours(): Promise<string[]> {
     })
     const j = await r.json().catch(() => ({} as any))
     if (r.ok && Array.isArray(j?.items)) {
-      // la tendina di Classifica usa il NOME del tour
       return j.items
         .map((t: any) => String(t?.name || '').trim())
         .filter(Boolean)
     }
   } catch {}
+  return []
+}
+
 
   // 2) Fallback: vecchio elenco dai snapshots (se per qualche motivo /api/tours fallisce)
   try {
@@ -163,18 +164,12 @@ function TabButton({ active, onClick, href, children, title }: TabButtonProps) {
 export default function SemiManualLeaderboardPage() {
   // tours per tendina
   const [availableTours, setAvailableTours] = React.useState<string[]>([])
-React.useEffect(()=>{ 
-  apiListTours().then(ts => {
-    const last = localStorage.getItem('semi:lastTour')
-    const set = new Set(ts)
-    if (last) set.add(last)
-    setAvailableTours(Array.from(set))
-  }).catch(()=> {
-    // fallback: solo lastTour
-    const last = localStorage.getItem('semi:lastTour')
-    setAvailableTours(last ? [last] : [])
-  })
-},[])
+React.useEffect(() => {
+  apiListTours()
+    .then(ts => setAvailableTours(ts))
+    .catch(() => setAvailableTours([]))
+}, [])
+
 
  // header state (persist) — no SSR localStorage
 const [tour, setTour] = React.useState<string>('')
