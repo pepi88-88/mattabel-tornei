@@ -319,31 +319,55 @@ const saveNow = React.useCallback((
   })
 }, [tour, gender])
 
-  
-  // AUTOSAVE: salva solo se ho modificato (editedRef) e lo snapshot NON è vuoto
-React.useEffect(() => {
-  if (!loaded) return
+// Sequenziatore dei salvataggi: solo l’ultimo “vince”
+const saveSeqRef = React.useRef(0)
+// Ignora risposte GET “in ritardo”
+const loadKeyRef = React.useRef<string>('')
+
+const saveNow = React.useCallback(async (
+  nextPlayers: PlayerRow[],
+  nextTappe: Tappa[],
+  nextResults: Results
+) => {
   if (!tour) return
-  if (!editedRef.current) return
 
-  const isEmpty =
-    players.length === 0 &&
-    tappe.length === 0 &&
-    Object.keys(results || {}).length === 0
+  // Numero progressivo di questo save
+  const mySeq = ++saveSeqRef.current
+  // Chiave per invalidare eventuali GET/risposte vecchie
+  const myKey = `save|${tour}|${gender}|${Date.now()}`
+  loadKeyRef.current = myKey
 
-  if (isEmpty) return  // evita di sovrascrivere con vuoto
+  try {
+    // 1) Salva
+    await apiUpsertSnapshot(tour, gender, {
+      players: nextPlayers,
+      tappe: nextTappe,
+      results: nextResults
+    })
+    console.log('[saveNow] PUT ok')
+  } catch (e: any) {
+    console.error('[saveNow] PUT failed', e)
+    alert('Errore salvataggio: ' + (e?.message || ''))
+    return
+  }
 
-  const t = setTimeout(() => {
-    apiUpsertSnapshot(tour, gender, { players, tappe, results })
-      .then(() => { editedRef.current = false })
-      .catch((e) => {
-        console.error('[autosave] snapshot put failed', e)
-        // lascio editedRef = true: ritenterà alla prossima modifica
-      })
-  }, 300)
+  // Se nel frattempo è partito un altro save, non ricaricare
+  if (mySeq !== saveSeqRef.current) return
 
-  return () => clearTimeout(t)
-}, [loaded, tour, gender, players, tappe, results])
+  // 2) Round-trip: rileggi SUBITO dal server (server = fonte di verità)
+  try {
+    const { data } = await apiGetSnapshot(tour, gender)
+    if (mySeq !== saveSeqRef.current) return        // un altro save più nuovo? esci
+    if (loadKeyRef.current !== myKey) return        // c’è stato un altro load/save? esci
+    if (!data || typeof data !== 'object') return
+
+    setPlayers(Array.isArray(data.players) ? data.players : [])
+    setTappe(Array.isArray(data.tappe) ? data.tappe : [])
+    setResults(data.results && typeof data.results === 'object' ? data.results : {})
+  } catch (e) {
+    console.warn('[saveNow] GET after save failed', e)
+  }
+}, [tour, gender])
 
   // players
   const addPlayer = React.useCallback((p: PlayerLite) => {
