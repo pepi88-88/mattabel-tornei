@@ -50,21 +50,6 @@ async function apiListTours(): Promise<string[]> {
 }
 
 
-async function apiListTours(): Promise<string[]> {
-  try {
-    const r = await fetch('/api/tours', {
-      headers: { 'x-role': 'admin' },
-      cache: 'no-store',
-    })
-    const j = await r.json().catch(() => ({} as any))
-    if (r.ok && Array.isArray(j?.items)) {
-      return j.items
-        .map((t: any) => String(t?.name || '').trim())
-        .filter(Boolean)
-    }
-  } catch {}
-  return []
-}
 
 /* ================== Tipi ================== */
 type Gender = 'M'|'F'
