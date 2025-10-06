@@ -211,13 +211,13 @@ React.useEffect(() => {
 React.useEffect(() => {
   let alive = true
 
-  if (!tour) {            // ⛔ senza tour, resetta ai default e basta
+  if (!tour) { // senza tour, default
     setScoreSet(DEFAULT_SET)
     return () => { alive = false }
   }
 
   apiGetSettings(tour, gender)
-    .then(({ data }) => {
+    .then(({ settings }) => {              // ⬅️ destruttura "settings", NON "data"
       if (!alive) return
       setScoreSet(settings ?? DEFAULT_SET)
     })
@@ -225,6 +225,7 @@ React.useEffect(() => {
       if (!alive) return
       setScoreSet(DEFAULT_SET)
     })
+
   return () => { alive = false }
 }, [tour, gender])
 
@@ -255,28 +256,38 @@ React.useEffect(() => {
 const saveSeqRef = React.useRef(0)
 // ho editato localmente dopo l'ultimo GET
 const editedRef = React.useRef(false)
+// Ignora risposte GET “in ritardo”
+const loadKeyRef = React.useRef<string>('')
 
+// Sequenziatore dei salvataggi: solo l’ultimo può aggiornare la UI
+const saveSeqRef = React.useRef<number>(0)
 
   React.useEffect(() => { playersRef.current = players }, [players])
   React.useEffect(() => { tappeRef.current   = tappe   }, [tappe])
   React.useEffect(() => { resultsRef.current = results }, [results])
 
   // load
+// load snapshot
 React.useEffect(() => {
   let alive = true
   setLoaded(false)
 
-  // ⛔ se il tour non è selezionato, non chiamare API (e svuota la UI)
   if (!tour) {
     setPlayers([]); setTappe([]); setResults({})
     setLoaded(true)
     return () => { alive = false }
   }
 
+  // Chiave unica di questo ciclo di load
+  const myKey = `load|${tour}|${gender}|${Date.now()}`
+  loadKeyRef.current = myKey
+
   apiGetSnapshot(tour, gender)
     .then(({ data }) => {
-      const s: SaveShape = data ?? { players: [], tappe: [], results: {} }
       if (!alive) return
+      if (loadKeyRef.current !== myKey) return // risposta vecchia? ignora.
+
+      const s: SaveShape = data ?? { players: [], tappe: [], results: {} }
       setPlayers(Array.isArray(s.players) ? s.players : [])
       setTappe(Array.isArray(s.tappe) ? s.tappe : [])
       setResults(s.results && typeof s.results === 'object' ? s.results : {})
@@ -284,28 +295,12 @@ React.useEffect(() => {
     })
     .catch(() => {
       if (!alive) return
+      if (loadKeyRef.current !== myKey) return // anche qui, ignora vecchie
       setPlayers([]); setTappe([]); setResults({}); setLoaded(true)
     })
+
   return () => { alive = false }
 }, [tour, gender])
-
-React.useEffect(() => {
-  if (!loaded) return
-  if (!tour) return  // ⛔ senza tour niente PUT
-
-  const isEmpty =
-    players.length === 0 &&
-    tappe.length === 0 &&
-    Object.keys(results || {}).length === 0
-  if (isEmpty) return
-
-  const t = setTimeout(() => {
-    apiUpsertSnapshot(tour, gender, { players, tappe, results })
-      .catch(e => console.error('[autosave] snapshot put failed', e))
-  }, 300)
-  return () => clearTimeout(t)
-}, [tour, gender, players, tappe, results, loaded])
-
 
 
   // saveNow per salvataggi immediati
@@ -316,18 +311,43 @@ const saveNow = React.useCallback(async (
 ) => {
   if (!tour) return
 
-  // questa save è la #N
+  // Numero progressivo di questo save
   const mySeq = ++saveSeqRef.current
-  editedRef.current = true
+  // Invalida eventuali GET “in volo”
+  const myKey = `save|${tour}|${gender}|${Date.now()}`
+  loadKeyRef.current = myKey
 
   try {
-    // 1) SALVA
-    await apiUpsertSnapshot(tour, gender, {
+    const res = await apiUpsertSnapshot(tour, gender, {
       players: nextPlayers,
       tappe: nextTappe,
-      results: nextResults,
+      results: nextResults
     })
-    console.log('Snapshot salvato:', { tour, gender })
+    console.log('Snapshot salvato:', res)
+  } catch (e: any) {
+    console.error('[saveNow] PUT failed', e)
+    alert('Errore salvataggio: ' + (e?.message || ''))
+    return
+  }
+
+  // Se nel frattempo è partito un altro save, non ricaricare
+  if (mySeq !== saveSeqRef.current) return
+
+  // Round-trip: ricarico dal server (così la UI rispecchia SEMPRE il DB)
+  try {
+    const { data } = await apiGetSnapshot(tour, gender)
+    if (mySeq !== saveSeqRef.current) return        // un altro save più nuovo? esci
+    if (loadKeyRef.current !== myKey) return        // una GET più nuova ha cambiato chiave? esci
+    if (!data) return
+
+    setPlayers(Array.isArray(data.players) ? data.players : [])
+    setTappe(Array.isArray(data.tappe) ? data.tappe : [])
+    setResults(data.results && typeof data.results === 'object' ? data.results : {})
+  } catch (e) {
+    console.warn('[saveNow] GET after save failed', e)
+  }
+}, [tour, gender])
+
 
     // 2) RILEGGI SUBITO DAL SERVER
     const { data } = await apiGetSnapshot(tour, gender)
