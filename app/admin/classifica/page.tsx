@@ -302,27 +302,6 @@ React.useEffect(() => {
   return () => { alive = false }
 }, [tour, gender])
 
-  // saveNow per salvataggi immediati (niente hook qui dentro!)
-const saveNow = React.useCallback((
-  nextPlayers: PlayerRow[],
-  nextTappe: Tappa[],
-  nextResults: Results
-) => {
-  if (!tour) return
-  apiUpsertSnapshot(tour, gender, {
-    players: nextPlayers,
-    tappe: nextTappe,
-    results: nextResults
-  }).catch((e:any) => {
-    console.error('[saveNow] PUT failed', e)
-    alert('Errore salvataggio: ' + (e?.message || ''))
-  })
-}, [tour, gender])
-
-// Sequenziatore dei salvataggi: solo l’ultimo “vince”
-const saveSeqRef = React.useRef(0)
-// Ignora risposte GET “in ritardo”
-const loadKeyRef = React.useRef<string>('')
 
 const saveNow = React.useCallback(async (
   nextPlayers: PlayerRow[],
