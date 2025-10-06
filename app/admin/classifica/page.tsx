@@ -241,11 +241,20 @@ React.useEffect(() => {
   return () => window.removeEventListener('focus', onFocus)
 }, [tour, gender])
 
-  // dati + flag loaded (per evitare autosave prima del load)
+   // --- SNAPSHOT STATE ---
   const [players, setPlayers] = React.useState<PlayerRow[]>([])
   const [tappe, setTappe]     = React.useState<Tappa[]>([])
   const [results, setResults] = React.useState<Results>({})
   const [loaded, setLoaded]   = React.useState(false)
+
+  // 🔒 Sempre lo stato PIÙ RECENTE (evita salvataggi con valori “vecchi”)
+  const playersRef = React.useRef<PlayerRow[]>(players)
+  const tappeRef   = React.useRef<Tappa[]>(tappe)
+  const resultsRef = React.useRef<Results>(results)
+
+  React.useEffect(() => { playersRef.current = players }, [players])
+  React.useEffect(() => { tappeRef.current   = tappe   }, [tappe])
+  React.useEffect(() => { resultsRef.current = results }, [results])
 
   // load
 React.useEffect(() => {
@@ -275,25 +284,23 @@ React.useEffect(() => {
   return () => { alive = false }
 }, [tour, gender])
 
- React.useEffect(() => {
+React.useEffect(() => {
   if (!loaded) return
+  if (!tour) return  // ⛔ senza tour niente PUT
 
   const isEmpty =
     players.length === 0 &&
     tappe.length === 0 &&
     Object.keys(results || {}).length === 0
-
   if (isEmpty) return
 
   const t = setTimeout(() => {
     apiUpsertSnapshot(tour, gender, { players, tappe, results })
-      .catch((e:any) => {
-        console.error('[autosave] snapshot put failed', e)
-      })
+      .catch(e => console.error('[autosave] snapshot put failed', e))
   }, 300)
-
   return () => clearTimeout(t)
 }, [tour, gender, players, tappe, results, loaded])
+
 
 
   // saveNow per salvataggi immediati
@@ -315,30 +322,36 @@ const saveNow = React.useCallback(async (nextPlayers: PlayerRow[], nextTappe: Ta
 
 
   // players
- const addPlayer = React.useCallback((p: PlayerLite) => {
-  if (!loaded) { alert('Attendi il caricamento dello snapshot…'); return }  // ⬅️ aggiungi
-  setPlayers(prev => {
-    if (prev.some(x => x.id === p.id)) return prev
-    const next = [...prev, { id: p.id, name: fullName(p) }]
-    setResults(r => (r[p.id] ? r : { ...r, [p.id]: {} }))
-    saveNow(next, tappe, { ...results, [p.id]: results[p.id] || {} })
-    return next
-  })
-}, [results, tappe, saveNow, loaded])
+  const addPlayer = React.useCallback((p: PlayerLite) => {
+    if (!loaded) return
+    setPlayers(prev => {
+      if (prev.some(x => x.id === p.id)) return prev
+      const nextPlayers = [...prev, { id: p.id, name: fullName(p) }]
+      // crea la riga results se manca
+      setResults(r => (r[p.id] ? r : { ...r, [p.id]: {} }))
 
-  const removePlayer = React.useCallback((playerId: string) => {
+      // 🔁 usa SEMPRE i ref aggiornati
+      const nextResults = { ...resultsRef.current, [p.id]: resultsRef.current[p.id] || {} }
+      saveNow(nextPlayers, tappeRef.current, nextResults)
+      return nextPlayers
+    })
+  }, [loaded, saveNow])
+
+
+   const removePlayer = React.useCallback((playerId: string) => {
     if (!loaded) return
     if (!confirm('Eliminare questo giocatore dalla classifica?')) return
     setPlayers(prev => {
       const nextPlayers = prev.filter(p => p.id !== playerId)
       setResults(prevR => {
         const c = { ...prevR }; delete c[playerId]
-        saveNow(nextPlayers, tappe, c)
+        saveNow(nextPlayers, tappeRef.current, c) // 🔁
         return c
       })
       return nextPlayers
     })
-  },[tappe, saveNow])
+  }, [loaded, saveNow])
+
 
 
   // tappe (form)
@@ -347,75 +360,70 @@ const saveNow = React.useCallback(async (nextPlayers: PlayerRow[], nextTappe: Ta
   const [newMult,  setNewMult ] = React.useState<number>(1)
   const [newTotal, setNewTotal] = React.useState<number>(8)
 
-  const addTappa = React.useCallback(()=>{
-     if (!loaded) { alert('Attendi il caricamento dello snapshot…'); return }
+  const addTappa = React.useCallback(() => {
+    if (!loaded) return
     if (!newTitle.trim()) { alert('Titolo tappa mancante'); return }
     if (newTotal < 1)     { alert('Totale squadre deve essere ≥ 1'); return }
+
     const t: Tappa = {
       id: uid(),
       title: newTitle.trim(),
       date: newDate.trim(),
-      multiplier: Number(newMult)||1,
-      totalTeams: Number(newTotal)||1
+      multiplier: Number(newMult) || 1,
+      totalTeams: Number(newTotal) || 1
     }
 
     setTappe(prev => {
-  const nextTappe = [...prev, t]
-  // salva subito lo snapshot, così anche se fai F5 non perdi la modifica
-  saveNow(players, nextTappe, results)
-  return nextTappe
-})
-
-    setNewTitle(''); setNewDate(''); setNewMult(1); setNewTotal(8)
-
-   const selKey = `semi:legendSel:${tour}:${gender}`
-if (typeof window !== 'undefined') {
-  if (!localStorage.getItem(selKey)) localStorage.setItem(selKey, t.id)
-}
-
-  },[newTitle,newDate,newMult,newTotal,players,results,tour,gender])
-
-const removeTappa = React.useCallback((tappaId: string) => {
-   if (!loaded) return
-  if (!confirm('Eliminare la tappa?')) return
-  setTappe(prev => {
-    const nextTappe = prev.filter(t => t.id !== tappaId)
-
-    // ripulisci i risultati di quella tappa
-    setResults(prevR => {
-      const c: Results = {}
-      for (const pid of Object.keys(prevR)) {
-        const row = { ...prevR[pid] }
-        delete row[tappaId]
-        c[pid] = row
-      }
-      saveNow(players, nextTappe, c)
-      return c
+      const nextTappe = [...prev, t]
+      saveNow(playersRef.current, nextTappe, resultsRef.current) // 🔁
+      return nextTappe
     })
 
-    // selezione persistita
+    setNewTitle(''); setNewDate(''); setNewMult(1); setNewTotal(8)
     const selKey = `semi:legendSel:${tour}:${gender}`
     if (typeof window !== 'undefined') {
-      if (localStorage.getItem(selKey) === tappaId) localStorage.removeItem(selKey)
+      if (!localStorage.getItem(selKey)) localStorage.setItem(selKey, t.id)
     }
+  }, [loaded, newTitle, newDate, newMult, newTotal, tour, gender, saveNow])
 
-    return nextTappe   // 👈 mancava
-  })
-}, [players, tour, gender, saveNow])
+
+  const removeTappa = React.useCallback((tappaId: string) => {
+    if (!loaded) return
+    if (!confirm('Eliminare la tappa?')) return
+    setTappe(prev => {
+      const nextTappe = prev.filter(t => t.id !== tappaId)
+      setResults(prevR => {
+        const c: Results = {}
+        for (const pid of Object.keys(prevR)) {
+          const row = { ...prevR[pid] }
+          delete row[tappaId]
+          c[pid] = row
+        }
+        saveNow(playersRef.current, nextTappe, c) // 🔁
+        return c
+      })
+      const selKey = `semi:legendSel:${tour}:${gender}`
+      if (typeof window !== 'undefined') {
+        if (localStorage.getItem(selKey) === tappaId) localStorage.removeItem(selKey)
+      }
+      return nextTappe
+    })
+  }, [loaded, tour, gender, saveNow])
+
 
 
 // pos
-function setPos(playerId: string, tappaId: string, pos: number | undefined) {
-  if (!loaded) return
-  setResults(prev => {
-    const row = { ...(prev[playerId] || {}) }
-    row[tappaId] = { pos }
-    const next = { ...prev, [playerId]: row }
-    // salva subito lo snapshot
-    saveNow(players, tappe, next)
-    return next
-  })
-}
+  function setPos(playerId: string, tappaId: string, pos: number | undefined) {
+    if (!loaded) return
+    setResults(prev => {
+      const row = { ...(prev[playerId] || {}) }
+      row[tappaId] = { pos }
+      const next = { ...prev, [playerId]: row }
+      saveNow(playersRef.current, tappeRef.current, next) // 🔁
+      return next
+    })
+  }
+
 
   // computed
   const computed = React.useMemo(()=>{
