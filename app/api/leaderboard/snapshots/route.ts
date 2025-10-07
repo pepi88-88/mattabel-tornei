@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
 export const dynamic = 'force-dynamic'
+
 const TABLE = 'leaderboard_snapshots'
+const VIEW  = 'leaderboard_snapshots_latest' // usa la VIEW solo in GET
 
 /** GET /api/leaderboard/snapshots?tour=...&gender=M|F */
 export async function GET(req: Request) {
@@ -20,20 +22,21 @@ export async function GET(req: Request) {
     }
 
     const sb = getSupabaseAdmin()
-    // prendi SEMPRE la versione più recente
-   const { data, error } = await sb
-  .from(TABLE)
-  .select('data, updated_at, created_at')
-  .eq('tour', tour)
-  .eq('gender', gender)
-  .maybeSingle()
+    // Leggi SEMPRE l'ultima riga dalla VIEW
+    const { data: row, error } = await sb
+      .from(VIEW)
+      .select('data, updated_at, created_at')
+      .eq('tour', tour)
+      .eq('gender', gender)
+      .maybeSingle()
+
     if (error) {
       console.error('[GET snapshots] supabase error', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json(
-      { data: data?.data ?? null },
+      { data: row?.data ?? null },
       { headers: { 'Cache-Control': 'no-store' } }
     )
   } catch (e: any) {
@@ -48,7 +51,7 @@ export async function PUT(req: Request) {
     const body = await req.json().catch(() => ({} as any))
     const tour = String(body?.tour || '').trim()
     const gender = String(body?.gender || '').trim()
-    const data = body?.data ?? {}
+    const snapshotData = body?.data ?? {} // <-- rinominato per evitare conflitti
 
     if (!tour || !gender) {
       return NextResponse.json(
@@ -57,30 +60,30 @@ export async function PUT(req: Request) {
       )
     }
 
-  const sb = getSupabaseAdmin()
-const { data, error } = await sb
-  .from('leaderboard_snapshots_latest') // <-- VIEW
-  .select('data, updated_at, created_at')
-  .eq('tour', tour)
-  .eq('gender', gender)
-  .maybeSingle()
+    const sb = getSupabaseAdmin()
+    const payload = {
+      tour,
+      gender,
+      data: snapshotData,
+      updated_at: new Date().toISOString(),
+    }
+
+    // In PUT si scrive nella TABELLA, non nella view
+    const { data: saved, error } = await sb
+      .from(TABLE)
+      .upsert(payload, { onConflict: 'tour,gender' })
+      .select('tour, gender, updated_at')
+      .single()
 
     if (error) {
       console.error('[PUT snapshots] supabase error', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-  return NextResponse.json(
-  {
-    data: data?.data ?? null,
-    meta: {
-      updated_at: data?.updated_at ?? null,
-      created_at: data?.created_at ?? null,
-    },
-  },
-  { headers: { 'Cache-Control': 'no-store' } }
-)
-
+    return NextResponse.json(
+      { ok: true, saved },
+      { headers: { 'Cache-Control': 'no-store' } }
+    )
   } catch (e: any) {
     console.error('[PUT snapshots] unexpected', e)
     return NextResponse.json({ error: String(e?.message || e) }, { status: 500 })
