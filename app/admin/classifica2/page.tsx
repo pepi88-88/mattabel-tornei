@@ -1,55 +1,27 @@
 'use client'
-export const dynamic = 'force-dynamic' // ← niente SSG/ISR: evita l'errore in build
 
 import * as React from 'react'
 
-type Gender = 'M'|'F'
+/* ================== Tipi ================== */
+type Gender = 'M' | 'F'
 type PlayerRow  = { id: string; name: string }
 type Tappa      = { id: string; title: string; date: string; multiplier: number; totalTeams: number }
-type Results    = Record<string, Record<string, { pos?: number }>>
+type Results    = Record<string /*playerId*/, Record<string /*tappaId*/, { pos?: number }>>
 type SaveShape  = { players: PlayerRow[]; tappe: Tappa[]; results: Results }
 
 type ScoreCfg     = { base: number; minLast: number; curvePercent: number }
 type ScoreCfgSet  = { S: ScoreCfg; M: ScoreCfg; L: ScoreCfg; XL: ScoreCfg }
 
+/* ================== Punteggi ================== */
 const DEFAULT_SET: ScoreCfgSet = {
   S:  { base:100, minLast:10, curvePercent:100 },
   M:  { base:100, minLast:10, curvePercent:100 },
   L:  { base:100, minLast:10, curvePercent:100 },
   XL: { base:100, minLast:10, curvePercent:100 },
 }
+const pickBucket = (total:number): keyof ScoreCfgSet =>
+  total<=8 ? 'S' : total<=16 ? 'M' : total<=32 ? 'L' : 'XL'
 
-/* ===== Helpers API (versione lb2) ===== */
-async function apiLb2ListTours(): Promise<string[]> {
-  try {
-    const r = await fetch('/api/lb2/tours', { cache: 'no-store' })
-    const j = await r.json().catch(()=> ({} as any))
-    return Array.isArray(j?.tours) ? j.tours : []
-  } catch { return [] }
-}
-async function apiLb2Get(tour:string, gender:Gender) {
-  const r = await fetch(`/api/lb2/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache:'no-store' })
-  if (!r.ok) throw new Error('GET failed')
-  return r.json() as Promise<{ data: SaveShape|null }>
-}
-async function apiLb2Put(tour:string, gender:Gender, data:SaveShape) {
-  const r = await fetch('/api/lb2/snapshots', {
-    method:'PUT',
-    headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify({ tour, gender, data })
-  })
-  const txt = await r.text()
-  if (!r.ok) throw new Error(`PUT ${r.status}: ${txt}`)
-  return JSON.parse(txt)
-}
-
-/* ===== punteggi ===== */
-function pickBucket(total:number): keyof ScoreCfgSet {
-  if (total <= 8) return 'S'
-  if (total <= 16) return 'M'
-  if (total <= 32) return 'L'
-  return 'XL'
-}
 function pointsOfBucket(pos: number | undefined, total: number, mult: number, set:ScoreCfgSet) {
   if (!pos || pos < 1 || total < 1) return 0
   const cfg = set[pickBucket(total)]
@@ -60,143 +32,206 @@ function pointsOfBucket(pos: number | undefined, total: number, mult: number, se
   return Math.round(raw * mult)
 }
 
-export default function AdminClassifica2() {
-  /* --- stato base --- */
+/* ================== API helpers (lb2) ================== */
+async function apiLb2ListTours(): Promise<string[]> {
+  const r = await fetch('/api/lb2/snapshots/tours', { cache: 'no-store' })
+  if (!r.ok) return []
+  const j = await r.json().catch(()=>({}))
+  return Array.isArray(j?.tours) ? j.tours : []
+}
+async function apiLb2Get(tour: string, gender: Gender) {
+  const url = `/api/lb2/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`
+  const r = await fetch(url, { cache: 'no-store' })
+  if (!r.ok) throw new Error('lb2 snapshot get failed')
+  return r.json() as Promise<{ data: SaveShape | null }>
+}
+async function apiLb2Put(tour: string, gender: Gender, data: SaveShape) {
+  const r = await fetch('/api/lb2/snapshots', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tour, gender, data }),
+  })
+  const txt = await r.text()
+  if (!r.ok) throw new Error(txt || 'lb2 snapshot put failed')
+  return txt
+}
+/* ---- settings (stessa tabella della Legenda) ---- */
+async function apiGetSettings(tour: string, gender: Gender) {
+  const r = await fetch(
+    `/api/leaderboard/settings?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`,
+    { cache: 'no-store' }
+  )
+  if (!r.ok) return { settings: DEFAULT_SET }
+  return r.json() as Promise<{ settings: ScoreCfgSet|null }>
+}
+
+/* ================== Pagina ================== */
+export default function AdminClassifica2Page() {
+  // tours
   const [availableTours, setAvailableTours] = React.useState<string[]>([])
-  const [tour, setTour] = React.useState<string>(() =>
-    typeof window !== 'undefined' ? (localStorage.getItem('lb2:lastTour') || '') : ''
-  )
-  const [gender, setGender] = React.useState<Gender>('M')
-
-  const [jsonText, setJsonText] = React.useState<string>(
-    JSON.stringify({ players:[], tappe:[], results:{} }, null, 2)
-  )
-  const [rows, setRows] = React.useState<{ name:string; total:number }[]>([])
-  const [loading, setLoading] = React.useState(false)
-  const [err, setErr] = React.useState('')
-
-  /* --- mount: carica tours una sola volta --- */
   React.useEffect(() => {
     let alive = true
     apiLb2ListTours()
       .then(ts => { if (alive) setAvailableTours(ts) })
-      .catch(()=> { if (alive) setAvailableTours([]) })
+      .catch(() => { if (alive) setAvailableTours([]) })
     return () => { alive = false }
   }, [])
 
-  /* --- persisti tour scelto (se non vuoto) --- */
+  // header (persistenza locale)
+  const [tour, setTour] = React.useState<string>(() =>
+    (typeof window !== 'undefined' && localStorage.getItem('lb2:lastTour')) || ''
+  )
+  const [gender, setGender] = React.useState<Gender>(() =>
+    ((typeof window !== 'undefined' && (localStorage.getItem('lb2:lastGender') as Gender|null)) || 'M')
+  )
+
+  // se non ho un tour, prendi il primo disponibile quando arriva la lista
   React.useEffect(() => {
-    if (typeof window !== 'undefined' && tour) {
-      localStorage.setItem('lb2:lastTour', tour)
-    }
+    if (tour) return
+    if (!availableTours.length) return
+    setTour(availableTours[0])
+  }, [availableTours, tour])
+
+  // persisti
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (tour) localStorage.setItem('lb2:lastTour', tour)
   }, [tour])
-
-  /* --- calcolo preview ogni volta che cambia il testo --- */
   React.useEffect(() => {
-    try {
-      const s = JSON.parse(jsonText) as SaveShape
-      const cfg = DEFAULT_SET
-      const out = (s.players || []).map(p => {
-        let total = 0
-        for (const t of (s.tappe || [])) {
-          const pos = s.results?.[p.id]?.[t.id]?.pos
-          total += pointsOfBucket(pos, t.totalTeams, t.multiplier, cfg)
-        }
-        return { name: p.name, total }
-      })
-      out.sort((a,b)=> b.total - a.total || a.name.localeCompare(b.name,'it'))
-      setRows(out)
-      setErr('')
-    } catch (e:any) {
-      setRows([])
-      setErr('JSON non valido')
-    }
-  }, [jsonText])
+    if (typeof window === 'undefined') return
+    localStorage.setItem('lb2:lastGender', gender)
+  }, [gender])
 
-  /* --- handlers --- */
-  async function loadNow() {
-    if (!tour) { setErr('Scegli/scrivi un tour'); return }
+  // JSON testo + anteprima
+  const [jsonText, setJsonText] = React.useState<string>('{"players":[],"tappe":[],"results":{}}')
+  const [scoreSet, setScoreSet] = React.useState<ScoreCfgSet>(DEFAULT_SET)
+  const [loading, setLoading] = React.useState(false)
+  const [err, setErr] = React.useState('')
+
+  // carica snapshot + settings
+  const loadNow = React.useCallback(async () => {
+    if (!tour) return
     setLoading(true); setErr('')
     try {
-      const { data } = await apiLb2Get(tour, gender)
-      const s: SaveShape = data ?? { players:[], tappe:[], results:{} }
+      const [{ data }, { settings }] = await Promise.all([
+        apiLb2Get(tour, gender),
+        apiGetSettings(tour, gender).catch(()=>({ settings: DEFAULT_SET })),
+      ])
+      const s: SaveShape = data ?? { players: [], tappe: [], results: {} }
       setJsonText(JSON.stringify(s, null, 2))
-      // se è un tour nuovo, aggiungilo alla lista locale
-      setAvailableTours(ts => (tour && !ts.includes(tour)) ? [...ts, tour] : ts)
+      setScoreSet(settings ?? DEFAULT_SET)
     } catch (e:any) {
       setErr(e?.message || 'Errore caricamento')
     } finally {
       setLoading(false)
     }
-  }
+  }, [tour, gender])
 
+  // autoload quando cambiano tour/genere (fix F5)
+  React.useEffect(() => {
+    if (!tour) return
+    loadNow()
+  }, [tour, gender, loadNow])
+
+  // salva snapshot
   async function saveNow() {
-    if (!tour) { setErr('Scegli/scrivi un tour'); return }
-    setLoading(true); setErr('')
+    setErr('')
+    let parsed: SaveShape
     try {
-      const payload = JSON.parse(jsonText) as SaveShape
-      await apiLb2Put(tour, gender, payload)
-      setAvailableTours(ts => (tour && !ts.includes(tour)) ? [...ts, tour] : ts)
+      parsed = JSON.parse(jsonText)
+    } catch {
+      setErr('JSON non valido')
+      return
+    }
+    try {
+      await apiLb2Put(tour, gender, parsed)
+      // round-trip: ricarico dal server per essere sicuri
+      await loadNow()
+      alert('Salvato.')
     } catch (e:any) {
       setErr(e?.message || 'Errore salvataggio')
-    } finally {
-      setLoading(false)
     }
   }
 
+  // calcolo anteprima
+  const previewRows = React.useMemo(() => {
+    try {
+      const s = JSON.parse(jsonText) as SaveShape
+      const rows = (s.players || []).map(p => {
+        let total = 0, bestPos = Infinity
+        for (const t of (s.tappe || [])) {
+          const pos = s.results?.[p.id]?.[t.id]?.pos
+          const pts = pointsOfBucket(pos, t.totalTeams, t.multiplier, scoreSet)
+          total += pts
+          if (pos && pos < bestPos) bestPos = pos
+        }
+        return { player: p, total, bestPos }
+      })
+      rows.sort((a,b) =>
+        (b.total - a.total)
+        || ((a.bestPos===b.bestPos?0:(a.bestPos - b.bestPos)))
+        || a.player.name.localeCompare(b.player.name,'it')
+      )
+      return rows
+    } catch { return [] }
+  }, [jsonText, scoreSet])
+
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-6">
       <h1 className="text-xl font-semibold">Classifica v2 (tabella: lb2_snapshots)</h1>
 
-      {/* controlli */}
-      <div className="flex gap-2 items-center">
-        <span>Tour</span>
-
-        {/* input di testo con datalist dei tour esistenti */}
-        <input
-          className="input input-sm w-[260px]"
-          placeholder="es. Beach Cup 2025"
+      {/* header */}
+      <div className="flex items-center gap-2">
+        <div className="text-sm text-neutral-400">Tour</div>
+        <select
+          className="input input-sm w-[220px]"
           value={tour}
-          onChange={e=>setTour(e.target.value)}
-          list="lb2-tours-list"
-        />
-        <datalist id="lb2-tours-list">
-          {availableTours.map(t => <option key={t} value={t} />)}
-        </datalist>
+          onChange={e => setTour(e.target.value)}
+        >
+          {!tour && <option value="">— seleziona —</option>}
+          {(availableTours.length ? availableTours : (tour ? [tour] : []))
+            .map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
 
-        <button className={`btn btn-sm ${gender==='M'?'btn-primary':''}`} onClick={()=>setGender('M')}>M</button>
-        <button className={`btn btn-sm ${gender==='F'?'btn-primary':''}`} onClick={()=>setGender('F')}>F</button>
+        <div className="ml-2 flex gap-2">
+          <button className={`btn btn-sm ${gender==='M'?'btn-primary':''}`} onClick={()=>setGender('M')}>M</button>
+          <button className={`btn btn-sm ${gender==='F'?'btn-primary':''}`} onClick={()=>setGender('F')}>F</button>
+        </div>
 
-        <button className="btn btn-sm ml-auto" onClick={loadNow} disabled={loading}>Carica</button>
-        <button className="btn btn-sm" onClick={saveNow} disabled={loading}>Salva</button>
+        <div className="ml-auto flex gap-2">
+          <button className="btn btn-sm" onClick={loadNow} disabled={!tour || loading}>Carica</button>
+          <button className="btn btn-sm" onClick={saveNow} disabled={!tour || loading}>Salva</button>
+        </div>
       </div>
 
-      {/* editor e preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div>
+      {/* corpo */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="card p-3">
           <div className="text-xs text-neutral-400 mb-1">JSON (players, tappe, results)</div>
           <textarea
-            className="textarea w-full h-[420px]"
+            className="textarea w-full min-h-[420px] font-mono text-xs"
             value={jsonText}
             onChange={e=>setJsonText(e.target.value)}
-            spellCheck={false}
           />
-          {err && <div className="text-sm text-red-400 mt-1">{err}</div>}
+          {loading && <div className="text-xs text-neutral-500 mt-1">Carico…</div>}
+          {err && <div className="text-xs text-red-400 mt-1">{err}</div>}
         </div>
-        <div>
-          <div className="text-xs text-neutral-400 mb-1">Preview calcolata</div>
+
+        <div className="card p-3">
+          <div className="text-xs text-neutral-400 mb-2">Preview calcolata</div>
           <table className="w-full text-sm">
             <thead className="text-neutral-400">
-              <tr><th className="text-left py-2">Nome</th><th className="text-right py-2">Totale</th></tr>
+              <tr><th className="text-left">Nome</th><th className="text-right">Totale</th></tr>
             </thead>
             <tbody>
-              {rows.map(r=>(
-                <tr key={r.name} className="border-t border-neutral-800">
-                  <td className="py-2">{r.name}</td>
-                  <td className="py-2 text-right">{r.total}</td>
+              {previewRows.map(r=>(
+                <tr key={r.player.id} className="border-t border-neutral-800">
+                  <td className="py-1 pr-2">{r.player.name}</td>
+                  <td className="py-1 pl-2 text-right tabular-nums">{r.total}</td>
                 </tr>
               ))}
-              {!rows.length && <tr><td className="py-2 text-neutral-500" colSpan={2}>—</td></tr>}
+              {!previewRows.length && (
+                <tr><td colSpan={2} className="py-2 text-neutral-500">Nessun dato.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
