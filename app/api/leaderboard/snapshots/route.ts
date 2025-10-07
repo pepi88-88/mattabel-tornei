@@ -57,13 +57,13 @@ export async function PUT(req: Request) {
       )
     }
 
-    const sb = getSupabaseAdmin()
-    // NON impostare updated_at qui — ci pensa il trigger
-    const { data: saved, error } = await sb
-      .from(TABLE)
-      .upsert({ tour, gender, data }, { onConflict: 'tour,gender' })
-      .select('tour, gender, updated_at')
-      .single()
+  const sb = getSupabaseAdmin()
+const { data, error } = await sb
+  .from('leaderboard_snapshots_latest') // <-- VIEW
+  .select('data, updated_at, created_at')
+  .eq('tour', tour)
+  .eq('gender', gender)
+  .maybeSingle()
 
     if (error) {
       console.error('[PUT snapshots] supabase error', error)
