@@ -18,10 +18,12 @@ async function apiGetSettings(tour: string, gender: 'M'|'F') {
 }
 
 async function apiGetSnapshot(tour: string, gender: Gender) {
-  const r = await fetch(`/api/leaderboard/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}`, { cache: 'no-store' })
+  const url = `/api/leaderboard/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`
+  const r = await fetch(url, { cache: 'no-store' })
   if (!r.ok) throw new Error('snapshot get failed')
   return r.json() as Promise<{ data: SaveShape | null }>
 }
+
 
 async function apiUpsertSnapshot(tour: string, gender: Gender, data: SaveShape) {
   const r = await fetch(`/api/leaderboard/snapshots`, {
@@ -302,7 +304,6 @@ React.useEffect(() => {
   return () => { alive = false }
 }, [tour, gender])
 
-
 const saveNow = React.useCallback(async (
   nextPlayers: PlayerRow[],
   nextTappe: Tappa[],
@@ -310,18 +311,18 @@ const saveNow = React.useCallback(async (
 ) => {
   if (!tour) return
 
-  // Numero progressivo di questo save
+  // Sequenziatore: solo l’ultimo save può “ri-montare” i dati
   const mySeq = ++saveSeqRef.current
-  // Chiave per invalidare eventuali GET/risposte vecchie
+  // Chiave per invalidare GET/risposte vecchie
   const myKey = `save|${tour}|${gender}|${Date.now()}`
   loadKeyRef.current = myKey
 
   try {
-    // 1) Salva
+    // 1) Salva sul server
     await apiUpsertSnapshot(tour, gender, {
       players: nextPlayers,
       tappe: nextTappe,
-      results: nextResults
+      results: nextResults,
     })
     console.log('[saveNow] PUT ok')
   } catch (e: any) {
@@ -330,41 +331,26 @@ const saveNow = React.useCallback(async (
     return
   }
 
-  // Se nel frattempo è partito un altro save, non ricaricare
+  // Se nel mentre è partito un altro save, questo non ricarica
   if (mySeq !== saveSeqRef.current) return
 
-  // 2) Round-trip: rileggi SUBITO dal server (server = fonte di verità)
+  // 2) Round-trip: rileggi SUBITO dal server (fonte di verità)
   try {
     const { data } = await apiGetSnapshot(tour, gender)
-    if (mySeq !== saveSeqRef.current) return        // un altro save più nuovo? esci
-    if (loadKeyRef.current !== myKey) return        // c’è stato un altro load/save? esci
+    if (mySeq !== saveSeqRef.current) return
+    if (loadKeyRef.current !== myKey) return
     if (!data || typeof data !== 'object') return
 
     setPlayers(Array.isArray(data.players) ? data.players : [])
     setTappe(Array.isArray(data.tappe) ? data.tappe : [])
     setResults(data.results && typeof data.results === 'object' ? data.results : {})
+
+    // opzionale: ora non siamo più “sporchi”
+    editedRef.current = false
   } catch (e) {
     console.warn('[saveNow] GET after save failed', e)
   }
 }, [tour, gender])
-
-  // players
-  const addPlayer = React.useCallback((p: PlayerLite) => {
-    if (!loaded) return
-      editedRef.current = true
-    setPlayers(prev => {
-      if (prev.some(x => x.id === p.id)) return prev
-      const nextPlayers = [...prev, { id: p.id, name: fullName(p) }]
-      // crea la riga results se manca
-      setResults(r => (r[p.id] ? r : { ...r, [p.id]: {} }))
-
-      // 🔁 usa SEMPRE i ref aggiornati
-      const nextResults = { ...resultsRef.current, [p.id]: resultsRef.current[p.id] || {} }
-      saveNow(nextPlayers, tappeRef.current, nextResults)
-      return nextPlayers
-    })
-  }, [loaded, saveNow])
-
 
    const removePlayer = React.useCallback((playerId: string) => {
     if (!loaded) return
