@@ -1,9 +1,11 @@
+// app/api/leaderboard/snapshots/route.ts
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
 export const dynamic = 'force-dynamic'
 const TABLE = 'leaderboard_snapshots'
 
+/** GET /api/leaderboard/snapshots?tour=...&gender=M|F */
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
@@ -18,12 +20,13 @@ export async function GET(req: Request) {
     }
 
     const sb = getSupabaseAdmin()
+    // prendi SEMPRE la versione più recente
     const { data, error } = await sb
       .from(TABLE)
       .select('data, updated_at, created_at')
       .eq('tour', tour)
       .eq('gender', gender)
-      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('updated_at', { ascending: false }) // trigger DB garantisce che sia aggiornato
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -43,6 +46,7 @@ export async function GET(req: Request) {
   }
 }
 
+/** PUT /api/leaderboard/snapshots  body: { tour, gender, data } */
 export async function PUT(req: Request) {
   try {
     const body = await req.json().catch(() => ({} as any))
@@ -58,11 +62,10 @@ export async function PUT(req: Request) {
     }
 
     const sb = getSupabaseAdmin()
-    const payload = { tour, gender, data, updated_at: new Date().toISOString() }
-
+    // NON impostare updated_at qui — ci pensa il trigger
     const { data: saved, error } = await sb
       .from(TABLE)
-      .upsert(payload, { onConflict: 'tour,gender' })
+      .upsert({ tour, gender, data }, { onConflict: 'tour,gender' })
       .select('tour, gender, updated_at')
       .single()
 
