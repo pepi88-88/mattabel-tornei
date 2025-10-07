@@ -21,16 +21,12 @@ export async function GET(req: Request) {
 
     const sb = getSupabaseAdmin()
     // prendi SEMPRE la versione più recente
-    const { data, error } = await sb
-      .from(TABLE)
-      .select('data, updated_at, created_at')
-      .eq('tour', tour)
-      .eq('gender', gender)
-      .order('updated_at', { ascending: false }) // trigger DB garantisce che sia aggiornato
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
+   const { data, error } = await sb
+  .from(TABLE)
+  .select('data, updated_at, created_at')
+  .eq('tour', tour)
+  .eq('gender', gender)
+  .maybeSingle()
     if (error) {
       console.error('[GET snapshots] supabase error', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
