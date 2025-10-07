@@ -22,15 +22,23 @@ const DEFAULT_SET: ScoreCfgSet = {
 
 /* ===== API helpers ===== */
 async function apiGetSnapshot(tour: string, gender: Gender) {
-  const r = await fetch(`/api/leaderboard/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}`, { cache: 'no-store' })
+  const r = await fetch(
+    `/api/leaderboard/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`,
+    { cache: 'no-store' }
+  )
   if (!r.ok) throw new Error('snapshot get failed')
   return r.json() as Promise<{ data: SaveShape|null }>
 }
+
 async function apiGetSettings(tour: string, gender: Gender) {
-  const r = await fetch(`/api/leaderboard/settings?tour=${encodeURIComponent(tour)}&gender=${gender}`, { cache: 'no-store' })
+  const r = await fetch(
+    `/api/leaderboard/settings?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`,
+    { cache: 'no-store' }
+  )
   if (!r.ok) throw new Error('settings get failed')
   return r.json() as Promise<{ settings: ScoreCfgSet|null }>
 }
+
 async function apiListTours(): Promise<string[]> {
   const r = await fetch(`/api/leaderboard/snapshots/tours`, { cache: 'no-store' })
   if (!r.ok) return []
