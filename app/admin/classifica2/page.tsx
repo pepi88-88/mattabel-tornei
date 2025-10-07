@@ -111,6 +111,8 @@ export default function Page(){
       setLoading(false)
     }
   }
+// dopo await apiPutSnapshot2(...):
+setAvailableTours(ts => ts.includes(tour) ? ts : [...ts, tour])
 
   // preview calcolata
   let preview: Array<{name:string,total:number,bestPos:number}> = []
@@ -132,19 +134,29 @@ export default function Page(){
     <div className="p-6 space-y-4">
       <h1 className="text-xl font-semibold">Classifica v2 (tabella: lb2_snapshots)</h1>
 
-      <div className="flex gap-2 items-center">
-        <span>Tour</span>
-        <select className="input input-sm w-[240px]" value={tour} onChange={e=>setTour(e.target.value)}>
-          <option value="">— seleziona —</option>
-          {availableTours.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
+    <div className="flex gap-2 items-center">
+  <span>Tour</span>
 
-        <button className={`btn btn-sm ${gender==='M'?'btn-primary':''}`} onClick={()=>setGender('M')}>M</button>
-        <button className={`btn btn-sm ${gender==='F'?'btn-primary':''}`} onClick={()=>setGender('F')}>F</button>
+  {/* Input di testo con suggerimenti (datalist) */}
+  <input
+    className="input input-sm w-[240px]"
+    placeholder="es. Beach Cup 2025"
+    value={tour}
+    onChange={e=>setTour(e.target.value)}
+    list="lb2-tours-list"
+  />
+  <datalist id="lb2-tours-list">
+    {availableTours.map(t => <option key={t} value={t} />)}
+  </datalist>
 
-        <button className="btn btn-sm ml-auto" onClick={loadNow} disabled={loading || !tour}>Carica</button>
-        <button className="btn btn-sm" onClick={saveNow} disabled={loading || !tour}>Salva</button>
-      </div>
+  <button className={`btn btn-sm ${gender==='M'?'btn-primary':''}`} onClick={()=>setGender('M')}>M</button>
+  <button className={`btn btn-sm ${gender==='F'?'btn-primary':''}`} onClick={()=>setGender('F')}>F</button>
+
+  {/* I bottoni restano attivi, ma dentro alle funzioni c'è già il controllo su tour vuoto */}
+  <button className="btn btn-sm ml-auto" onClick={loadNow} disabled={loading}>Carica</button>
+  <button className="btn btn-sm" onClick={saveNow} disabled={loading}>Salva</button>
+</div>
+
 
       {msg && <div className="text-sm text-neutral-400">{msg}</div>}
 
@@ -183,3 +195,4 @@ export default function Page(){
     </div>
   )
 }
+
