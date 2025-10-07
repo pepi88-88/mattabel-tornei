@@ -74,10 +74,17 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(
-      { ok: true, saved },
-      { headers: { 'Cache-Control': 'no-store' } }
-    )
+  return NextResponse.json(
+  {
+    data: data?.data ?? null,
+    meta: {
+      updated_at: data?.updated_at ?? null,
+      created_at: data?.created_at ?? null,
+    },
+  },
+  { headers: { 'Cache-Control': 'no-store' } }
+)
+
   } catch (e: any) {
     console.error('[PUT snapshots] unexpected', e)
     return NextResponse.json({ error: String(e?.message || e) }, { status: 500 })
