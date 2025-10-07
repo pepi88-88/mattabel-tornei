@@ -23,7 +23,12 @@ async function apiGetSnapshot(tour: string, gender: Gender) {
   if (!r.ok) throw new Error('snapshot get failed')
   return r.json() as Promise<{ data: SaveShape | null }>
 }
-
+async function apiUpsertSnapshot(tour: string, gender: Gender, data: SaveShape) {
+  const r = await fetch(`/api/leaderboard/snapshots`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tour, gender, data }),
+  })
 
   const txt = await r.text()  // leggiamo SEMPRE il corpo per capire eventuali errori
   if (!r.ok) {
@@ -39,8 +44,10 @@ async function apiGetSnapshot(tour: string, gender: Gender) {
   } else {
     console.log('Snapshot salvato:', js?.saved)
   }
+
   return js as { ok: true, saved?: { tour:string; gender:string; updated_at:string } }
 }
+
 async function apiListTours(): Promise<string[]> {
   // 1) elenco ufficiale (tabella tours)
   try {
