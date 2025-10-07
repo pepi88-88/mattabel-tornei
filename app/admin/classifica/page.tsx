@@ -351,6 +351,31 @@ const saveNow = React.useCallback(async (
     console.warn('[saveNow] GET after save failed', e)
   }
 }, [tour, gender])
+const addPlayer = React.useCallback((p: PlayerLite) => {
+  if (!loaded) return
+  editedRef.current = true
+
+  setPlayers(prev => {
+    // evita doppioni
+    if (prev.some(x => x.id === p.id)) return prev
+
+    const nextPlayers = [...prev, { id: p.id, name: fullName(p) }]
+
+    // crea la riga results se manca
+    setResults(r => (r[p.id] ? r : { ...r, [p.id]: {} }))
+
+    // usa i ref per avere lo stato più aggiornato nel salvataggio
+    const nextResults = {
+      ...resultsRef.current,
+      [p.id]: resultsRef.current[p.id] || {}
+    }
+
+    // salva subito su Supabase
+    saveNow(nextPlayers, tappeRef.current, nextResults)
+
+    return nextPlayers
+  })
+}, [loaded, saveNow])
 
    const removePlayer = React.useCallback((playerId: string) => {
     if (!loaded) return
