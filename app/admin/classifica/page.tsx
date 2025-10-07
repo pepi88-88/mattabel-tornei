@@ -25,13 +25,6 @@ async function apiGetSnapshot(tour: string, gender: Gender) {
 }
 
 
-async function apiUpsertSnapshot(tour: string, gender: Gender, data: SaveShape) {
-  const r = await fetch(`/api/leaderboard/snapshots`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tour, gender, data }),
-  })
-
   const txt = await r.text()  // leggiamo SEMPRE il corpo per capire eventuali errori
   if (!r.ok) {
     console.error('PUT /api/leaderboard/snapshots failed:', r.status, txt)
@@ -261,6 +254,8 @@ const loadKeyRef = React.useRef<string>('')
 
 // sequenziatore dei salvataggi: solo l’ultimo “vince”
 const saveSeqRef = React.useRef<number>(0)
+// blocco anti-rimontaggio durante il salvataggio
+const isSavingRef = React.useRef(false)
 
 // tieni i ref allineati allo stato
 React.useEffect(() => { playersRef.current = players }, [players])
@@ -286,6 +281,8 @@ React.useEffect(() => {
     .then(({ data }) => {
       if (!alive) return
       if (loadKeyRef.current !== myKey) return // risposta vecchia? ignora.
+// dentro .then(({ data }) => { ... } del load effect:
+if (isSavingRef.current) return // ⛔ se sto salvando, non rimontare roba vecchia
 
       const s: SaveShape = data ?? { players: [], tappe: [], results: {} }
       setPlayers(Array.isArray(s.players) ? s.players : [])
@@ -311,30 +308,21 @@ const saveNow = React.useCallback(async (
 ) => {
   if (!tour) return
 
-  // Sequenziatore: solo l’ultimo save può “ri-montare” i dati
+  isSavingRef.current = true               // <- inizio lock
+
+  // Sequenziatore: solo l’ultimo save può rimontare
   const mySeq = ++saveSeqRef.current
   // Chiave per invalidare GET/risposte vecchie
   const myKey = `save|${tour}|${gender}|${Date.now()}`
   loadKeyRef.current = myKey
 
   try {
-    // 1) Salva sul server
-    await apiUpsertSnapshot(tour, gender, {
-      players: nextPlayers,
-      tappe: nextTappe,
-      results: nextResults,
-    })
-    console.log('[saveNow] PUT ok')
-  } catch (e: any) {
-    console.error('[saveNow] PUT failed', e)
-    alert('Errore salvataggio: ' + (e?.message || ''))
-    return
-  }
+ 
 
-  // Se nel mentre è partito un altro save, questo non ricarica
-  if (mySeq !== saveSeqRef.current) return
+  // Se nel frattempo è partito un altro save, non ricaricare
+  if (mySeq !== saveSeqRef.current) { isSavingRef.current = false; return }
 
-  // 2) Round-trip: rileggi SUBITO dal server (fonte di verità)
+  // 2) Round-trip: RILEGGI SUBITO dal server (fonte di verità, con anti-cache)
   try {
     const { data } = await apiGetSnapshot(tour, gender)
     if (mySeq !== saveSeqRef.current) return
@@ -344,38 +332,29 @@ const saveNow = React.useCallback(async (
     setPlayers(Array.isArray(data.players) ? data.players : [])
     setTappe(Array.isArray(data.tappe) ? data.tappe : [])
     setResults(data.results && typeof data.results === 'object' ? data.results : {})
-
-    // opzionale: ora non siamo più “sporchi”
-    editedRef.current = false
   } catch (e) {
     console.warn('[saveNow] GET after save failed', e)
+  } finally {
+    isSavingRef.current = false            // <- fine lock
   }
 }, [tour, gender])
+
 const addPlayer = React.useCallback((p: PlayerLite) => {
   if (!loaded) return
   editedRef.current = true
-
   setPlayers(prev => {
-    // evita doppioni
     if (prev.some(x => x.id === p.id)) return prev
-
     const nextPlayers = [...prev, { id: p.id, name: fullName(p) }]
-
-    // crea la riga results se manca
+    // crea riga results se manca
     setResults(r => (r[p.id] ? r : { ...r, [p.id]: {} }))
 
-    // usa i ref per avere lo stato più aggiornato nel salvataggio
-    const nextResults = {
-      ...resultsRef.current,
-      [p.id]: resultsRef.current[p.id] || {}
-    }
-
-    // salva subito su Supabase
+    // usa i ref per avere lo stato aggiornato
+    const nextResults = { ...resultsRef.current, [p.id]: resultsRef.current[p.id] || {} }
     saveNow(nextPlayers, tappeRef.current, nextResults)
-
     return nextPlayers
   })
 }, [loaded, saveNow])
+
 
    const removePlayer = React.useCallback((playerId: string) => {
     if (!loaded) return
