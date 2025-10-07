@@ -22,22 +22,15 @@ const DEFAULT_SET: ScoreCfgSet = {
 
 /* ===== API helpers ===== */
 async function apiGetSnapshot(tour: string, gender: Gender) {
-  const r = await fetch(
-    `/api/leaderboard/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`,
-    { cache: 'no-store' }
-  )
+  const r = await fetch(`/api/leaderboard/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
   if (!r.ok) throw new Error('snapshot get failed')
-  return r.json() as Promise<{ data: SaveShape|null }>
+  return r.json() as Promise<{ data: SaveShape|null, meta?: {updated_at?: string, created_at?: string} }>
 }
 async function apiGetSettings(tour: string, gender: Gender) {
-  const r = await fetch(
-    `/api/leaderboard/settings?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`,
-    { cache: 'no-store' }
-  )
+  const r = await fetch(`/api/leaderboard/settings?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
   if (!r.ok) throw new Error('settings get failed')
   return r.json() as Promise<{ settings: ScoreCfgSet|null }>
 }
-
 
 async function apiListTours(): Promise<string[]> {
   const r = await fetch(`/api/leaderboard/snapshots/tours`, { cache: 'no-store' })
@@ -77,12 +70,25 @@ export default function ClassificaInner() {
   },[])
 
   // stato iniziale tour/genere
-  const initialTour =
-    params.get('tour')
-    || (typeof window !== 'undefined' ? localStorage.getItem('semi:lastTour') : '')
-    || (availableTours[0] || 'Tour Demo')
+  const [tour, setTour] = React.useState<string>('')
 
-  const [tour, setTour] = React.useState<string>(initialTour)
+React.useEffect(() => {
+  // prendiamo in ordine: param -> localStorage -> primo disponibile
+  const fromParams = params.get('tour') || ''
+  const fromLS = (typeof window !== 'undefined' ? (localStorage.getItem('semi:lastTour') || '') : '')
+  let chosen = ''
+
+  if (fromParams && availableTours.includes(fromParams)) {
+    chosen = fromParams
+  } else if (fromLS && availableTours.includes(fromLS)) {
+    chosen = fromLS
+  } else if (availableTours.length) {
+    chosen = availableTours[0]
+  }
+
+  if (chosen && tour !== chosen) setTour(chosen)
+}, [params, availableTours, tour])
+
   const [gender, setGender] = React.useState<Gender>(() =>
     (typeof window !== 'undefined' ? (localStorage.getItem('semi:lastGender') as Gender|null) : null) || 'M'
   )
