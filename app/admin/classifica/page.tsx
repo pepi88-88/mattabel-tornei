@@ -284,26 +284,25 @@ React.useEffect(() => {
   const myKey = `load|${tour}|${gender}|${Date.now()}`
   loadKeyRef.current = myKey
 
-  apiGetSnapshot(tour, gender)
-    .then(({ data }) => {
-      if (!alive) return
-      if (loadKeyRef.current !== myKey) return // risposta vecchia? ignora.
-// dentro .then(({ data }) => { ... } del load effect:
-if (isSavingRef.current) return // ⛔ se sto salvando, non rimontare roba vecchia
+apiGetSnapshot(tour, gender)
+  .then(({ data }) => {
+    if (!alive) return
+    if (loadKeyRef.current !== myKey) return       // risposta vecchia? ignora
+    if (isSavingRef.current) return                // ⛔ se sto salvando, non rimontare
 
-      const s: SaveShape = data ?? { players: [], tappe: [], results: {} }
-      setPlayers(Array.isArray(s.players) ? s.players : [])
-      setTappe(Array.isArray(s.tappe) ? s.tappe : [])
-      setResults(s.results && typeof s.results === 'object' ? s.results : {})
-      setLoaded(true)
-      editedRef.current = false
-    })
-    .catch(() => {
-      if (!alive) return
-      if (loadKeyRef.current !== myKey) return
-      setPlayers([]); setTappe([]); setResults({}); setLoaded(true)
-      editedRef.current = false
-    })
+    const s: SaveShape = data ?? { players: [], tappe: [], results: {} }
+    setPlayers(Array.isArray(s.players) ? s.players : [])
+    setTappe(Array.isArray(s.tappe) ? s.tappe : [])
+    setResults(s.results && typeof s.results === 'object' ? s.results : {})
+    setLoaded(true)
+    editedRef.current = false
+  })
+  .catch(() => {
+    if (!alive) return
+    if (loadKeyRef.current !== myKey) return
+    setPlayers([]); setTappe([]); setResults({}); setLoaded(true)
+    editedRef.current = false
+  })
 
   return () => { alive = false }
 }, [tour, gender])
@@ -315,7 +314,7 @@ const saveNow = React.useCallback(async (
 ) => {
   if (!tour) return
 
-  isSavingRef.current = true               // <- inizio lock
+  isSavingRef.current = true                     // <- inizio lock
 
   // Sequenziatore: solo l’ultimo save può rimontare
   const mySeq = ++saveSeqRef.current
@@ -324,12 +323,27 @@ const saveNow = React.useCallback(async (
   loadKeyRef.current = myKey
 
   try {
- 
+    // 1) SALVA sul server
+    await apiUpsertSnapshot(tour, gender, {
+      players: nextPlayers,
+      tappe: nextTappe,
+      results: nextResults,
+    })
+    console.log('[saveNow] PUT ok')
+  } catch (e: any) {
+    console.error('[saveNow] PUT failed', e)
+    alert('Errore salvataggio: ' + (e?.message || ''))
+    isSavingRef.current = false                  // <- fine lock
+    return
+  }
 
   // Se nel frattempo è partito un altro save, non ricaricare
-  if (mySeq !== saveSeqRef.current) { isSavingRef.current = false; return }
+  if (mySeq !== saveSeqRef.current) {
+    isSavingRef.current = false                  // <- fine lock
+    return
+  }
 
-  // 2) Round-trip: RILEGGI SUBITO dal server (fonte di verità, con anti-cache)
+  // 2) ROUND-TRIP: rileggi SUBITO dal server (fonte di verità)
   try {
     const { data } = await apiGetSnapshot(tour, gender)
     if (mySeq !== saveSeqRef.current) return
@@ -339,10 +353,11 @@ const saveNow = React.useCallback(async (
     setPlayers(Array.isArray(data.players) ? data.players : [])
     setTappe(Array.isArray(data.tappe) ? data.tappe : [])
     setResults(data.results && typeof data.results === 'object' ? data.results : {})
+    editedRef.current = false
   } catch (e) {
     console.warn('[saveNow] GET after save failed', e)
   } finally {
-    isSavingRef.current = false            // <- fine lock
+    isSavingRef.current = false                  // <- fine lock
   }
 }, [tour, gender])
 
