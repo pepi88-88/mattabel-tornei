@@ -51,14 +51,16 @@ export function middleware(req: NextRequest) {
 
   const isReadOnlyMethod = req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS'
   const isWhitelistedGet = isReadOnlyMethod && PUBLIC_API_PREFIXES.some(p => pathname.startsWith(p))
+const isKeywordPublic =
+  isReadOnlyMethod && PUBLIC_API_KEYWORDS.some(k => pathname.includes(k))
 
   // 🔓 Consideriamo pubbliche anche: /api/auth, /api/public/*, oppure path che contengono /public/
   const isApiPublic =
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/public') ||
     pathname.includes('/public/') ||
-    isWhitelistedGet
-
+   isWhitelistedGet ||
+  isKeywordPublic  
 
   // Se non è /admin, /coach o /api protette → passa
   if (!isAdminPage && !isCoachPage && !(isApi && !isApiPublic)) {
@@ -74,6 +76,8 @@ export function middleware(req: NextRequest) {
     if (isApi && !isApiPublic) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    console.warn('[MW BLOCKED]', req.method, pathname)
+
     const u = req.nextUrl.clone()
     u.pathname = '/login-staff'
     return NextResponse.redirect(u)
