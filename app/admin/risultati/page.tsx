@@ -689,30 +689,45 @@ function makeExternalResolver(
   tId?: string,
 ) {
   const byTitle = new Map(brackets.map(b => [b.title.toUpperCase(), b]))
+
+  // normalizza lettera turno -> 'R'
+  const normLetter = (L?: string) => {
+    const u = String(L || '').toUpperCase()
+    // accettiamo R, M (match), G (gara), S (semi/fase), F (finale) -> tutte come "R"
+    return ['R','M','G','S','F'].includes(u) ? 'R' : ''
+  }
+
   return (token: string): string | undefined => {
     if (!token) return undefined
     const t = token.trim()
 
-    const m = t.match(/^(Perdente|Loser|Vincente|Winner)\s+(.+?)\s+([A-Za-z])(\d+)$/i)
+    // supporta:
+    //  - Perdente|Loser|Vincente|Winner <Titolo> <Lettera?> <Num>
+    //    es: "Vincente Tabellone Oro G1", "Perdente Tabellone Argento 3"
+    const m = t.match(/^(Perdente|Loser|Vincente|Winner)\s+(.+?)\s+([A-Za-z])?(\d+)$/i)
     if (!m) return undefined
 
-    const kind = m[1].toLowerCase()
-    const titleU = m[2].toUpperCase()
-    let letter = m[3].toUpperCase()
-    const num = Number(m[4])
+    const kind = m[1].toLowerCase()                       // vincente/perdente
+    const titleU = m[2].toUpperCase()                     // titolo tabellone
+    const letterRaw = m[3] || ''                          // R / M / G / S / F / '' 
+    const num = Number(m[4])                              // indice match
 
     const br = byTitle.get(titleU)
     if (!br || !Number.isFinite(num) || num < 1) return undefined
-    if (letter === 'M') letter = 'R'             // Mx -> Rx
-    if (letter !== 'R') return undefined         // risolvo solo R1..R?
+
+    // normalizza lettera -> 'R'; se non c'è lettera, trattiamo comunque come 'R'
+    const L = normLetter(letterRaw)
+    if (L !== 'R' && letterRaw) return undefined           // se lettera c'è ma non è tra quelle ammesse
 
     const pair = br.r1?.[num - 1]
     if (!pair) return undefined
 
-    const side = (winnersById[br.id] || {})[`R${num}`] // 'A' | 'B' | undefined
+    const side = (winnersById[br.id] || {})[`R${num}`]     // 'A' | 'B' | undefined
     if (!side) return undefined
 
-    if (kind === 'vincente' || kind === 'winner') return side === 'A' ? pair.A : pair.B
+    if (kind === 'vincente' || kind === 'winner') {
+      return side === 'A' ? pair.A : pair.B
+    }
     if (kind === 'perdente' || kind === 'loser') {
       const loserSide = side === 'A' ? 'B' : 'A'
       return loserSide === 'A' ? pair.A : pair.B
