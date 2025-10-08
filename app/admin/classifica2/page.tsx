@@ -87,10 +87,15 @@ async function apiGetSettings(tour: string, gender: Gender) {
   return r.json() as Promise<{ settings: ScoreCfgSet|null }>
 }
 async function apiPlayersList(gender: Gender) {
-  const r = await fetch(`/api/players/list?gender=${gender}`, { cache: 'no-store' })
+  const r = await fetch(`/api/players?gender=${gender}&limit=500&page=1`, { cache: 'no-store' })
+  if (r.status === 401) throw new Error('Non autorizzato: fai login admin.')
   if (!r.ok) throw new Error(await r.text())
-  const j = await r.json().catch(()=>({ players: [] }))
-  return (j?.players ?? []) as { id:string; name:string; gender?:string }[]
+  const j = await r.json().catch(()=>({ items: [] }))
+  // mappa: { id, first_name, last_name } -> { id, name }
+  return (j?.items ?? []).map((p: any) => ({
+    id: p.id,
+    name: [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || p.id,
+  })) as { id:string; name:string }[]
 }
 
 /* ================== Pagina ================== */
@@ -153,11 +158,13 @@ async function handleDeleteTour() {
 
 
   // se non ho un tour, prendi il primo disponibile quando arriva la lista
-  React.useEffect(() => {
-    if (tour) return
-    if (!availableTours.length) return
-    setTour(availableTours[0])
-  }, [availableTours, tour])
+ React.useEffect(() => {
+  if (!tour) return
+  if (!availableTours.some(t => t.slug === tour)) {
+    setTour(availableTours[0]?.slug || '')
+  }
+}, [availableTours, tour])
+
 
   // persisti
   React.useEffect(() => {
@@ -278,7 +285,7 @@ return (
     {/* tabs top */}
     <div className="flex items-center gap-2 mb-3">
       <span className="btn btn-primary btn-sm border-2 border-primary ring-2 ring-primary/30">Classifica v2</span>
-      <a className="btn btn-outline btn-sm" href="/admin/classifica2/legenda2">Legenda v2</a>
+      <a className="btn btn-outline btn-sm" href="/admin/classifica2/leggenda2">Legenda v2</a>
     </div>
 
     <h1 className="text-xl font-semibold">Classifica v2 (tabella: lb2_snapshots)</h1>
@@ -347,60 +354,64 @@ return (
     {uiMode === 'moduli' && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Players */}
-        <div className="card p-3">
-          <div className="font-medium mb-2">Giocatori</div>
-          <div className="space-y-2">
-            {playersForm.map((p, idx)=>(
-              <div key={p.id} className="grid grid-cols-5 gap-2 items-center">
-                <input
-                  className="input col-span-2"
-                  placeholder="ID"
-                  value={p.id}
-                  onChange={e=>{
-                    const v = e.target.value
-                    setPlayersForm(prev => prev.map((x,i)=> i===idx? {...x, id:v}: x))
-                  }}
-                />
-                <input
-                  className="input col-span-3"
-                  placeholder="Nome"
-                  value={p.name}
-                  onChange={e=>{
-                    const v = e.target.value
-                    setPlayersForm(prev => prev.map((x,i)=> i===idx? {...x, name:v}: x))
-                  }}
-                />
-                <button className="btn btn-ghost btn-xs col-span-5"
-                  onClick={()=> setPlayersForm(prev => prev.filter((_,i)=>i!==idx))}
-                >Elimina</button>
-              </div>
-            ))}
-            <button
-              className="btn btn-sm"
-              onClick={()=>{
-                const nid = crypto.randomUUID?.() || String(Date.now())
-                setPlayersForm(prev => [...prev, { id:nid, name:'' }])
-              }}
-            >+ Aggiungi giocatore</button>
-          </div>
-        </div>
-<button
-  className="btn btn-sm"
-  onClick={async ()=>{
-    try {
-      const list = await apiPlayersList(gender)
-      if (!Array.isArray(list) || !list.length) { alert('Nessun giocatore trovato.'); return }
-      // merge by id (senza duplicati)
-      const map = new Map<string, PlayerRow>()
-      for (const p of playersForm) map.set(p.id, p)
-      for (const p of list) map.set(p.id, { id: p.id, name: p.name || p.id })
-      setPlayersForm(Array.from(map.values()))
-      alert(`Importati ${list.length} giocatori (merge per id).`)
-    } catch (e:any) {
-      alert('Errore import giocatori: ' + (e?.message || ''))
-    }
-  }}
->Importa da Supabase</button>
+       <div className="card p-3">
+  <div className="font-medium mb-2">Giocatori</div>
+  <div className="space-y-2">
+    {playersForm.map((p, idx)=>(
+      <div key={p.id} className="grid grid-cols-5 gap-2 items-center">
+        <input
+          className="input col-span-2"
+          placeholder="ID"
+          value={p.id}
+          onChange={e=>{
+            const v = e.target.value
+            setPlayersForm(prev => prev.map((x,i)=> i===idx? {...x, id:v}: x))
+          }}
+        />
+        <input
+          className="input col-span-3"
+          placeholder="Nome"
+          value={p.name}
+          onChange={e=>{
+            const v = e.target.value
+            setPlayersForm(prev => prev.map((x,i)=> i===idx? {...x, name:v}: x))
+          }}
+        />
+        <button className="btn btn-ghost btn-xs col-span-5"
+          onClick={()=> setPlayersForm(prev => prev.filter((_,i)=>i!==idx))}
+        >Elimina</button>
+      </div>
+    ))}
+
+    <div className="flex gap-2">
+      <button
+        className="btn btn-sm"
+        onClick={()=>{
+          const nid = crypto.randomUUID?.() || String(Date.now())
+          setPlayersForm(prev => [...prev, { id:nid, name:'' }])
+        }}
+      >+ Aggiungi giocatore</button>
+
+      <button
+        className="btn btn-sm"
+        onClick={async ()=>{
+          try {
+            const list = await apiPlayersList(gender)
+            if (!Array.isArray(list) || !list.length) { alert('Nessun giocatore trovato.'); return }
+            // merge per id (no duplicati)
+            const map = new Map<string, PlayerRow>()
+            for (const p of playersForm) map.set(p.id, p)
+            for (const p of list) map.set(p.id, { id: p.id, name: p.name || p.id })
+            setPlayersForm(Array.from(map.values()))
+            alert(`Importati ${list.length} giocatori (merge per id).`)
+          } catch (e:any) {
+            alert('Errore import giocatori: ' + (e?.message || ''))
+          }
+        }}
+      >Importa da Supabase</button>
+    </div>
+  </div>
+</div>
 
         {/* Tappe */}
         <div className="card p-3">
@@ -555,5 +566,6 @@ return (
   </div>
 )
 }
+
 
 
