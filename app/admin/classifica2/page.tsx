@@ -236,7 +236,7 @@ function syncModulesToJson(){
       )
       return rows
     } catch { return [] }
-  }, [jsonText, scoreSet])
+  }, [jsonText, scoreSet]);
 
 return (
   <div className="p-6 space-y-6">
@@ -502,3 +502,4 @@ return (
   </div>
 )
 }
+
