@@ -359,8 +359,9 @@ useEffect(() => {
     })
   }
 
-  return (
-    <div className="card p-0 overflow-hidden mb-4">
+ return (
+  <div className="card p-0 overflow-hidden mb-4 relative z-0">
+
       {/* header */}
       <div
         className="h-9 px-3 flex items-center justify-between text-white"
@@ -1173,7 +1174,7 @@ const activeForDisplay = useMemo(() => {
 // UI
 // ------------------------------------------------------------
 return (
-  <div className="p-6 space-y-8">
+  <div className="relative z-0 p-6 space-y-8">
     {/* Header filtri */}
     <div className="flex flex-wrap items-end gap-3">
       <div className="flex flex-col">
