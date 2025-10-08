@@ -33,11 +33,19 @@ function pointsOfBucket(pos: number | undefined, total: number, mult: number, se
 }
 
 /* ================== API helpers (lb2) ================== */
-async function apiLb2ListTours(): Promise<string[]> {
-  const r = await fetch('/api/lb2/snapshots/tours', { cache: 'no-store' })
-  if (!r.ok) return []
-  const j = await r.json().catch(()=>({}))
-  return Array.isArray(j?.tours) ? j.tours : []
+// ——— TOURS IN LOCALE ———
+const TOURS_KEY = 'lb2:tours'
+function loadLocalTours(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(TOURS_KEY)
+    const arr = raw ? JSON.parse(raw) : []
+    return Array.isArray(arr) ? arr.filter(Boolean) : []
+  } catch { return [] }
+}
+function saveLocalTours(tours: string[]) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(TOURS_KEY, JSON.stringify([...new Set(tours)].filter(Boolean)))
 }
 async function apiLb2Get(tour: string, gender: Gender) {
   const url = `/api/lb2/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`
@@ -66,15 +74,12 @@ async function apiGetSettings(tour: string, gender: Gender) {
 
 /* ================== Pagina ================== */
 export default function AdminClassifica2Page() {
-  // tours
-  const [availableTours, setAvailableTours] = React.useState<string[]>([])
-  React.useEffect(() => {
-    let alive = true
-    apiLb2ListTours()
-      .then(ts => { if (alive) setAvailableTours(ts) })
-      .catch(() => { if (alive) setAvailableTours([]) })
-    return () => { alive = false }
-  }, [])
+// tours (locale)
+const [availableTours, setAvailableTours] = React.useState<string[]>([])
+React.useEffect(() => {
+  setAvailableTours(loadLocalTours())
+}, [])
+
 
   // header (persistenza locale)
   const [tour, setTour] = React.useState<string>(() =>
@@ -83,6 +88,34 @@ export default function AdminClassifica2Page() {
   const [gender, setGender] = React.useState<Gender>(() =>
     ((typeof window !== 'undefined' && (localStorage.getItem('lb2:lastGender') as Gender|null)) || 'M')
   )
+function handleCreateTour() {
+  const name = prompt('Nome nuovo tour?')?.trim()
+  if (!name) return
+  const next = [...new Set([...availableTours, name])]
+  saveLocalTours(next)
+  setAvailableTours(next)
+  setTour(name)
+}
+
+function handleEditTour() {
+  if (!tour) return
+  const name = prompt('Rinomina tour', tour)?.trim()
+  if (!name || name === tour) return
+  const next = availableTours.map(t => (t === tour ? name : t))
+  saveLocalTours(next)
+  setAvailableTours(next)
+  setTour(name)
+}
+
+function handleDeleteTour() {
+  if (!tour) return
+  if (!confirm(`Eliminare il tour "${tour}"?`)) return
+  const next = availableTours.filter(t => t !== tour)
+  saveLocalTours(next)
+  setAvailableTours(next)
+  // se ho cancellato quello selezionato, svuoto e blocco UI
+  setTour(next[0] || '')
+}
 
   // se non ho un tour, prendi il primo disponibile quando arriva la lista
   React.useEffect(() => {
@@ -179,18 +212,39 @@ export default function AdminClassifica2Page() {
     <div className="p-6 space-y-6">
       <h1 className="text-xl font-semibold">Classifica v2 (tabella: lb2_snapshots)</h1>
 
-      {/* header */}
-      <div className="flex items-center gap-2">
-        <div className="text-sm text-neutral-400">Tour</div>
-        <select
-          className="input input-sm w-[220px]"
-          value={tour}
-          onChange={e => setTour(e.target.value)}
-        >
-          {!tour && <option value="">— seleziona —</option>}
-          {(availableTours.length ? availableTours : (tour ? [tour] : []))
-            .map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
+  {/* header */}
+<div className="flex items-center gap-2">
+  <div className="text-sm text-neutral-400">Tour</div>
+
+  <select
+    className="input input-sm w-[220px]"
+    value={tour}
+    onChange={e => setTour(e.target.value)}
+    disabled={!availableTours.length}
+  >
+    {availableTours.length === 0
+      ? <option value="">-</option>
+      : availableTours.map(t => <option key={t} value={t}>{t}</option>)
+    }
+  </select>
+
+  <div className="flex gap-1">
+    <button className="btn btn-sm" onClick={handleCreateTour}>Crea</button>
+    <button className="btn btn-sm" onClick={handleEditTour} disabled={!tour}>Modifica</button>
+    <button className="btn btn-sm" onClick={handleDeleteTour} disabled={!tour}>Elimina</button>
+  </div>
+
+  <div className="ml-2 flex gap-2">
+    <button className={`btn btn-sm ${gender==='M'?'btn-primary':''}`} onClick={()=>setGender('M')} disabled={!tour}>M</button>
+    <button className={`btn btn-sm ${gender==='F'?'btn-primary':''}`} onClick={()=>setGender('F')} disabled={!tour}>F</button>
+  </div>
+
+  <div className="ml-auto flex gap-2">
+    <button className="btn btn-sm" onClick={loadNow} disabled={!tour || loading}>Carica</button>
+    <button className="btn btn-sm" onClick={saveNow} disabled={!tour || loading}>Salva</button>
+  </div>
+</div>
+
 
         <div className="ml-2 flex gap-2">
           <button className={`btn btn-sm ${gender==='M'?'btn-primary':''}`} onClick={()=>setGender('M')}>M</button>
@@ -202,7 +256,11 @@ export default function AdminClassifica2Page() {
           <button className="btn btn-sm" onClick={saveNow} disabled={!tour || loading}>Salva</button>
         </div>
       </div>
-
+{!tour && (
+  <div className="text-sm text-amber-400">
+    Nessun tour selezionato: crea un tour per poter inserire dati.
+  </div>
+)}
       {/* corpo */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="card p-3">
@@ -239,3 +297,4 @@ export default function AdminClassifica2Page() {
     </div>
   )
 }
+
