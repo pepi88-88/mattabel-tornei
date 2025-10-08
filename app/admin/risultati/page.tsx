@@ -1026,56 +1026,60 @@ const [itaScoresById, setItaScoresById] = useState<Record<string, ItaScore[]>>({
   return lastSurnames(row.label)
 }
 
-// Resolver completo: Winner/Loser -> A1/B2 (anche "1A", con spazi, minuscole) -> Avulsa(1..N) -> fallback
+// Resolver completo: Winner/Loser -> A1/B2 (anche "1A", con spazi, minuscole) -> Avulsa(1..N) -> Fallback
 const resolveToken = useMemo(() => {
   const winLose = makeExternalResolver(brackets, winnersById, tourId, tId)
   const slotBase = makeSlotResolver(tourId, tId, winLose)
 
   const avulsaNames: string[] = avulsa.map(r => r.label)
 
-  // helper robusto: A1 / A 1 / 1A / 1 A / a1 ...
   const parseGroupToken = (raw: string): { letter: string; pos: number } | null => {
     const s = String(raw || '').trim().toUpperCase()
-    // A1 / A 1
-    let m = s.match(/^([A-Z])\s*(\d{1,2})$/)
+    let m = s.match(/^([A-Z])\s*(\d{1,2})$/) // A1 / A 1
     if (m) return { letter: m[1], pos: Number(m[2]) }
-    // 1A / 1 A
-    m = s.match(/^(\d{1,2})\s*([A-Z])$/)
+    m = s.match(/^(\d{1,2})\s*([A-Z])$/)     // 1A / 1 A
     if (m) return { letter: m[2], pos: Number(m[1]) }
     return null
+  }
+
+  const resolveGroupOrAvulsaNow = (maybe: string): string | undefined => {
+    if (!maybe) return undefined
+    // prova girone live
+    const gp = parseGroupToken(maybe)
+    if (gp) {
+      const nm = nameFromGroupRank(gp.letter, gp.pos) // usa computeStatsFor live
+      if (nm) return nm
+    }
+    // prova avulsa live
+    if (/^\d+$/.test(maybe)) {
+      const idx = Math.max(1, Number(maybe)) - 1
+      const nm = avulsaNames[idx]
+      if (nm) return lastSurnames(nm)
+    }
+    return undefined
   }
 
   return (raw: string): string => {
     const token = String(raw || '').trim()
     if (!token) return '—'
 
-    // 1) numeri della avulsa (1..N) -> nomi (preferisci avulsa calcolata ora)
+    // 1) numero avulsa diretto
     if (/^\d+$/.test(token)) {
-      const idx = Math.max(1, Number(token)) - 1
-      const name = avulsaNames[idx]
-      if (name) return lastSurnames(name)
-      try {
-        const ls =
-          localStorage.getItem(`classifica_avulsa:${tourId}:${tId}`) ||
-          localStorage.getItem(`avulsa:${tourId}:${tId}`) ||
-          localStorage.getItem(`avulsa:${tId}`)
-        if (ls) {
-          const arr: string[] = JSON.parse(ls)
-          const lsName = arr[idx]
-          if (lsName) return lastSurnames(lsName)
-        }
-      } catch {}
-    }
-
-    // 2) A1/B2 ecc — prova con classifica gironi calcolata ORA (accetta vari formati)
-    const gp = parseGroupToken(token)
-    if (gp) {
-      const nm = nameFromGroupRank(gp.letter, gp.pos)   // usa computeStatsFor live
+      const nm = resolveGroupOrAvulsaNow(token)
       if (nm) return nm
     }
 
-    // 3) fallback: LS (groups_rank) e resolver Winner/Loser
-    return slotBase(token)
+    // 2) A1/B2/1A ecc diretto
+    const gp = parseGroupToken(token)
+    if (gp) {
+      const nm = nameFromGroupRank(gp.letter, gp.pos)
+      if (nm) return nm
+    }
+
+    // 3) fallback standard (Winner/Loser -> A1) + post-risoluzione ULTERIORE
+    const out = slotBase(token) // può restituire A1/B2 ecc (o già un nome)
+    const nm = resolveGroupOrAvulsaNow(out)
+    return nm ?? out
   }
 }, [brackets, winnersById, tourId, tId, avulsa])
 
