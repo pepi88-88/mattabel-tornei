@@ -36,31 +36,36 @@ export function middleware(req: NextRequest) {
   const isCoachPage = pathname.startsWith('/coach')
   const isApi = pathname.startsWith('/api')
 
-  // ✅ API pubbliche (SOLO lettura) usate dalle pagine atleta
-  // aggiungi qui eventuali altri prefissi che vedi nel Network
-  const PUBLIC_API_PREFIXES = [
-    '/api/tournaments',   // lista / dettaglio tornei
-    '/api/leaderboard',   // classifiche/legende in sola lettura
-    '/api/groups',        // gironi
-    '/api/brackets',      // tabelloni/eliminatorie
-    '/api/atleta',        // eventuali endpoint "atleta" (read)
-    // se usi tours/players in read-only per le pagine atleta:
-    '/api/tours',
-    '/api/players',
-  ]
+ // ✅ API pubbliche (SOLO lettura) usate dalle pagine atleta
+const PUBLIC_API_PREFIXES = [
+  '/api/tournaments',
+  '/api/leaderboard',
+  '/api/groups',
+  '/api/brackets',
+  '/api/atleta',
+  '/api/tours',
+  '/api/players',
+]
 
-  const isReadOnlyMethod = req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS'
-  const isWhitelistedGet = isReadOnlyMethod && PUBLIC_API_PREFIXES.some(p => pathname.startsWith(p))
+// ⬇️ AGGIUNGI QUESTO BLOCCO
+const PUBLIC_API_KEYWORDS = ['iscritti', 'entries', 'registrations']
+
+const isReadOnlyMethod = req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS'
+
+const isWhitelistedGet =
+  isReadOnlyMethod && PUBLIC_API_PREFIXES.some(p => pathname.startsWith(p))
+
 const isKeywordPublic =
   isReadOnlyMethod && PUBLIC_API_KEYWORDS.some(k => pathname.includes(k))
 
   // 🔓 Consideriamo pubbliche anche: /api/auth, /api/public/*, oppure path che contengono /public/
-  const isApiPublic =
-    pathname.startsWith('/api/auth') ||
-    pathname.startsWith('/api/public') ||
-    pathname.includes('/public/') ||
-   isWhitelistedGet ||
-  isKeywordPublic  
+const isApiPublic =
+  pathname.startsWith('/api/auth') ||
+  pathname.startsWith('/api/public') ||
+  pathname.includes('/public/') ||
+  isWhitelistedGet ||
+  isKeywordPublic
+
 
   // Se non è /admin, /coach o /api protette → passa
   if (!isAdminPage && !isCoachPage && !(isApi && !isApiPublic)) {
@@ -74,9 +79,10 @@ const isKeywordPublic =
     if (cookieOk || basicOk) return NextResponse.next()
 
     if (isApi && !isApiPublic) {
+          console.warn('[MW BLOCKED]', req.method, pathname)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    console.warn('[MW BLOCKED]', req.method, pathname)
+
 
     const u = req.nextUrl.clone()
     u.pathname = '/login-staff'
