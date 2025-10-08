@@ -49,39 +49,49 @@ function pointsOfBucket(pos: number | undefined, total: number, mult: number, se
   return Math.round(raw * mult)
 }
 
-/* ===== API helpers (no-store + cache-buster ts) ===== */
-// SNAPSHOT: usa la tabella nuova lb2
-async function apiLb2GetSnapshot(tour: string, gender: Gender) {
-  const r = await fetch(`/api/lb2/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
-  if (!r.ok) throw new Error('snapshot get failed')
-  return r.json() as Promise<{ data: SaveShape | null }>
+/* ===== API helpers (tutte no-store + cache-buster ts) ===== */
+async function apiGetSettings(tour: string, gender: 'M'|'F') {
+  const r = await fetch(`/api/leaderboard/settings?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
+  if (!r.ok) throw new Error('GET settings failed')
+  return r.json() as Promise<{ settings: ScoreCfgSet|null }>
 }
-async function apiLb2UpsertSnapshot(tour: string, gender: Gender, data: SaveShape) {
-  const r = await fetch(`/api/lb2/snapshots`, {
+async function apiGetSnapshot(tour: string, gender: Gender) {
+  const r = await fetch(`/api/leaderboard/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
+  if (!r.ok) throw new Error('snapshot get failed')
+  return r.json() as Promise<{ data: SaveShape | null, meta?: { updated_at?: string|null } }>
+}
+async function apiUpsertSnapshot(tour: string, gender: Gender, data: SaveShape) {
+  const r = await fetch(`/api/leaderboard/snapshots`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tour, gender, data }),
   })
   const txt = await r.text()
   if (!r.ok) {
-    console.error('PUT /api/lb2/snapshots failed:', r.status, txt)
+    console.error('PUT /api/leaderboard/snapshots failed:', r.status, txt)
     throw new Error(`snapshot put failed (${r.status}): ${txt}`)
   }
-  return true
+  let js: any = {}
+  try { js = JSON.parse(txt) } catch {}
+  if (!js?.ok) console.warn('PUT /api/leaderboard/snapshots response without ok:true', js)
+  return js as { ok: true, saved?: { tour:string; gender:string; updated_at:string } }
 }
-async function apiLb2ListTours(): Promise<string[]> {
+async function apiListTours(): Promise<string[]> {
+  // 1) elenco ufficiale (tabella tours)
   try {
-    const r = await fetch('/api/lb2/snapshots/tours?ts='+Date.now(), { cache: 'no-store' })
+    const r = await fetch('/api/tours', { headers: { 'x-role': 'admin' }, cache: 'no-store' })
     const j = await r.json().catch(() => ({} as any))
-    if (r.ok && Array.isArray(j?.tours)) return j.tours
+    if (r.ok && Array.isArray(j?.items)) {
+      return j.items.map((t: any) => String(t?.name || '').trim()).filter(Boolean)
+    }
+  } catch {}
+  // 2) fallback: nomi tour presenti negli snapshot
+  try {
+    const r2 = await fetch('/api/leaderboard/snapshots/tours?ts=' + Date.now(), { cache: 'no-store' })
+    const j2 = await r2.json().catch(() => ({} as any))
+    if (r2.ok && Array.isArray(j2?.tours)) return j2.tours
   } catch {}
   return []
-}
-// SETTINGS: condivise con la Legenda
-async function apiGetSettings(tour: string, gender: 'M'|'F') {
-  const r = await fetch(`/api/leaderboard/settings?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
-  if (!r.ok) return { settings: DEFAULT_SET }
-  return r.json() as Promise<{ settings: ScoreCfgSet|null }>
 }
 
 /* ===== UI helpers ===== */
@@ -106,27 +116,26 @@ function TabButton({ active, onClick, href, children, title }: TabButtonProps) {
 }
 
 /* ===== Pagina ===== */
-export default function AdminClassifica2Page() {
+export default function SemiManualLeaderboardV2() {
   /* Tours */
   const [availableTours, setAvailableTours] = React.useState<string[]>([])
   React.useEffect(() => {
-    apiLb2ListTours().then(setAvailableTours).catch(()=>setAvailableTours([]))
+    let alive = true
+    apiListTours().then(ts => { if (alive) setAvailableTours(ts) }).catch(()=>{ if (alive) setAvailableTours([]) })
+    return ()=>{ alive = false }
   }, [])
 
   /* Header (persist) */
-  const [tour, setTour] = React.useState<string>(() =>
-    (typeof window !== 'undefined' ? localStorage.getItem('semi:lastTour') : '') || ''
-  )
-  const [gender, setGender] = React.useState<Gender>(() =>
-    ((typeof window !== 'undefined' ? (localStorage.getItem('semi:lastGender') as Gender|null) : null) || 'M')
-  )
+  const [tour, setTour] = React.useState<string>('')
+  const [gender, setGender] = React.useState<Gender>('M')
 
-  // se non ho un tour salvato, prendo il primo disponibile quando arriva
+  // ripristina dal localStorage SOLO al mount
   React.useEffect(() => {
-    if (tour) return
-    if (availableTours.length) setTour(availableTours[0])
-  }, [availableTours, tour])
-
+    const lastTour = typeof window !== 'undefined' ? (localStorage.getItem('semi:lastTour') || '').trim() : ''
+    const lastGender = typeof window !== 'undefined' ? (localStorage.getItem('semi:lastGender') as Gender | null) : null
+    setTour(lastTour)
+    setGender(lastGender || 'M')
+  }, [])
   // persisti cambi
   React.useEffect(() => {
     if (!tour) return
@@ -156,31 +165,34 @@ export default function AdminClassifica2Page() {
   const [dirty, setDirty] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [errorText, setErrorText] = React.useState('')
+  const [serverUpdatedAt, setServerUpdatedAt] = React.useState<string | null>(null)
 
   const loadSnapshot = React.useCallback(async () => {
     if (!tour) {
       setPlayers([]); setTappe([]); setResults({})
-      setLoaded(true); setDirty(false)
+      setLoaded(true); setDirty(false); setServerUpdatedAt(null)
       return
     }
     setLoaded(false); setErrorText('')
     try {
-      const { data } = await apiLb2GetSnapshot(tour, gender)
+      const { data, meta } = await apiGetSnapshot(tour, gender)
       const s: SaveShape = data ?? { players: [], tappe: [], results: {} }
       setPlayers(Array.isArray(s.players) ? s.players : [])
       setTappe(Array.isArray(s.tappe) ? s.tappe : [])
       setResults(s.results && typeof s.results === 'object' ? s.results : {})
+      setServerUpdatedAt(meta?.updated_at ?? null)
       setDirty(false)
     } catch (e:any) {
       console.error('[loadSnapshot] failed', e)
       setErrorText(e?.message || 'Errore caricamento dati')
       setPlayers([]); setTappe([]); setResults({})
-      setDirty(false)
+      setDirty(false); setServerUpdatedAt(null)
     } finally {
       setLoaded(true)
     }
   }, [tour, gender])
 
+  // carico quando cambio tour/genere (come prima), ma ho anche il bottone "Carica"
   React.useEffect(() => { loadSnapshot() }, [loadSnapshot])
 
   /* Azioni locali (bozza) */
@@ -189,6 +201,7 @@ export default function AdminClassifica2Page() {
     setPlayers(prev => {
       if (prev.some(x => x.id === p.id)) return prev
       setDirty(true)
+      // assicura riga results
       setResults(r => r[p.id] ? r : { ...r, [p.id]: {} })
       return [...prev, { id: p.id, name: fullName(p) }]
     })
@@ -200,9 +213,7 @@ export default function AdminClassifica2Page() {
     setDirty(true)
     setPlayers(prev => prev.filter(p => p.id !== playerId))
     setResults(prevR => {
-      const c = { ...prevR } as Results
-      delete (c as any)[playerId]
-      return c
+      const c = { ...prevR }; delete (c as any)[playerId]; return c
     })
   }, [loaded])
 
@@ -258,7 +269,7 @@ export default function AdminClassifica2Page() {
     if (!tour) { alert('Seleziona un tour'); return }
     setSaving(true); setErrorText('')
     try {
-      await apiLb2UpsertSnapshot(tour, gender, { players, tappe, results })
+      await apiUpsertSnapshot(tour, gender, { players, tappe, results })
       await loadSnapshot() // ricarica “fonte di verità”
       setDirty(false)
     } catch (e:any) {
@@ -320,8 +331,12 @@ export default function AdminClassifica2Page() {
             {saving ? 'Salvo…' : 'Salva'}
           </button>
           <button className="btn btn-ghost btn-sm" onClick={handleDiscard} disabled={!dirty || saving}>Annulla modifiche</button>
+          <button className="btn btn-outline btn-sm" onClick={loadSnapshot} disabled={saving}>Carica dal server</button>
           {dirty && <span className="text-xs text-yellow-400">Hai modifiche non salvate</span>}
           {!!errorText && <span className="text-xs text-red-400 ml-3">{errorText}</span>}
+          <span className="ml-auto text-xs text-neutral-400">
+            Ultimo salvataggio server: {serverUpdatedAt ? new Date(serverUpdatedAt).toLocaleString() : '—'}
+          </span>
         </div>
 
         {/* Tools */}
@@ -331,7 +346,9 @@ export default function AdminClassifica2Page() {
               <div className="text-xs mb-1">Aggiungi giocatore</div>
               <PlayerPicker onSelect={(p:any)=>addPlayer(p)} />
             </div>
-            <div className="text-xs text-neutral-500">I giocatori aggiunti compaiono nella tabella sotto. Ricordati di premere “Salva”.</div>
+            <div className="text-xs text-neutral-500">
+              I giocatori aggiunti compaiono nella tabella sotto. Ricordati di premere “Salva”.
+            </div>
           </div>
 
           <div className="border-t border-neutral-800 pt-4" />
