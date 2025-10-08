@@ -834,11 +834,24 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato �
   const letters = useMemo(() => LETTERS.slice(0, Math.max(1, store?.groupsCount ?? 0)), [store?.groupsCount])
   const capOf = (L: string) => store?.meta?.[L]?.capacity ?? 0
   const fmtOf = (L: string) => (store?.meta?.[L]?.format ?? 'pool').toLowerCase()
-  const labelBySlot = (L: string, slot: number) => {
-    const rid = store?.assign?.[`${L}-${slot}`] ?? ''
-    const raw = rid ? store?.labels?.[rid] ?? '' : ''
-    return raw ? bothSurnames(raw) : `Slot ${slot}`
-  }
+ // 👇 SOSTITUISCI interamente questa funzione
+const labelBySlot = (L: string, slot: number) => {
+  const rid = store?.assign?.[`${L}-${slot}`] ?? ''
+  const raw = rid ? store?.labels?.[rid] ?? '' : ''
+
+  // 1) se il nome "crudo" esiste nei labels, uso quello
+  if (raw) return bothSurnames(raw)
+
+  // 2) fallback robusto: risolvi A1/B2... in cognomi brevi tramite i resolver locali
+  //    (usa i dati già in localStorage: groups_rank / classifica_avulsa)
+  const token = `${L}${slot}` // es. "A1"
+  const solved = resolveSlotBasic(token, tourId, tId) // già fa: gruppi_rank -> avulsa -> token
+  if (solved && solved !== token && solved !== '—') return solved
+
+  // 3) ultimo fallback visuale
+  return `Slot ${slot}`
+}
+
 
  function setTime(L: string, idx: number, val: string) {
   const arr = [...(times[L] ?? [])]
