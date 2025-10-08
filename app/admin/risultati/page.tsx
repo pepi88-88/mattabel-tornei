@@ -1050,7 +1050,9 @@ if (m) {
   if (nm) return nm
 }
 // fallback: LS (groups_rank) e resolver Winner/Loser
-return slotBase(token)
+ return slotBase(token)
+  }
+}, [brackets, winnersById, tourId, tId, avulsa])
 
 
  useEffect(() => {
