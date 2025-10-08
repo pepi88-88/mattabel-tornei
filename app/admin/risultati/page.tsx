@@ -1001,6 +1001,16 @@ useEffect(() => {
   const [winnersById, setWinnersById] = useState<Record<string, WinnerMap>>({})
 const [itaScoresById, setItaScoresById] = useState<Record<string, ItaScore[]>>({})
 
+      function nameFromGroupRank(letter: string, pos: number): string | undefined {
+  const L = String(letter || '').toUpperCase()
+  if (!/^[A-Z]$/.test(L) || !Number.isFinite(pos) || pos < 1) return
+  // usa la classifica del girone calcolata in pagina (computeStatsFor)
+  const row = computeStatsFor(L)[pos - 1]
+  if (!row?.label) return
+  // compat con il resto dell'UI: cognomi brevi
+  return lastSurnames(row.label)
+}
+
  // Resolver completo: Winner/Loser -> A1/B2 -> Avulsa(1..N) -> fallback
 const resolveToken = useMemo(() => {
   const winLose = makeExternalResolver(brackets, winnersById, tourId, tId)
@@ -1033,10 +1043,15 @@ const resolveToken = useMemo(() => {
       // continua con il flusso normale
     }
 
-    // 2) A1/B2 ecc e Vincente/Perdente… (slotBase incapsula winLose)
-    return slotBase(token)
-  }
-}, [brackets, winnersById, tourId, tId, avulsa])
+   // 2) A1/B2 ecc — prova prima con la classifica gironi calcolata ORA
+const m = token.match(/^([A-Za-z])(\d{1,2})$/)
+if (m) {
+  const nm = nameFromGroupRank(m[1], Number(m[2]))
+  if (nm) return nm
+}
+// fallback: LS (groups_rank) e resolver Winner/Loser
+return slotBase(token)
+
 
  useEffect(() => {
   if (!tourId || !tId) { setBrackets([]); setActiveId(null); setWinnersById({}); setItaScoresById({}); return }
