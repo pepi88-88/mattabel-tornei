@@ -86,8 +86,8 @@ export default function AppHeader() {
   return (
     <>
       {/* HEADER sticky */}
-     <header
-  className="sticky top-0 z-[999] isolate bg-neutral-950/95 backdrop-blur header-shadow"
+ <header
+  className="fixed top-0 left-0 right-0 z-[10000] isolate bg-neutral-950/95 backdrop-blur header-shadow pointer-events-auto"
   style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}
 >
      <div className="relative z-[1] container-admin mx-auto px-4 sm:px-6 lg:px-8">
@@ -101,8 +101,10 @@ export default function AppHeader() {
             )}
           </nav>
         </div>
-        <div className="brand-strip" />
+      <div className="brand-strip pointer-events-none" aria-hidden="true" />
+
       </header>
+<div className="h-[64px]" />
 
       {/* LOGO non-sticky sotto la riga */}
       <div className="container-admin mx-auto px-4 sm:px-6 lg:px-8">
