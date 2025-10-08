@@ -240,13 +240,13 @@ function syncModulesToJson(){
 
   return (
     <div className="p-6 space-y-6">
-      {/* tabs top */}
+   {/* tabs top */}
 <div className="flex items-center gap-2 mb-3">
   <span className="btn btn-primary btn-sm border-2 border-primary ring-2 ring-primary/30">Classifica v2</span>
   <a className="btn btn-outline btn-sm" href="/admin/classifica2/legenda2">Legenda v2</a>
 </div>
 
-    <h1 className="text-xl font-semibold">Classifica v2 (tabella: lb2_snapshots)</h1>
+<h1 className="text-xl font-semibold">Classifica v2 (tabella: lb2_snapshots)</h1>
 
 {/* header */}
 <div className="flex items-center gap-2">
@@ -275,40 +275,29 @@ function syncModulesToJson(){
     <button className={`btn btn-sm ${gender==='F'?'btn-primary':''}`} onClick={()=>setGender('F')} disabled={!tour}>F</button>
   </div>
 
-<div className="ml-auto flex gap-2 items-center">
-  <div className="btn-group btn-group-sm">
+  {/* toggle + azioni (UNICO gruppo a destra) */}
+  <div className="ml-auto flex gap-2 items-center">
+    <div className="btn-group btn-group-sm">
+      <button
+        className={`btn btn-sm ${uiMode==='moduli' ? 'btn-primary' : ''}`}
+        onClick={()=>setUiMode('moduli')}
+      >Moduli</button>
+      <button
+        className={`btn btn-sm ${uiMode==='json' ? 'btn-primary' : ''}`}
+        onClick={()=>setUiMode('json')}
+      >JSON</button>
+    </div>
+
+    <button className="btn btn-sm" onClick={loadNow} disabled={!tour || loading}>Carica</button>
     <button
-      className={`btn btn-sm ${uiMode==='moduli' ? 'btn-primary' : ''}`}
-      onClick={()=>setUiMode('moduli')}
-    >Moduli</button>
-    <button
-      className={`btn btn-sm ${uiMode==='json' ? 'btn-primary' : ''}`}
-      onClick={()=>setUiMode('json')}
-    >JSON</button>
+      className="btn btn-sm"
+      onClick={async ()=>{
+        if (uiMode==='moduli') syncModulesToJson()
+        await saveNow()
+      }}
+      disabled={!tour || loading}
+    >Salva</button>
   </div>
-
-  <button className="btn btn-sm" onClick={loadNow} disabled={!tour || loading}>Carica</button>
-  <button
-    className="btn btn-sm"
-    onClick={async ()=>{
-      if (uiMode==='moduli') syncModulesToJson()
-      await saveNow()
-    }}
-    disabled={!tour || loading}
-  >Salva</button>
-</div>
-
-</div>
-
-  <button className="btn btn-sm" onClick={loadNow} disabled={!tour || loading}>Carica</button>
-  <button
-    className="btn btn-sm"
-    onClick={async ()=>{
-      if (uiMode==='moduli') syncModulesToJson()
-      await saveNow()
-    }}
-    disabled={!tour || loading}
-  >Salva</button>
 </div>
 
 {/* avviso quando manca il tour */}
@@ -317,6 +306,7 @@ function syncModulesToJson(){
     Nessun tour selezionato: crea un tour per poter inserire dati.
   </div>
 ) : null}
+
 {/* MODULI: editor visuale */}
 {uiMode === 'moduli' && (
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -401,7 +391,6 @@ function syncModulesToJson(){
             </div>
             <button className="btn btn-ghost btn-xs"
               onClick={()=>{
-                // rimuovi tappa + eventuali entry risultati per quella tappa
                 const tid = tappeForm[idx].id
                 setTappeForm(prev => prev.filter((_,i)=>i!==idx))
                 setResultsForm(prev=>{
@@ -427,7 +416,7 @@ function syncModulesToJson(){
       </div>
     </div>
 
-    {/* Risultati (posizioni) */}
+    {/* Risultati */}
     <div className="card p-3">
       <div className="font-medium mb-2">Risultati</div>
       <div className="text-xs text-neutral-400 mb-2">Inserisci la <em>posizione</em> (1,2,3…); lascia vuoto se assente.</div>
@@ -475,6 +464,7 @@ function syncModulesToJson(){
   </div>
 )}
 
+
   {/* corpo (solo in modalità JSON) */}
 {uiMode === 'json' ? (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -510,3 +500,4 @@ function syncModulesToJson(){
     </div>
   </div>
 ) : null}
+
