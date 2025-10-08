@@ -33,20 +33,35 @@ function pointsOfBucket(pos: number | undefined, total: number, mult: number, se
 }
 
 /* ================== API helpers (lb2) ================== */
-// ——— TOURS IN LOCALE ———
-const TOURS_KEY = 'lb2:tours'
-function loadLocalTours(): string[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = localStorage.getItem(TOURS_KEY)
-    const arr = raw ? JSON.parse(raw) : []
-    return Array.isArray(arr) ? arr.filter(Boolean) : []
-  } catch { return [] }
+/* ======= Tours via API ======= */
+async function apiToursList(): Promise<{slug:string; title:string}[]> {
+  const r = await fetch('/api/lb2/tours', { cache: 'no-store' })
+  if (!r.ok) return []
+  const j = await r.json().catch(()=>({ tours: [] }))
+  return Array.isArray(j?.tours) ? j.tours : []
 }
-function saveLocalTours(tours: string[]) {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(TOURS_KEY, JSON.stringify([...new Set(tours)].filter(Boolean)))
+async function apiToursCreate(slug: string, title: string) {
+  const r = await fetch('/api/lb2/tours', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action:'create', slug, title })
+  })
+  if (!r.ok) throw new Error(await r.text())
 }
+async function apiToursRename(slug: string, newSlug: string, newTitle?: string) {
+  const r = await fetch('/api/lb2/tours', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action:'rename', slug, newSlug, newTitle })
+  })
+  if (!r.ok) throw new Error(await r.text())
+}
+async function apiToursDelete(slug: string) {
+  const r = await fetch('/api/lb2/tours', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action:'delete', slug })
+  })
+  if (!r.ok) throw new Error(await r.text())
+}
+
 async function apiLb2Get(tour: string, gender: Gender) {
   const url = `/api/lb2/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`
   const r = await fetch(url, { cache: 'no-store' })
@@ -71,14 +86,26 @@ async function apiGetSettings(tour: string, gender: Gender) {
   if (!r.ok) return { settings: DEFAULT_SET }
   return r.json() as Promise<{ settings: ScoreCfgSet|null }>
 }
+async function apiPlayersList(gender: Gender) {
+  const r = await fetch(`/api/players/list?gender=${gender}`, { cache: 'no-store' })
+  if (!r.ok) throw new Error(await r.text())
+  const j = await r.json().catch(()=>({ players: [] }))
+  return (j?.players ?? []) as { id:string; name:string; gender?:string }[]
+}
 
 /* ================== Pagina ================== */
 export default function AdminClassifica2Page() {
-// tours (locale)
-const [availableTours, setAvailableTours] = React.useState<string[]>([])
+// tours (supabase)
+type TourItem = { slug:string; title:string }
+const [availableTours, setAvailableTours] = React.useState<TourItem[]>([])
 React.useEffect(() => {
-  setAvailableTours(loadLocalTours())
+  let alive = true
+  apiToursList()
+    .then(ts => { if (alive) setAvailableTours(ts) })
+    .catch(() => { if (alive) setAvailableTours([]) })
+  return () => { alive = false }
 }, [])
+
 
 
   // header (persistenza locale)
@@ -88,34 +115,42 @@ React.useEffect(() => {
   const [gender, setGender] = React.useState<Gender>(() =>
     ((typeof window !== 'undefined' && (localStorage.getItem('lb2:lastGender') as Gender|null)) || 'M')
   )
-function handleCreateTour() {
-  const name = prompt('Nome nuovo tour?')?.trim()
-  if (!name) return
-  const next = [...new Set([...availableTours, name])]
-  saveLocalTours(next)
-  setAvailableTours(next)
-  setTour(name)
+async function handleCreateTour() {
+  const slug = prompt('Slug tour (es. Inverno-25)?')?.trim()
+  if (!slug) return
+  const title = prompt('Titolo visibile?', slug)?.trim() || slug
+  try {
+    await apiToursCreate(slug, title)
+    const list = await apiToursList()
+    setAvailableTours(list)
+    setTour(slug)
+  } catch (e:any) { alert('Errore create: ' + (e?.message || '')) }
 }
 
-function handleEditTour() {
+async function handleEditTour() {
   if (!tour) return
-  const name = prompt('Rinomina tour', tour)?.trim()
-  if (!name || name === tour) return
-  const next = availableTours.map(t => (t === tour ? name : t))
-  saveLocalTours(next)
-  setAvailableTours(next)
-  setTour(name)
+  const newSlug = prompt('Nuovo slug', tour)?.trim()
+  if (!newSlug || newSlug === tour) return
+  const newTitle = prompt('Nuovo titolo (facoltativo)', newSlug)?.trim() || newSlug
+  try {
+    await apiToursRename(tour, newSlug, newTitle)
+    const list = await apiToursList()
+    setAvailableTours(list)
+    setTour(newSlug)
+  } catch (e:any) { alert('Errore rename: ' + (e?.message || '')) }
 }
 
-function handleDeleteTour() {
+async function handleDeleteTour() {
   if (!tour) return
   if (!confirm(`Eliminare il tour "${tour}"?`)) return
-  const next = availableTours.filter(t => t !== tour)
-  saveLocalTours(next)
-  setAvailableTours(next)
-  // se ho cancellato quello selezionato, svuoto e blocco UI
-  setTour(next[0] || '')
+  try {
+    await apiToursDelete(tour)
+    const list = await apiToursList()
+    setAvailableTours(list)
+    setTour(list[0]?.slug || '')
+  } catch (e:any) { alert('Errore delete: ' + (e?.message || '')) }
 }
+
 
   // se non ho un tour, prendi il primo disponibile quando arriva la lista
   React.useEffect(() => {
@@ -252,17 +287,18 @@ return (
     <div className="flex items-center gap-2">
       <div className="text-sm text-neutral-400">Tour</div>
 
-      <select
-        className="input input-sm w-[220px]"
-        value={tour}
-        onChange={e => setTour(e.target.value)}
-        disabled={!availableTours.length}
-      >
-        {availableTours.length === 0
-          ? <option value="">-</option>
-          : availableTours.map(t => <option key={t} value={t}>{t}</option>)
-        }
-      </select>
+  <select
+  className="input input-sm w-[220px]"
+  value={tour}
+  onChange={e => setTour(e.target.value)}
+  disabled={!availableTours.length}
+>
+  {availableTours.length === 0
+    ? <option value="">-</option>
+    : availableTours.map(t => <option key={t.slug} value={t.slug}>{t.title}</option>)
+  }
+</select>
+
 
       <div className="flex gap-1">
         <button className="btn btn-sm" onClick={handleCreateTour}>Crea</button>
@@ -348,6 +384,23 @@ return (
             >+ Aggiungi giocatore</button>
           </div>
         </div>
+<button
+  className="btn btn-sm"
+  onClick={async ()=>{
+    try {
+      const list = await apiPlayersList(gender)
+      if (!Array.isArray(list) || !list.length) { alert('Nessun giocatore trovato.'); return }
+      // merge by id (senza duplicati)
+      const map = new Map<string, PlayerRow>()
+      for (const p of playersForm) map.set(p.id, p)
+      for (const p of list) map.set(p.id, { id: p.id, name: p.name || p.id })
+      setPlayersForm(Array.from(map.values()))
+      alert(`Importati ${list.length} giocatori (merge per id).`)
+    } catch (e:any) {
+      alert('Errore import giocatori: ' + (e?.message || ''))
+    }
+  }}
+>Importa da Supabase</button>
 
         {/* Tappe */}
         <div className="card p-3">
@@ -502,4 +555,5 @@ return (
   </div>
 )
 }
+
 
