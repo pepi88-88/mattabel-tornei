@@ -86,11 +86,12 @@ export default function AppHeader() {
   return (
     <>
       {/* HEADER sticky */}
-      <header
-        className="sticky top-0 z-40 bg-neutral-950/95 backdrop-blur header-shadow"
-        style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}
-      >
-        <div className="container-admin mx-auto px-4 sm:px-6 lg:px-8">
+     <header
+  className="sticky top-0 z-[999] isolate bg-neutral-950/95 backdrop-blur header-shadow"
+  style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}
+>
+     <div className="relative z-[1] container-admin mx-auto px-4 sm:px-6 lg:px-8">
+
           {/* Tutto su un lato (sinistra), con wrap */}
           <nav className="flex flex-wrap gap-2">
             {visible.map(it =>
