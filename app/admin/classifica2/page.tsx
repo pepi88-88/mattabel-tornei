@@ -210,9 +210,9 @@ function handleDeleteTour() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-xl font-semibold">Classifica v2 (tabella: lb2_snapshots)</h1>
+    <h1 className="text-xl font-semibold">Classifica v2 (tabella: lb2_snapshots)</h1>
 
-  {/* header */}
+{/* header */}
 <div className="flex items-center gap-2">
   <div className="text-sm text-neutral-400">Tour</div>
 
@@ -245,22 +245,13 @@ function handleDeleteTour() {
   </div>
 </div>
 
-
-        <div className="ml-2 flex gap-2">
-          <button className={`btn btn-sm ${gender==='M'?'btn-primary':''}`} onClick={()=>setGender('M')}>M</button>
-          <button className={`btn btn-sm ${gender==='F'?'btn-primary':''}`} onClick={()=>setGender('F')}>F</button>
-        </div>
-
-        <div className="ml-auto flex gap-2">
-          <button className="btn btn-sm" onClick={loadNow} disabled={!tour || loading}>Carica</button>
-          <button className="btn btn-sm" onClick={saveNow} disabled={!tour || loading}>Salva</button>
-        </div>
-      </div>
-{!tour && (
+{/* avviso quando manca il tour */}
+{!tour ? (
   <div className="text-sm text-amber-400">
     Nessun tour selezionato: crea un tour per poter inserire dati.
   </div>
-)}
+) : null}
+
       {/* corpo */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="card p-3">
@@ -297,4 +288,5 @@ function handleDeleteTour() {
     </div>
   )
 }
+
 
