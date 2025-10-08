@@ -36,28 +36,29 @@ export function middleware(req: NextRequest) {
   const isCoachPage = pathname.startsWith('/coach')
   const isApi = pathname.startsWith('/api')
 
-  // ✅ WHITELIST API "pubbliche" (GET-only) usate dalle pagine atleta
+  // ✅ API pubbliche (SOLO lettura) usate dalle pagine atleta
+  // aggiungi qui eventuali altri prefissi che vedi nel Network
   const PUBLIC_API_PREFIXES = [
-    '/api/leaderboard',   // classifiche, legende, ecc.
-    '/api/tournaments',   // lista/Dettaglio tornei
-    '/api/groups',        // gironi/tabelloni
-    '/api/brackets',      // bracket/eliminatorie
-    '/api/atleta',        // eventuali endpoint dedicati atleti
+    '/api/tournaments',   // lista / dettaglio tornei
+    '/api/leaderboard',   // classifiche/legende in sola lettura
+    '/api/groups',        // gironi
+    '/api/brackets',      // tabelloni/eliminatorie
+    '/api/atleta',        // eventuali endpoint "atleta" (read)
+    // se usi tours/players in read-only per le pagine atleta:
+    '/api/tours',
+    '/api/players',
   ]
 
-  const isWhitelistedGet =
-    req.method === 'GET' &&
-    PUBLIC_API_PREFIXES.some(p => pathname.startsWith(p))
+  const isReadOnlyMethod = req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS'
+  const isWhitelistedGet = isReadOnlyMethod && PUBLIC_API_PREFIXES.some(p => pathname.startsWith(p))
 
-  // 🔓 Consideriamo pubbliche anche:
-  // - /api/auth (login)
-  // - /api/public/* (se in futuro ne crei)
-  // - qualunque cosa con /public/ nel path
+  // 🔓 Consideriamo pubbliche anche: /api/auth, /api/public/*, oppure path che contengono /public/
   const isApiPublic =
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/public') ||
     pathname.includes('/public/') ||
     isWhitelistedGet
+
 
   // Se non è /admin, /coach o /api protette → passa
   if (!isAdminPage && !isCoachPage && !(isApi && !isApiPublic)) {
