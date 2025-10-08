@@ -475,44 +475,38 @@ function syncModulesToJson(){
   </div>
 )}
 
-      {/* corpo */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="card p-3">
-          <div className="text-xs text-neutral-400 mb-1">JSON (players, tappe, results)</div>
-        <textarea
-  className="textarea w-full min-h-[420px] font-mono text-xs bg-neutral-900 text-neutral-100 placeholder-neutral-500 border border-neutral-800"
-  value={jsonText}
-  onChange={e=>setJsonText(e.target.value)}
-/>
-
-          {loading && <div className="text-xs text-neutral-500 mt-1">Carico…</div>}
-          {err && <div className="text-xs text-red-400 mt-1">{err}</div>}
-        </div>
-
-        <div className="card p-3">
-          <div className="text-xs text-neutral-400 mb-2">Preview calcolata</div>
-          <table className="w-full text-sm">
-            <thead className="text-neutral-400">
-              <tr><th className="text-left">Nome</th><th className="text-right">Totale</th></tr>
-            </thead>
-            <tbody>
-              {previewRows.map(r=>(
-                <tr key={r.player.id} className="border-t border-neutral-800">
-                  <td className="py-1 pr-2">{r.player.name}</td>
-                  <td className="py-1 pl-2 text-right tabular-nums">{r.total}</td>
-                </tr>
-              ))}
-              {!previewRows.length && (
-                <tr><td colSpan={2} className="py-2 text-neutral-500">Nessun dato.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  {/* corpo (solo in modalità JSON) */}
+{uiMode === 'json' ? (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="card p-3">
+      <div className="text-xs text-neutral-400 mb-1">JSON (players, tappe, results)</div>
+      <textarea
+        className="textarea w-full min-h-[420px] font-mono text-xs bg-neutral-900 text-neutral-100 placeholder-neutral-500 border border-neutral-800"
+        value={jsonText}
+        onChange={e=>setJsonText(e.target.value)}
+      />
+      {loading && <div className="text-xs text-neutral-500 mt-1">Carico…</div>}
+      {err && <div className="text-xs text-red-400 mt-1">{err}</div>}
     </div>
-  
-  )
-}
 
-
-
+    <div className="card p-3">
+      <div className="text-xs text-neutral-400 mb-2">Preview calcolata</div>
+      <table className="w-full text-sm">
+        <thead className="text-neutral-400">
+          <tr><th className="text-left">Nome</th><th className="text-right">Totale</th></tr>
+        </thead>
+        <tbody>
+          {previewRows.map(r=>(
+            <tr key={r.player.id} className="border-t border-neutral-800">
+              <td className="py-1 pr-2">{r.player.name}</td>
+              <td className="py-1 pl-2 text-right tabular-nums">{r.total}</td>
+            </tr>
+          ))}
+          {!previewRows.length && (
+            <tr><td colSpan={2} className="py-2 text-neutral-500">Nessun dato.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+) : null}
