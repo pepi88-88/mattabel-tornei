@@ -35,25 +35,41 @@ export function middleware(req: NextRequest) {
   const isAdminPage = pathname.startsWith('/admin')
   const isCoachPage = pathname.startsWith('/coach')
   const isApi = pathname.startsWith('/api')
+
+  // ✅ WHITELIST API "pubbliche" (GET-only) usate dalle pagine atleta
+  const PUBLIC_API_PREFIXES = [
+    '/api/leaderboard',   // classifiche, legende, ecc.
+    '/api/tournaments',   // lista/Dettaglio tornei
+    '/api/groups',        // gironi/tabelloni
+    '/api/brackets',      // bracket/eliminatorie
+    '/api/atleta',        // eventuali endpoint dedicati atleti
+  ]
+
+  const isWhitelistedGet =
+    req.method === 'GET' &&
+    PUBLIC_API_PREFIXES.some(p => pathname.startsWith(p))
+
+  // 🔓 Consideriamo pubbliche anche:
+  // - /api/auth (login)
+  // - /api/public/* (se in futuro ne crei)
+  // - qualunque cosa con /public/ nel path
   const isApiPublic =
-  pathname.startsWith('/api/public') ||
-  pathname.startsWith('/api/auth')   ||
-  pathname.includes('/public/')
+    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/public') ||
+    pathname.includes('/public/') ||
+    isWhitelistedGet
+
   // Se non è /admin, /coach o /api protette → passa
   if (!isAdminPage && !isCoachPage && !(isApi && !isApiPublic)) {
     return NextResponse.next()
   }
 
-  // 1) ADMIN: consenti se:
-  // - cookie sessione valido (tuo flusso esistente), OPPURE
-  // - basic auth con ADMIN_USER/ADMIN_PASS
+  // 1) ADMIN o API protette: richiedi cookie o basic admin
   if (isAdminPage || (isApi && !isApiPublic)) {
     const cookieOk = req.cookies.get('admin_session')?.value === '1'
     const basicOk = checkBasicAuth(req, process.env.ADMIN_USER, process.env.ADMIN_PASS)
-
     if (cookieOk || basicOk) return NextResponse.next()
 
-    // API protette → JSON 401; pagine admin → redirect alla login
     if (isApi && !isApiPublic) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -62,11 +78,10 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(u)
   }
 
-  // 2) COACH: solo basic auth (puoi volerlo separato da admin)
+  // 2) COACH: basic auth dedicata
   if (isCoachPage) {
     const coachOk = checkBasicAuth(req, process.env.COACH_USER, process.env.COACH_PASS)
     if (coachOk) return NextResponse.next()
-    // per le pagine coach mostri il prompt basic auth
     return unauthorized('Coach Area')
   }
 
