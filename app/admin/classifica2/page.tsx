@@ -238,266 +238,267 @@ function syncModulesToJson(){
     } catch { return [] }
   }, [jsonText, scoreSet])
 
-  return (
-    <div className="p-6 space-y-6">
-   {/* tabs top */}
-<div className="flex items-center gap-2 mb-3">
-  <span className="btn btn-primary btn-sm border-2 border-primary ring-2 ring-primary/30">Classifica v2</span>
-  <a className="btn btn-outline btn-sm" href="/admin/classifica2/legenda2">Legenda v2</a>
-</div>
-
-<h1 className="text-xl font-semibold">Classifica v2 (tabella: lb2_snapshots)</h1>
-
-{/* header */}
-<div className="flex items-center gap-2">
-  <div className="text-sm text-neutral-400">Tour</div>
-
-  <select
-    className="input input-sm w-[220px]"
-    value={tour}
-    onChange={e => setTour(e.target.value)}
-    disabled={!availableTours.length}
-  >
-    {availableTours.length === 0
-      ? <option value="">-</option>
-      : availableTours.map(t => <option key={t} value={t}>{t}</option>)
-    }
-  </select>
-
-  <div className="flex gap-1">
-    <button className="btn btn-sm" onClick={handleCreateTour}>Crea</button>
-    <button className="btn btn-sm" onClick={handleEditTour} disabled={!tour}>Modifica</button>
-    <button className="btn btn-sm" onClick={handleDeleteTour} disabled={!tour}>Elimina</button>
-  </div>
-
-  <div className="ml-2 flex gap-2">
-    <button className={`btn btn-sm ${gender==='M'?'btn-primary':''}`} onClick={()=>setGender('M')} disabled={!tour}>M</button>
-    <button className={`btn btn-sm ${gender==='F'?'btn-primary':''}`} onClick={()=>setGender('F')} disabled={!tour}>F</button>
-  </div>
-
-  {/* toggle + azioni (UNICO gruppo a destra) */}
-  <div className="ml-auto flex gap-2 items-center">
-    <div className="btn-group btn-group-sm">
-      <button
-        className={`btn btn-sm ${uiMode==='moduli' ? 'btn-primary' : ''}`}
-        onClick={()=>setUiMode('moduli')}
-      >Moduli</button>
-      <button
-        className={`btn btn-sm ${uiMode==='json' ? 'btn-primary' : ''}`}
-        onClick={()=>setUiMode('json')}
-      >JSON</button>
+return (
+  <div className="p-6 space-y-6">
+    {/* tabs top */}
+    <div className="flex items-center gap-2 mb-3">
+      <span className="btn btn-primary btn-sm border-2 border-primary ring-2 ring-primary/30">Classifica v2</span>
+      <a className="btn btn-outline btn-sm" href="/admin/classifica2/legenda2">Legenda v2</a>
     </div>
 
-    <button className="btn btn-sm" onClick={loadNow} disabled={!tour || loading}>Carica</button>
-    <button
-      className="btn btn-sm"
-      onClick={async ()=>{
-        if (uiMode==='moduli') syncModulesToJson()
-        await saveNow()
-      }}
-      disabled={!tour || loading}
-    >Salva</button>
-  </div>
-</div>
+    <h1 className="text-xl font-semibold">Classifica v2 (tabella: lb2_snapshots)</h1>
 
-{/* avviso quando manca il tour */}
-{!tour ? (
-  <div className="text-sm text-amber-400">
-    Nessun tour selezionato: crea un tour per poter inserire dati.
-  </div>
-) : null}
+    {/* header */}
+    <div className="flex items-center gap-2">
+      <div className="text-sm text-neutral-400">Tour</div>
 
-{/* MODULI: editor visuale */}
-{uiMode === 'moduli' && (
-  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-    {/* Players */}
-    <div className="card p-3">
-      <div className="font-medium mb-2">Giocatori</div>
-      <div className="space-y-2">
-        {playersForm.map((p, idx)=>(
-          <div key={p.id} className="grid grid-cols-5 gap-2 items-center">
-            <input
-              className="input col-span-2"
-              placeholder="ID"
-              value={p.id}
-              onChange={e=>{
-                const v = e.target.value
-                setPlayersForm(prev => prev.map((x,i)=> i===idx? {...x, id:v}: x))
-              }}
-            />
-            <input
-              className="input col-span-3"
-              placeholder="Nome"
-              value={p.name}
-              onChange={e=>{
-                const v = e.target.value
-                setPlayersForm(prev => prev.map((x,i)=> i===idx? {...x, name:v}: x))
-              }}
-            />
-            <button className="btn btn-ghost btn-xs col-span-5"
-              onClick={()=> setPlayersForm(prev => prev.filter((_,i)=>i!==idx))}
-            >Elimina</button>
-          </div>
-        ))}
+      <select
+        className="input input-sm w-[220px]"
+        value={tour}
+        onChange={e => setTour(e.target.value)}
+        disabled={!availableTours.length}
+      >
+        {availableTours.length === 0
+          ? <option value="">-</option>
+          : availableTours.map(t => <option key={t} value={t}>{t}</option>)
+        }
+      </select>
+
+      <div className="flex gap-1">
+        <button className="btn btn-sm" onClick={handleCreateTour}>Crea</button>
+        <button className="btn btn-sm" onClick={handleEditTour} disabled={!tour}>Modifica</button>
+        <button className="btn btn-sm" onClick={handleDeleteTour} disabled={!tour}>Elimina</button>
+      </div>
+
+      <div className="ml-2 flex gap-2">
+        <button className={`btn btn-sm ${gender==='M'?'btn-primary':''}`} onClick={()=>setGender('M')} disabled={!tour}>M</button>
+        <button className={`btn btn-sm ${gender==='F'?'btn-primary':''}`} onClick={()=>setGender('F')} disabled={!tour}>F</button>
+      </div>
+
+      {/* toggle + azioni (UNICO gruppo a destra) */}
+      <div className="ml-auto flex gap-2 items-center">
+        <div className="btn-group btn-group-sm">
+          <button
+            className={`btn btn-sm ${uiMode==='moduli' ? 'btn-primary' : ''}`}
+            onClick={()=>setUiMode('moduli')}
+          >Moduli</button>
+          <button
+            className={`btn btn-sm ${uiMode==='json' ? 'btn-primary' : ''}`}
+            onClick={()=>setUiMode('json')}
+          >JSON</button>
+        </div>
+
+        <button className="btn btn-sm" onClick={loadNow} disabled={!tour || loading}>Carica</button>
         <button
           className="btn btn-sm"
-          onClick={()=>{
-            const nid = crypto.randomUUID?.() || String(Date.now())
-            setPlayersForm(prev => [...prev, { id:nid, name:'' }])
+          onClick={async ()=>{
+            if (uiMode==='moduli') syncModulesToJson()
+            await saveNow()
           }}
-        >+ Aggiungi giocatore</button>
+          disabled={!tour || loading}
+        >Salva</button>
       </div>
     </div>
 
-    {/* Tappe */}
-    <div className="card p-3">
-      <div className="font-medium mb-2">Tappe</div>
-      <div className="space-y-2">
-        {tappeForm.map((t, idx)=>(
-          <div key={t.id} className="space-y-2 border-t border-neutral-800 pt-2">
-            <div className="grid grid-cols-2 gap-2">
-              <input className="input" placeholder="ID"
-                value={t.id}
-                onChange={e=>{
-                  const v=e.target.value
-                  setTappeForm(prev=>prev.map((x,i)=>i===idx?{...x,id:v}:x))
-                }}/>
-              <input className="input" placeholder="Titolo"
-                value={t.title}
-                onChange={e=>{
-                  const v=e.target.value
-                  setTappeForm(prev=>prev.map((x,i)=>i===idx?{...x,title:v}:x))
-                }}/>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <input className="input" placeholder="Data (yyyy-mm-dd)"
-                value={t.date}
-                onChange={e=>{
-                  const v=e.target.value
-                  setTappeForm(prev=>prev.map((x,i)=>i===idx?{...x,date:v}:x))
-                }}/>
-              <input className="input" type="number" step="0.01" placeholder="Moltiplicatore"
-                value={t.multiplier}
-                onChange={e=>{
-                  const v=Number(e.target.value)
-                  setTappeForm(prev=>prev.map((x,i)=>i===idx?{...x,multiplier:v}:x))
-                }}/>
-              <input className="input" type="number" placeholder="Tot squadre"
-                value={t.totalTeams}
-                onChange={e=>{
-                  const v=Number(e.target.value)
-                  setTappeForm(prev=>prev.map((x,i)=>i===idx?{...x,totalTeams:v}:x))
-                }}/>
-            </div>
-            <button className="btn btn-ghost btn-xs"
-              onClick={()=>{
-                const tid = tappeForm[idx].id
-                setTappeForm(prev => prev.filter((_,i)=>i!==idx))
-                setResultsForm(prev=>{
-                  const next: ResultsForm = {}
-                  for (const pid of Object.keys(prev)) {
-                    const rec = {...prev[pid]}
-                    delete rec[tid]
-                    next[pid] = rec
-                  }
-                  return next
-                })
-              }}
-            >Elimina tappa</button>
-          </div>
-        ))}
-        <button
-          className="btn btn-sm"
-          onClick={()=>{
-            const nid = crypto.randomUUID?.() || String(Date.now())
-            setTappeForm(prev => [...prev, { id:nid, title:'', date:'', multiplier:1, totalTeams:8 }])
-          }}
-        >+ Aggiungi tappa</button>
+    {/* avviso quando manca il tour */}
+    {!tour ? (
+      <div className="text-sm text-amber-400">
+        Nessun tour selezionato: crea un tour per poter inserire dati.
       </div>
-    </div>
+    ) : null}
 
-    {/* Risultati */}
-    <div className="card p-3">
-      <div className="font-medium mb-2">Risultati</div>
-      <div className="text-xs text-neutral-400 mb-2">Inserisci la <em>posizione</em> (1,2,3…); lascia vuoto se assente.</div>
-
-      <div className="space-y-3">
-        {tappeForm.length===0 ? (
-          <div className="text-sm text-neutral-500">Aggiungi prima almeno una tappa.</div>
-        ) : playersForm.length===0 ? (
-          <div className="text-sm text-neutral-500">Aggiungi prima almeno un giocatore.</div>
-        ) : (
-          <>
-            {tappeForm.map(t => (
-              <div key={t.id} className="border-t border-neutral-800 pt-2">
-                <div className="font-medium mb-2">{t.title || t.id} <span className="text-neutral-500">({t.date || 'gg/mm'})</span></div>
-                <div className="grid grid-cols-2 gap-2">
-                  {playersForm.map(p => {
-                    const val = resultsForm[p.id]?.[t.id]?.pos ?? ''
-                    return (
-                      <div key={p.id} className="flex items-center gap-2">
-                        <div className="w-36 truncate text-xs">{p.name || p.id}</div>
-                        <input
-                          className="input input-sm w-24"
-                          type="number" min={1}
-                          placeholder="pos"
-                          value={val as any}
-                          onChange={e=>{
-                            const num = e.target.value ? Number(e.target.value) : undefined
-                            setResultsForm(prev=>{
-                              const recP = {...(prev[p.id] || {})}
-                              recP[t.id] = { pos: num }
-                              return { ...prev, [p.id]: recP }
-                            })
-                          }}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
+    {/* MODULI: editor visuale */}
+    {uiMode === 'moduli' && (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Players */}
+        <div className="card p-3">
+          <div className="font-medium mb-2">Giocatori</div>
+          <div className="space-y-2">
+            {playersForm.map((p, idx)=>(
+              <div key={p.id} className="grid grid-cols-5 gap-2 items-center">
+                <input
+                  className="input col-span-2"
+                  placeholder="ID"
+                  value={p.id}
+                  onChange={e=>{
+                    const v = e.target.value
+                    setPlayersForm(prev => prev.map((x,i)=> i===idx? {...x, id:v}: x))
+                  }}
+                />
+                <input
+                  className="input col-span-3"
+                  placeholder="Nome"
+                  value={p.name}
+                  onChange={e=>{
+                    const v = e.target.value
+                    setPlayersForm(prev => prev.map((x,i)=> i===idx? {...x, name:v}: x))
+                  }}
+                />
+                <button className="btn btn-ghost btn-xs col-span-5"
+                  onClick={()=> setPlayersForm(prev => prev.filter((_,i)=>i!==idx))}
+                >Elimina</button>
               </div>
             ))}
-          </>
-        )}
+            <button
+              className="btn btn-sm"
+              onClick={()=>{
+                const nid = crypto.randomUUID?.() || String(Date.now())
+                setPlayersForm(prev => [...prev, { id:nid, name:'' }])
+              }}
+            >+ Aggiungi giocatore</button>
+          </div>
+        </div>
+
+        {/* Tappe */}
+        <div className="card p-3">
+          <div className="font-medium mb-2">Tappe</div>
+          <div className="space-y-2">
+            {tappeForm.map((t, idx)=>(
+              <div key={t.id} className="space-y-2 border-t border-neutral-800 pt-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <input className="input" placeholder="ID"
+                    value={t.id}
+                    onChange={e=>{
+                      const v=e.target.value
+                      setTappeForm(prev=>prev.map((x,i)=>i===idx?{...x,id:v}:x))
+                    }}/>
+                  <input className="input" placeholder="Titolo"
+                    value={t.title}
+                    onChange={e=>{
+                      const v=e.target.value
+                      setTappeForm(prev=>prev.map((x,i)=>i===idx?{...x,title:v}:x))
+                    }}/>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <input className="input" placeholder="Data (yyyy-mm-dd)"
+                    value={t.date}
+                    onChange={e=>{
+                      const v=e.target.value
+                      setTappeForm(prev=>prev.map((x,i)=>i===idx?{...x,date:v}:x))
+                    }}/>
+                  <input className="input" type="number" step="0.01" placeholder="Moltiplicatore"
+                    value={t.multiplier}
+                    onChange={e=>{
+                      const v=Number(e.target.value)
+                      setTappeForm(prev=>prev.map((x,i)=>i===idx?{...x,multiplier:v}:x))
+                    }}/>
+                  <input className="input" type="number" placeholder="Tot squadre"
+                    value={t.totalTeams}
+                    onChange={e=>{
+                      const v=Number(e.target.value)
+                      setTappeForm(prev=>prev.map((x,i)=>i===idx?{...x,totalTeams:v}:x))
+                    }}/>
+                </div>
+                <button className="btn btn-ghost btn-xs"
+                  onClick={()=>{
+                    const tid = tappeForm[idx].id
+                    setTappeForm(prev => prev.filter((_,i)=>i!==idx))
+                    setResultsForm(prev=>{
+                      const next: ResultsForm = {}
+                      for (const pid of Object.keys(prev)) {
+                        const rec = {...prev[pid]}
+                        delete rec[tid]
+                        next[pid] = rec
+                      }
+                      return next
+                    })
+                  }}
+                >Elimina tappa</button>
+              </div>
+            ))}
+            <button
+              className="btn btn-sm"
+              onClick={()=>{
+                const nid = crypto.randomUUID?.() || String(Date.now())
+                setTappeForm(prev => [...prev, { id:nid, title:'', date:'', multiplier:1, totalTeams:8 }])
+              }}
+            >+ Aggiungi tappa</button>
+          </div>
+        </div>
+
+        {/* Risultati */}
+        <div className="card p-3">
+          <div className="font-medium mb-2">Risultati</div>
+          <div className="text-xs text-neutral-400 mb-2">Inserisci la <em>posizione</em> (1,2,3…); lascia vuoto se assente.</div>
+
+          <div className="space-y-3">
+            {tappeForm.length===0 ? (
+              <div className="text-sm text-neutral-500">Aggiungi prima almeno una tappa.</div>
+            ) : playersForm.length===0 ? (
+              <div className="text-sm text-neutral-500">Aggiungi prima almeno un giocatore.</div>
+            ) : (
+              <>
+                {tappeForm.map(t => (
+                  <div key={t.id} className="border-t border-neutral-800 pt-2">
+                    <div className="font-medium mb-2">{t.title || t.id} <span className="text-neutral-500">({t.date || 'gg/mm'})</span></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {playersForm.map(p => {
+                        const val = resultsForm[p.id]?.[t.id]?.pos ?? ''
+                        return (
+                          <div key={p.id} className="flex items-center gap-2">
+                            <div className="w-36 truncate text-xs">{p.name || p.id}</div>
+                            <input
+                              className="input input-sm w-24"
+                              type="number" min={1}
+                              placeholder="pos"
+                              value={val as any}
+                              onChange={e=>{
+                                const num = e.target.value ? Number(e.target.value) : undefined
+                                setResultsForm(prev=>{
+                                  const recP = {...(prev[p.id] || {})}
+                                  recP[t.id] = { pos: num }
+                                  return { ...prev, [p.id]: recP }
+                                })
+                              }}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    )}
+
+    {/* corpo (solo in modalità JSON) */}
+    {uiMode === 'json' ? (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="card p-3">
+          <div className="text-xs text-neutral-400 mb-1">JSON (players, tappe, results)</div>
+          <textarea
+            className="textarea w-full min-h-[420px] font-mono text-xs bg-neutral-900 text-neutral-100 placeholder-neutral-500 border border-neutral-800"
+            value={jsonText}
+            onChange={e=>setJsonText(e.target.value)}
+          />
+          {loading && <div className="text-xs text-neutral-500 mt-1">Carico…</div>}
+          {err && <div className="text-xs text-red-400 mt-1">{err}</div>}
+        </div>
+
+        <div className="card p-3">
+          <div className="text-xs text-neutral-400 mb-2">Preview calcolata</div>
+          <table className="w-full text-sm">
+            <thead className="text-neutral-400">
+              <tr><th className="text-left">Nome</th><th className="text-right">Totale</th></tr>
+            </thead>
+            <tbody>
+              {previewRows.map(r=>(
+                <tr key={r.player.id} className="border-t border-neutral-800">
+                  <td className="py-1 pr-2">{r.player.name}</td>
+                  <td className="py-1 pl-2 text-right tabular-nums">{r.total}</td>
+                </tr>
+              ))}
+              {!previewRows.length && (
+                <tr><td colSpan={2} className="py-2 text-neutral-500">Nessun dato.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ) : null}
   </div>
-)}
-
-
-  {/* corpo (solo in modalità JSON) */}
-{uiMode === 'json' ? (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div className="card p-3">
-      <div className="text-xs text-neutral-400 mb-1">JSON (players, tappe, results)</div>
-      <textarea
-        className="textarea w-full min-h-[420px] font-mono text-xs bg-neutral-900 text-neutral-100 placeholder-neutral-500 border border-neutral-800"
-        value={jsonText}
-        onChange={e=>setJsonText(e.target.value)}
-      />
-      {loading && <div className="text-xs text-neutral-500 mt-1">Carico…</div>}
-      {err && <div className="text-xs text-red-400 mt-1">{err}</div>}
-    </div>
-
-    <div className="card p-3">
-      <div className="text-xs text-neutral-400 mb-2">Preview calcolata</div>
-      <table className="w-full text-sm">
-        <thead className="text-neutral-400">
-          <tr><th className="text-left">Nome</th><th className="text-right">Totale</th></tr>
-        </thead>
-        <tbody>
-          {previewRows.map(r=>(
-            <tr key={r.player.id} className="border-t border-neutral-800">
-              <td className="py-1 pr-2">{r.player.name}</td>
-              <td className="py-1 pl-2 text-right tabular-nums">{r.total}</td>
-            </tr>
-          ))}
-          {!previewRows.length && (
-            <tr><td colSpan={2} className="py-2 text-neutral-500">Nessun dato.</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
-) : null}
-
+)
+}
