@@ -35,8 +35,10 @@ export function middleware(req: NextRequest) {
   const isAdminPage = pathname.startsWith('/admin')
   const isCoachPage = pathname.startsWith('/coach')
   const isApi = pathname.startsWith('/api')
-  const isApiPublic = pathname.startsWith('/api/public') || pathname.startsWith('/api/auth')
-
+  const isApiPublic =
+  pathname.startsWith('/api/public') ||
+  pathname.startsWith('/api/auth')   ||
+  pathname.includes('/public/')
   // Se non è /admin, /coach o /api protette → passa
   if (!isAdminPage && !isCoachPage && !(isApi && !isApiPublic)) {
     return NextResponse.next()
