@@ -1174,7 +1174,12 @@ const activeForDisplay = useMemo(() => {
 // UI
 // ------------------------------------------------------------
 return (
-  <div className="relative z-0 p-6 space-y-8">
+  <div className="relative z-0 p-6 space-y-8 pointer-events-auto">
+    <div className="relative z-0 p-6 space-y-8 pointer-events-auto">
+  <div className="relative z-0" style={{ pointerEvents: 'auto' }}>
+      </div>
+</div>
+
     {/* Header filtri */}
     <div className="flex flex-wrap items-end gap-3">
       <div className="flex flex-col">
