@@ -273,8 +273,8 @@ const thirdB = SF2 ? (loserOfNode(SF2) || `Loser ${SF2.code} — ${bracket.title
 
     const thirdWin = localWinners[thirdCode]
 
-    return (
-      <div className="relative">
+  return (
+   <div className="bracket-scope relative">
         {/* Titolo */}
         <div className="mt-1 mb-4 flex justify-center">
           <div
@@ -621,8 +621,8 @@ const Row = ({ side, text }: { side: 'A'|'B'; text: string }) => (
     const R = (c:string)=>L(c)+CARD_W
     const C = (c:string)=>T(c)+CARD_H/2
 
-    return (
-      <div className="relative">
+   return (
+  <div className="bracket-scope relative">
         {/* titolo grande */}
         <div className="mt-1 mb-4 flex justify-center">
           <div
@@ -746,7 +746,7 @@ const Row = ({ side, text }: { side: 'A'|'B'; text: string }) => (
  /* ===================== ITA (placeholder) ===================== */
 if (bracket.type === 'ITA') {
   return (
-    <div className="p-6 text-sm text-neutral-400">
+  <div className="bracket-scope p-6 text-sm text-neutral-400">
       Modalità “Girone all’italiana”: l’editor è in questa pagina (sopra), non nel canvas.
     </div>
   )
