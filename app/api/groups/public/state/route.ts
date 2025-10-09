@@ -2,25 +2,47 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
-// evita prerender dell'endpoint
 export const dynamic = 'force-dynamic'
+// opzionale: hard no-cache
+export const revalidate = 0
 
 export async function GET(req: NextRequest) {
   const sb = getSupabaseAdmin()
   const tid = new URL(req.url).searchParams.get('tournament_id')?.trim()
-  if (!tid) return NextResponse.json({ error: 'Missing tournament_id' }, { status: 400 })
+  if (!tid) {
+    return NextResponse.json({ is_public: false, state: null, error: 'Missing tournament_id' }, { status: 400 })
+  }
 
   const { data, error } = await sb
-    .from('group_states')
+    .from('group_states')              // 👈 conferma che il nome tabella è proprio questo
     .select('state, is_public')
     .eq('tournament_id', tid)
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!data)   return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (!data.is_public) {
-    return NextResponse.json({ error: 'Not public' }, { status: 403 })
+  if (error) {
+    return NextResponse.json({ is_public: false, state: null, error: error.message }, { status: 500 })
+  }
+  if (!data) {
+    return NextResponse.json({ is_public: false, state: null }, { status: 404 })
   }
 
-  return NextResponse.json({ state: data.state, is_public: true })
+  // Se non è pubblico, NON 403: restituisci il contratto che la UI atleta si aspetta
+  const flagPublic = !!data.is_public || !!data.state?.isPublic
+  if (!flagPublic) {
+    return NextResponse.json({ is_public: false, state: null })
+  }
+
+  // Per sicurezza restituisci solo i campi necessari alla UI atleta
+  const st = (data.state || {}) as any
+  const safeState = {
+    groupsCount: st.groupsCount ?? 0,
+    meta: st.meta ?? {},
+    assign: st.assign ?? {},
+    times: st.times ?? {},
+    gField: st.gField ?? {},
+    scores: st.scores ?? {},
+    labels: st.labels ?? {},
+  }
+
+  return NextResponse.json({ is_public: true, state: safeState })
 }
