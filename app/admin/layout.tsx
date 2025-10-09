@@ -8,10 +8,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen">
       {/* contenitore centrale che si centra grazie a .container-admin in globals.css */}
       <div className="container-admin">
-        <main className="py-6">
-          {children}
-        </main>
-      </div>
+       <main className="pt-[72px] pb-6">
+  {children}
+</main>
+     </div>
     </div>
   )
 }
