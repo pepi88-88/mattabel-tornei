@@ -75,37 +75,66 @@ export default function AthleteIscrittiPage() {
     fetcher
   )
 
-  // --------------------------
-  // 4) Max team della tappa
-  // --------------------------
-  const [maxTeams, setMaxTeams] = React.useState<number>(0)
+ // --------------------------
+// 4) Max team della tappa
+// --------------------------
+const [maxTeams, setMaxTeams] = React.useState<number>(0)
 
-  React.useEffect(() => {
-    if (!tid) { setMaxTeams(0); return }
-    ;(async () => {
-      try {
-        const r = await fetch(`/api/tournaments?id=${encodeURIComponent(tid)}`)
-        const js = await r.json()
-        const row: Tourn | undefined = Array.isArray(js?.items) ? js.items[0] : js
-        const mt = Number(row?.max_teams)
-        setMaxTeams(Number.isFinite(mt) ? Math.max(0, mt) : 0)
-      } catch {
-        setMaxTeams(0)
-      }
-    })()
-  }, [tid])
+React.useEffect(() => {
+  if (!tid) { setMaxTeams(0); return }
+  ;(async () => {
+    try {
+      const r = await fetch(`/api/tournaments?id=${encodeURIComponent(tid)}`)
+      const js = await r.json()
+      const row: Tourn | undefined = Array.isArray(js?.items) ? js.items[0] : js
+      const mt = Number(row?.max_teams)
+      setMaxTeams(Number.isFinite(mt) ? Math.max(0, mt) : 0)
+    } catch {
+      setMaxTeams(0)
+    }
+  })()
+}, [tid])
 
-  // --------------------------
-  // 5) Normalizzazione elenco (isWaiting se supera maxTeams)
-  //    NB: se vuoi l’ordine “coda d’attesa” corretto, assicurati che l’API ordini già per created_at asc
-  // --------------------------
-  const list: RegItemUI[] = React.useMemo(() => {
-    const arr: RegItemRaw[] = regs?.items ?? []
-    return arr.map((r, idx) => ({
-      ...r,
-      isWaiting: maxTeams > 0 ? idx >= maxTeams : false,
-    }))
-  }, [regs, maxTeams])
+
+// --------------------------
+// 5) Normalizzazione elenco
+// --------------------------
+type RegFromApi = RegItemRaw & {
+  is_waiting?: boolean
+  waiting?: boolean
+  status?: string
+  position?: number
+}
+const list: RegItemUI[] = React.useMemo(() => {
+  const arr: RegFromApi[] = (regs?.items ?? []) as RegFromApi[]
+
+  // se l’API degli iscritti espone un max_teams, preferiscilo (stesso perimetro del calcolo lato server)
+  const apiMax = Number(regs?.max_teams ?? regs?.meta?.max_teams)
+  const effectiveMax = Number.isFinite(apiMax) && apiMax > 0 ? apiMax : maxTeams
+
+  // se l’API manda già l’ordinamento (di solito sì), sfruttiamolo; altrimenti ordina per position asc se presente
+  const ordered = [...arr].sort((a, b) => {
+    const pa = Number(a.position), pb = Number(b.position)
+    if (Number.isFinite(pa) && Number.isFinite(pb)) return pa - pb
+    return 0
+  })
+
+  return ordered.map((r, idx) => {
+    const flag =
+      r.is_waiting ??
+      r.waiting ??
+      (r.status ? r.status.toLowerCase() === 'waiting' : undefined)
+
+    // priorità al flag del server; altrimenti calcolo per indice
+    const isWaiting =
+      typeof flag === 'boolean'
+        ? flag
+        : (effectiveMax > 0 ? idx >= effectiveMax : false)
+
+    return { ...r, isWaiting }
+  })
+}, [regs, maxTeams])
+
 
   // --------------------------
   // 6) Render
