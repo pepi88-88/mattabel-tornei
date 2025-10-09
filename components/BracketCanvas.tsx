@@ -4,20 +4,13 @@ import React, { useEffect, useMemo, useState } from 'react'
 
 /* ===================== Costanti UI ===================== */
 const BASE_CARD_W = 320
-- const CARD_W      = Math.round(BASE_CARD_W * 0.8)
-- const CARD_H      = 148
-- const COL_GAP     = 140
-- const ROW_GAP     = 32
-- const HSCROLL_PAD = -100
-+ const CARD_W      = 320
-+ const CARD_H      = 160
-+ const COL_GAP     = 180
-+ const ROW_GAP     = 40
-+ const HSCROLL_PAD = 0
+const CARD_W      = 320
+const CARD_H      = 160
+const COL_GAP     = 180
+const ROW_GAP     = 40
+const HSCROLL_PAD = 0
 
-- const SE_FINAL_TUNE = { lineDX: 16, lineDY: 18, lineLEN: 64, boxDX: -8, boxDY: 15 }
-+ const SE_FINAL_TUNE = { lineDX: 0, lineDY: 0, lineLEN: 48, boxDX: 0, boxDY: 0 }
-
+const SE_FINAL_TUNE = { lineDX: 0, lineDY: 0, lineLEN: 48, boxDX: 0, boxDY: 0 }
 /* ===================== Tipi esportati ===================== */
 export type Bracket = {
   id: string
