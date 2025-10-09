@@ -1,77 +1,45 @@
 // app/api/leaderboard/settings/route.ts
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
+import { createClient } from '@supabase/supabase-js'
 
-export const dynamic = 'force-dynamic'
+const supaAnon = () =>
+  createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-const TABLE = 'leaderboard_settings'
-
-// GET /api/leaderboard/settings?tour=...&gender=M|F
 export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url)
-    const tour = searchParams.get('tour') || ''
-    const gender = searchParams.get('gender') || ''
+  const { searchParams } = new URL(req.url)
+  const tour = (searchParams.get('tour') || '').trim()
+  const gender = (searchParams.get('gender') || '').toUpperCase()
+  if (!tour || !['M','F'].includes(gender)) return NextResponse.json({ settings: null }, { status: 400 })
 
-    if (!tour || !gender) {
-      return NextResponse.json({ error: 'Missing tour/gender' }, { status: 400 })
-    }
+  const supa = supaAnon()
+  const { data, error } = await supa
+    .from('leaderboard_settings')
+    .select('settings')
+    .eq('tour', tour)
+    .eq('gender', gender)
+    .maybeSingle()
 
-    // magari log utile in dev
-    // console.log('[GET settings] params', { tour, gender })
-
-   const sb = getSupabaseAdmin()
-const { data, error } = await sb
-  .from(TABLE)
-  .select('settings')
-  .eq('tour', tour)
-  .eq('gender', gender)
-  .maybeSingle()
-
-    if (error) {
-      console.error('[GET settings] supabase error', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    // se non esiste, ritorna null (la UI usa DEFAULT_SET)
-    return NextResponse.json({ settings: data?.settings ?? null })
-  } catch (err: any) {
-    console.error('[GET settings] unexpected', err)
-    return NextResponse.json({ error: 'Unexpected error' }, { status: 500 })
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ settings: data?.settings ?? null }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
-// PUT /api/leaderboard/settings  body: { tour, gender, settings }
 export async function PUT(req: Request) {
-  try {
-    const body = await req.json().catch(() => ({}))
-    const tour = (body?.tour || '').trim()
-    const gender = (body?.gender || '').trim()
-    const settings = body?.settings ?? null
-
-    if (!tour || (gender !== 'M' && gender !== 'F')) {
-      return NextResponse.json({ error: 'Invalid tour/gender' }, { status: 400 })
-    }
-    if (!settings || typeof settings !== 'object') {
-      return NextResponse.json({ error: 'Invalid settings' }, { status: 400 })
-    }
-
-  const sb = getSupabaseAdmin()
-
-const { error } = await sb
-  .from(TABLE)
-  .upsert({ tour, gender, settings }, { onConflict: 'tour,gender' })
-  .select('tour')
-
-
-    if (error) {
-      console.error('[PUT settings] supabase error', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ ok: true })
-  } catch (err: any) {
-    console.error('[PUT settings] unexpected', err)
-    return NextResponse.json({ error: 'Unexpected error' }, { status: 500 })
+  const body = await req.json().catch(()=>null)
+  const tour = String(body?.tour || '').trim()
+  const gender = String(body?.gender || '').toUpperCase()
+  const settings = body?.settings
+  if (!tour || !['M','F'].includes(gender) || !settings) {
+    return NextResponse.json({ error: 'invalid payload' }, { status: 400 })
   }
+
+  // opzionale ruolo
+  // const role = req.headers.get('x-role') || ''
+  // if (!['admin','coach'].includes(role)) return NextResponse.json({ error:'forbidden' }, { status: 403 })
+
+  const supa = supaAnon()
+  const { error } = await supa
+    .from('leaderboard_settings')
+    .upsert({ tour, gender, settings, updated_at: new Date().toISOString() }, { onConflict: 'tour,gender' })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }
