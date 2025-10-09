@@ -1,10 +1,8 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import * as React from 'react'
 import Image from 'next/image'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'  // 👈 unico import next/navigation
 
 const ORANGE = 'rgb(240,125,0)'
 
