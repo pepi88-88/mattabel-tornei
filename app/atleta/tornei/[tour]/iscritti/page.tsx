@@ -21,59 +21,36 @@ function effectiveMaxFrom(regs: any, tournamentMax: number): number {
 export default function AthleteIscrittiPage() {
   const params = useSearchParams()
 
-  // --------------------------
-  // 1) TID sicuro (niente localStorage nel render)
-  // --------------------------
-  const [tid, setTid] = React.useState<string>('')
+// --------------------------
+// 1) TID dalla query (solo da lì)
+// --------------------------
+const [tid, setTid] = React.useState<string>('')
 
-  React.useEffect(() => {
-    const fromQuery = params.get('tid')
-    if (fromQuery) {
-      setTid(fromQuery)
-      if (typeof window !== 'undefined') localStorage.setItem('selectedTournamentId', fromQuery)
-      return
-    }
-    if (typeof window !== 'undefined') {
-      const fromLS = localStorage.getItem('selectedTournamentId')
-      setTid(fromLS || '')
-    }
-  }, [params])
+React.useEffect(() => {
+  const q = params.get('tid') || ''
+  setTid(q)
+}, [params])
 
-  // --------------------------
-  // 2) Titolo tappa
-  // --------------------------
-  const [title, setTitle] = React.useState<string>('')
+ // --------------------------
+// 2) Titolo tappa
+// --------------------------
+const [title, setTitle] = React.useState<string>('')
 
-  React.useEffect(() => {
-    if (!tid) { setTitle(''); return }
-    const tn = params.get('tname')
-    if (tn) {
-      const decoded = decodeURIComponent(tn)
-      setTitle(decoded)
-      if (typeof window !== 'undefined') localStorage.setItem(`gm:${tid}:title`, decoded) // opzionale cache
-      return
-    }
-    if (typeof window !== 'undefined') {
-      const fromLS = localStorage.getItem(`gm:${tid}:title`)
-      if (fromLS) { setTitle(fromLS) }
-    }
-    // fallback: chiedo all’API
-    ;(async () => {
-      try {
-        const r = await fetch(`/api/tournaments?id=${encodeURIComponent(tid)}`)
-        const js = await r.json()
-        const name =
-          js?.items?.[0]?.name || js?.items?.[0]?.title ||
-          js?.name || js?.title || ''
-        if (name) {
-          setTitle(name)
-          if (typeof window !== 'undefined') localStorage.setItem(`gm:${tid}:title`, name) // opzionale cache
-        }
-      } catch {
-        // silenzioso
-      }
-    })()
-  }, [tid, params])
+React.useEffect(() => {
+  if (!tid) { setTitle(''); return }
+  const tn = params.get('tname')
+  if (tn) { setTitle(decodeURIComponent(tn)); return }
+
+  ;(async () => {
+    try {
+      const r = await fetch(`/api/tournaments?id=${encodeURIComponent(tid)}`, { cache: 'no-store' })
+      const js = await r.json()
+      const items = Array.isArray(js?.items) ? js.items : js?.items ? [js.items] : []
+      const row = items.find((t: any) => t.id === tid) || items[0]
+      setTitle(row?.name || row?.title || '')
+    } catch {}
+  })()
+}, [tid, params])
 
   // --------------------------
   // 3) Iscritti
@@ -83,7 +60,7 @@ export default function AthleteIscrittiPage() {
     fetcher
   )
 
- // --------------------------
+// --------------------------
 // 4) Max team della tappa
 // --------------------------
 const [maxTeams, setMaxTeams] = React.useState<number>(0)
@@ -92,24 +69,28 @@ React.useEffect(() => {
   if (!tid) { setMaxTeams(0); return }
   ;(async () => {
     try {
-      const r = await fetch(`/api/tournaments?id=${encodeURIComponent(tid)}`)
+      const r = await fetch(`/api/tournaments?id=${encodeURIComponent(tid)}`, { cache: 'no-store' })
       const js = await r.json()
-      const row: Tourn | undefined = Array.isArray(js?.items) ? js.items[0] : js
+
+      // Prendo esattamente la riga del torneo richiesto (mai "la prima")
+      const items = Array.isArray(js?.items) ? js.items : js?.items ? [js.items] : []
+      const row: Tourn | undefined = items.find((t: any) => t.id === tid) || items[0]
+
       const mt = Number(row?.max_teams)
       setMaxTeams(Number.isFinite(mt) ? Math.max(0, mt) : 0)
+
+      // DEBUG (puoi toglierlo)
+      console.log('DEBUG atleta/iscritti', {
+        tid,
+        count_items: (Array.isArray(js?.items) ? js.items : js?.items ? [js.items] : []).length,
+        picked_id: row?.id,
+        max_teams: row?.max_teams,
+      })
     } catch {
       setMaxTeams(0)
     }
   })()
 }, [tid])
-
-console.log('DEBUG atleta/iscritti', {
-  tid,
-  count_items: regs?.items?.length,
-  max_fromTournament: maxTeams,
-  max_fromAPI: regs?.max_teams ?? regs?.meta?.max_teams,
-  effectiveMax: effectiveMaxFrom(regs, maxTeams),
-})
 
 // --------------------------
 // 5) Normalizzazione elenco (isWaiting con capienza "effettiva")
