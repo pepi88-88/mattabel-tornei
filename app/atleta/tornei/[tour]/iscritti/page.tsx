@@ -110,7 +110,11 @@ const list: RegItemUI[] = React.useMemo(() => {
 
   // se l’API degli iscritti espone un max_teams, preferiscilo (stesso perimetro del calcolo lato server)
   const apiMax = Number(regs?.max_teams ?? regs?.meta?.max_teams)
-  const effectiveMax = Number.isFinite(apiMax) && apiMax > 0 ? apiMax : maxTeams
+ // PRIMA era: const effectiveMax = Number.isFinite(apiMax) && apiMax > 0 ? apiMax : maxTeams
+const effectiveMax =
+  maxTeams > 0
+    ? maxTeams
+    : (Number.isFinite(apiMax) && apiMax > 0 ? apiMax : 0)
 
   // se l’API manda già l’ordinamento (di solito sì), sfruttiamolo; altrimenti ordina per position asc se presente
   const ordered = [...arr].sort((a, b) => {
@@ -158,9 +162,18 @@ const list: RegItemUI[] = React.useMemo(() => {
       <div className="card p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Iscritti</h3>
-          <div className="text-xs text-neutral-400">
-            {maxTeams > 0 ? `Capienza: ${maxTeams} squadre` : 'Nessun limite impostato'}
-          </div>
+        <div className="text-xs text-neutral-400">
+  {(() => {
+    const apiMax = Number(regs?.max_teams ?? regs?.meta?.max_teams)
+    const effectiveMax =
+      maxTeams > 0 ? maxTeams : (Number.isFinite(apiMax) && apiMax > 0 ? apiMax : 0)
+    const waitingCount = list.filter(x => x.isWaiting).length
+    return effectiveMax > 0
+      ? `Capienza: ${effectiveMax} squadre — In attesa: ${waitingCount}`
+      : `Nessun limite impostato — In attesa: ${waitingCount}`
+  })()}
+</div>
+
         </div>
 
         {list.length === 0 ? (
