@@ -9,6 +9,14 @@ const fetcher = (url: string) => fetch(url).then(r => r.json())
 type RegItemRaw = { id: string; label: string; paid?: boolean }
 type RegItemUI  = RegItemRaw & { isWaiting: boolean }
 type Tourn      = { id: string; name?: string; title?: string; max_teams?: number; event_date?: string }
+// Capienza effettiva = priorità alla tappa (maxTeams). Se 0/assente, usa eventuale max dell'API iscritti.
+function effectiveMaxFrom(regs: any, tournamentMax: number): number {
+  const apiMaxRaw = regs?.max_teams ?? regs?.meta?.max_teams
+  const apiMax = Number(apiMaxRaw)
+  if (Number.isFinite(tournamentMax) && tournamentMax > 0) return tournamentMax
+  if (Number.isFinite(apiMax) && apiMax > 0) return apiMax
+  return 0
+}
 
 export default function AthleteIscrittiPage() {
   const params = useSearchParams()
@@ -95,49 +103,26 @@ React.useEffect(() => {
   })()
 }, [tid])
 
+console.log('DEBUG atleta/iscritti', {
+  tid,
+  count_items: regs?.items?.length,
+  max_fromTournament: maxTeams,
+  max_fromAPI: regs?.max_teams ?? regs?.meta?.max_teams,
+  effectiveMax: effectiveMaxFrom(regs, maxTeams),
+})
 
 // --------------------------
-// 5) Normalizzazione elenco
+// 5) Normalizzazione elenco (isWaiting con capienza "effettiva")
 // --------------------------
-type RegFromApi = RegItemRaw & {
-  is_waiting?: boolean
-  waiting?: boolean
-  status?: string
-  position?: number
-}
 const list: RegItemUI[] = React.useMemo(() => {
-  const arr: RegFromApi[] = (regs?.items ?? []) as RegFromApi[]
-
-  // se l’API degli iscritti espone un max_teams, preferiscilo (stesso perimetro del calcolo lato server)
-  const apiMax = Number(regs?.max_teams ?? regs?.meta?.max_teams)
- // PRIMA era: const effectiveMax = Number.isFinite(apiMax) && apiMax > 0 ? apiMax : maxTeams
-const effectiveMax =
-  maxTeams > 0
-    ? maxTeams
-    : (Number.isFinite(apiMax) && apiMax > 0 ? apiMax : 0)
-
-  // se l’API manda già l’ordinamento (di solito sì), sfruttiamolo; altrimenti ordina per position asc se presente
-  const ordered = [...arr].sort((a, b) => {
-    const pa = Number(a.position), pb = Number(b.position)
-    if (Number.isFinite(pa) && Number.isFinite(pb)) return pa - pb
-    return 0
-  })
-
-  return ordered.map((r, idx) => {
-    const flag =
-      r.is_waiting ??
-      r.waiting ??
-      (r.status ? r.status.toLowerCase() === 'waiting' : undefined)
-
-    // priorità al flag del server; altrimenti calcolo per indice
-    const isWaiting =
-      typeof flag === 'boolean'
-        ? flag
-        : (effectiveMax > 0 ? idx >= effectiveMax : false)
-
-    return { ...r, isWaiting }
-  })
+  const arr: RegItemRaw[] = regs?.items ?? []
+  const effMax = effectiveMaxFrom(regs, maxTeams)
+  return arr.map((r, idx) => ({
+    ...r,
+    isWaiting: effMax > 0 ? idx >= effMax : false,
+  }))
 }, [regs, maxTeams])
+
 
 
   // --------------------------
@@ -162,17 +147,16 @@ const effectiveMax =
       <div className="card p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Iscritti</h3>
-        <div className="text-xs text-neutral-400">
+      <div className="text-xs text-neutral-400">
   {(() => {
-    const apiMax = Number(regs?.max_teams ?? regs?.meta?.max_teams)
-    const effectiveMax =
-      maxTeams > 0 ? maxTeams : (Number.isFinite(apiMax) && apiMax > 0 ? apiMax : 0)
+    const effMax = effectiveMaxFrom(regs, maxTeams)
     const waitingCount = list.filter(x => x.isWaiting).length
-    return effectiveMax > 0
-      ? `Capienza: ${effectiveMax} squadre — In attesa: ${waitingCount}`
+    return effMax > 0
+      ? `Capienza: ${effMax} squadre — In attesa: ${waitingCount}`
       : `Nessun limite impostato — In attesa: ${waitingCount}`
   })()}
 </div>
+
 
         </div>
 
