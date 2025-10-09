@@ -86,8 +86,8 @@ export default function AppHeader() {
   return (
     <>
       {/* HEADER sticky */}
- <header
-  className="fixed top-0 left-0 right-0 z-[10000] isolate bg-neutral-950/95 backdrop-blur header-shadow pointer-events-auto"
+<header
+  className="fixed top-0 left-0 right-0 z-[99999] isolate bg-neutral-950/95 backdrop-blur header-shadow pointer-events-auto"
   style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}
 >
      <div className="relative z-[1] container-admin mx-auto px-4 sm:px-6 lg:px-8">
