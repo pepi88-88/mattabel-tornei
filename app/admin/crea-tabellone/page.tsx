@@ -17,7 +17,7 @@ const BASE_CARD_W = 320
 const CARD_W      = Math.round(BASE_CARD_W * 0.9) // ~ -30%
 const CARD_H      = 148
 const COL_GAP     = 140
-const ROW_GAP     = 32
+const ROW_GAP     = 10
 const BLOCK_GAP_V = 160 // Winners → Losers
 const HSCROLL_PAD = -100 // extra larghezza per avere la scrollbar orizzontale
 
