@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import * as React from 'react'
 import Image from 'next/image'
+import { useRouter, usePathname } from 'next/navigation'
 
 const ORANGE = 'rgb(240,125,0)'
 
@@ -35,9 +36,11 @@ const NAV_ITEMS: Item[] = [
 ]
 
 function NavLink({ href, label, active }: { href:string; label:string; active:boolean }) {
+  const router = useRouter()
   return (
-    <Link
-      href={href}
+    <button
+      type="button"
+      onClick={() => router.push(href)}                  // 👈 navigazione forzata
       className={[
         'inline-flex items-center justify-center',
         'h-11 px-4 rounded-md my-2',
@@ -48,9 +51,10 @@ function NavLink({ href, label, active }: { href:string; label:string; active:bo
       style={active ? { borderColor: ORANGE } : undefined}
     >
       <span className="truncate">{label}</span>
-    </Link>
+    </button>
   )
 }
+
 
 function ExitButton() {
   return (
