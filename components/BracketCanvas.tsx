@@ -4,11 +4,11 @@ import React, { useEffect, useMemo, useState } from 'react'
 
 /* ===================== Costanti UI ===================== */
 const BASE_CARD_W = 320
-const CARD_W      = 320
-const CARD_H      = 160
-const COL_GAP     = 180
-const ROW_GAP     = 40
-const HSCROLL_PAD = 0
+const CARD_W      = Math.round(BASE_CARD_W * 0.8)   // 256 ~ -20%
+const CARD_H      = 148
+const COL_GAP     = 140                              // ⬅️ distanza tra colonne
+const ROW_GAP     = 28                               // ⬅️ distanza verticale tra match della stessa colonna
+const HSCROLL_PAD = -100
 
 const SE_FINAL_TUNE = { lineDX: 0, lineDY: 0, lineLEN: 48, boxDX: 0, boxDY: 0 }
 /* ===================== Tipi esportati ===================== */
