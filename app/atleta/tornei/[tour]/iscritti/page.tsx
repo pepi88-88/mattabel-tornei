@@ -3,7 +3,7 @@
 import * as React from 'react'
 import useSWR from 'swr'
 import { useSearchParams } from 'next/navigation'
-import ResponsiveDesktopTableWrapper from '@/components/ResponsiveDesktopTable'
+import ResponsiveDesktopTableWrapper from '../../../../../components/ResponsiveDesktopTable'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
