@@ -12,7 +12,6 @@ const COLORS: Record<string, string> = {
   M:'#84CC16', N:'#F43F5E', O:'#14B8A6', P:'#64748B',
 }
 const colorFor = (L: string) => COLORS[L] ?? '#334155'
-const chunk = <T,>(a:T[], n:number) => { const o:T[][]=[]; for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n)); return o }
 
 /* === tipi === */
 type Meta   = { capacity: number; format: 'pool'|'ita' }
@@ -28,7 +27,7 @@ type Persist = {
 }
 type PublicState = { is_public: boolean; state?: Persist | null }
 
-/* === RR helpers === */
+/* === round-robin helpers === */
 function rr(n: number){
   const t = Array.from({length:n},(_,i)=>i+1)
   if (t.length < 2) return [] as Array<[number,number]>
@@ -40,10 +39,18 @@ function rr(n: number){
   }
   return out
 }
+
+function labelBySlot(data: Persist, L:string, slot:number){
+  const rid = data?.assign?.[`${L}-${slot}`]
+  return rid ? (data?.labels?.[rid] ?? `Slot ${slot}`) : `Slot ${slot}`
+}
+
 function scheduleRows(L:string, data: Persist){
   const m = data?.meta?.[L] ?? {capacity:0, format:'pool' as const}
   const cap = m.capacity ?? 0
   if (cap < 2) return [] as {t1:string,t2:string}[]
+
+  // Pool 4 con semifinali/finali
   if (m.format === 'pool' && cap === 4){
     const p = { r1:[[1,4],[2,3]] as Array<[number,number]> }
     return [
@@ -53,91 +60,49 @@ function scheduleRows(L:string, data: Persist){
       { t1: 'Perdente G1', t2: 'Perdente G2' },
     ]
   }
+
+  // RR normale (max 6 per coerenza UI)
   return rr(Math.min(cap,6)).map(([a,b])=>({t1:labelBySlot(data,L,a), t2:labelBySlot(data,L,b)}))
 }
-function labelBySlot(data: Persist, L:string, slot:number){
-  const rid = data?.assign?.[`${L}-${slot}`]
-  return rid ? (data?.labels?.[rid] ?? `Slot ${slot}`) : `Slot ${slot}`
-}
-/** Pair fissi del pool 4: G1 = (1–4), G2 = (2–3) */
+
+/* === Pool4: risoluzione Vincente/Perdente G1/G2 === */
 function poolPairFor(gameIndex: number): [number, number] {
-  return gameIndex === 0 ? [1, 4] : [2, 3];
+  // G1 = (1,4), G2 = (2,3)
+  return gameIndex === 0 ? [1, 4] : [2, 3]
 }
 
-/** Prova a risolvere "Vincente G1" / "Perdente G2" usando i punteggi salvati. 
- *  Se mancano i dati, restituisce il testo originale.
- */
 function resolvePoolToken(L: string, token: string, data: Persist): string {
-  const m = token.match(/^(Vincente|Perdente)\s+G([12])$/i);
-  if (!m) return token;
+  const m = token.match(/^(Vincente|Perdente)\s+G([12])$/i)
+  if (!m) return token
 
-  const outcome = m[1].toLowerCase();         // 'vincente' | 'perdente'
-  const gIdx = Number(m[2]) - 1;              // 0 per G1, 1 per G2
-  const [slotA, slotB] = poolPairFor(gIdx);   // [1,4] oppure [2,3]
+  const outcome = m[1].toLowerCase() as 'vincente'|'perdente'
+  const gIdx = Number(m[2]) - 1               // 0 per G1, 1 per G2
+  const [slotA, slotB] = poolPairFor(gIdx)    // [1,4] oppure [2,3]
+  const nameA = labelBySlot(data, L, slotA)
+  const nameB = labelBySlot(data, L, slotB)
 
-  const nameA = labelBySlot(data, L, slotA);
-  const nameB = labelBySlot(data, L, slotB);
+  const sc = data?.scores?.[L]?.[gIdx]
+  const a = Number(sc?.a)
+  const b = Number(sc?.b)
 
-  const sc = data?.scores?.[L]?.[gIdx];
-  const a = Number(sc?.a);
-  const b = Number(sc?.b);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return token // senza punteggi → lascia token
 
-  // se non ho punteggi validi → lascio il testo originale
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return token;
-
-  if (outcome === 'vincente') {
-    return a > b ? nameA : nameB;
-  } else {
-    return a > b ? nameB : nameA;
-  }
+  if (outcome === 'vincente') return a > b ? nameA : nameB
+  return a > b ? nameB : nameA // perdente
 }
 
-/** Rende un’etichetta finale “risolta” (se è un token Vincente/Perdente Gx) */
-function displayTeamLabel(L: string, raw: string, data: Persist): string {
-  // solo nel formato pool 4 usiamo i token “G1/G2”
-  if (/^(Vincente|Perdente)\s+G[12]$/i.test(raw)) {
-    return resolvePoolToken(L, raw, data);
-  }
-  return raw;
-}
-/** Pair fissi del pool 4: G1 = (1–4), G2 = (2–3) */
-function poolPairFor(gameIndex: number): [number, number] {
-  return gameIndex === 0 ? [1, 4] : [2, 3];
-}
-
-/** Prova a risolvere "Vincente G1" / "Perdente G2" usando i punteggi salvati. */
-function resolvePoolToken(L: string, token: string, data: Persist): string {
-  const m = token.match(/^(Vincente|Perdente)\s+G([12])$/i);
-  if (!m) return token;
-
-  const outcome = m[1].toLowerCase();   // 'vincente' | 'perdente'
-  const gIdx = Number(m[2]) - 1;        // 0 per G1, 1 per G2
-
-  const [slotA, slotB] = poolPairFor(gIdx);   // [1,4] oppure [2,3]
-  const nameA = labelBySlot(data, L, slotA);
-  const nameB = labelBySlot(data, L, slotB);
-
-  const sc = data?.scores?.[L]?.[gIdx];
-  const a = Number(sc?.a);
-  const b = Number(sc?.b);
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return token; // niente dati → lascia il token
-
-  if (outcome === 'vincente') return a > b ? nameA : nameB;
-  return a > b ? nameB : nameA; // perdente
-}
-
-/** Etichetta finale “risolta” (se è un token Vincente/Perdente Gx) */
 function displayTeamLabel(L: string, raw: string, data: Persist): string {
   return /^(Vincente|Perdente)\s+G[12]$/i.test(raw)
     ? resolvePoolToken(L, raw, data)
-    : raw;
+    : raw
 }
 
+/* === PAGE === */
 export default function AthleteGironiPage(){
   const params = useSearchParams()
   const tId   = params.get('tid') || (typeof window!=='undefined' ? localStorage.getItem('selectedTournamentId') : '') || ''
 
-  // Titolo SOLO cosmetico
+  // Titolo (cosmetico, da query/localStorage)
   const [title, setTitle] = React.useState<string>('')
   React.useEffect(() => {
     if (!tId) { setTitle(''); return }
@@ -172,21 +137,19 @@ export default function AthleteGironiPage(){
     [data?.groupsCount]
   )
 
-  // refs per scrollIntoView dei pannelli
- const panelRefs = React.useRef<Record<string, HTMLElement | null>>({})
+  // refs per scrollIntoView dei pannelli (MOBILE)
+  const panelRefs = React.useRef<Record<string, HTMLDivElement | null>>({})
   const [currentIdx, setCurrentIdx] = React.useState(0)
   const scrollTo = (idx: number) => {
     const L = letters[idx]
     if (!L) return
     panelRefs.current[L]?.scrollIntoView({ behavior: 'smooth', inline: 'center' })
   }
-
-  // aggiorna dot attivo con scroll snapping
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget
     const w = el.clientWidth
     const i = Math.round(el.scrollLeft / w)
-    if (i !== currentIdx) setCurrentIdx(Math.max(0, Math.min(i, letters.length-1)))
+    if (i !== currentIdx) setCurrentIdx(Math.max(0, Math.min(i, letters.length - 1)))
   }
 
   return (
@@ -203,107 +166,62 @@ export default function AthleteGironiPage(){
         <div className="card p-4 text-sm text-neutral-400">Nessun dato disponibile.</div>
       ) : (
         <>
-          {/* DOTS / quick nav */}
-          <div className="flex justify-center gap-2 mb-3">
-            {letters.map((L, i) => (
-              <button
-                key={L}
-                onClick={()=>scrollTo(i)}
-                className={[
-                  'h-2.5 w-2.5 rounded-full transition-opacity',
-                  i === currentIdx ? 'bg-white opacity-100' : 'bg-neutral-500 opacity-50'
-                ].join(' ')}
-                aria-label={`Vai a girone ${L}`}
-              />
-            ))}
-          </div>
+          {/* ===== MOBILE: carosello swipe (uno per volta) ===== */}
+          <div className="md:hidden">
+            {/* DOTS / quick nav */}
+            <div className="flex justify-center gap-2 mb-3">
+              {letters.map((L, i) => (
+                <button
+                  key={L}
+                  onClick={() => scrollTo(i)}
+                  className={[
+                    'h-2.5 w-2.5 rounded-full transition-opacity',
+                    i === currentIdx ? 'bg-white opacity-100' : 'bg-neutral-500 opacity-50',
+                  ].join(' ')}
+                  aria-label={`Vai a girone ${L}`}
+                />
+              ))}
+            </div>
 
-          {/* CAROUSEL a scorrimento orizzontale (snap) */}
-          <div
-            className="snap-x snap-mandatory overflow-x-auto -mx-4 px-4"
-            onScroll={onScroll}
-          >
-            <div className="flex gap-4">
-              {letters.map((L, i) => {
-                const m = data.meta?.[L] ?? {capacity:0, format:'pool' as const}
-                const cap = m.capacity ?? 0
-                const rows = scheduleRows(L, data)
+            {/* CAROUSEL */}
+            <div
+              className="snap-x snap-mandatory overflow-x-auto -mx-4 px-4"
+              onScroll={onScroll}
+            >
+              <div className="flex gap-4">
+                {letters.map((L) => {
+                  const m = data.meta?.[L] ?? { capacity: 0, format: 'pool' as const }
+                  const cap = m.capacity ?? 0
+                  const rows = scheduleRows(L, data)
 
-             return (
-  <div className="p-6 max-w-[1400px] mx-auto">
-    <div className="text-2xl md:text-3xl font-semibold text-center mb-3">
-      {title || 'Gironi'}
-    </div>
-
-    {loading ? (
-      <div className="card p-4 text-sm text-neutral-400">Carico…</div>
-    ) : error ? (
-      <div className="card p-4 text-sm text-red-400">{error}</div>
-    ) : !pub.is_public ? (
-      <div className="card p-4 text-sm">
-        I gironi non sono ancora visibili. Verranno mostrati quando gli organizzatori li renderanno pubblici.
-      </div>
-    ) : !data ? (
-      <div className="card p-4 text-sm text-neutral-400">Nessun dato disponibile.</div>
-    ) : (
-      <>
-        {/* ===== MOBILE: carosello swipe (uno per volta) ===== */}
-        <div className="md:hidden">
-          {/* DOTS / quick nav */}
-          <div className="flex justify-center gap-2 mb-3">
-            {letters.map((L, i) => (
-              <button
-                key={L}
-                onClick={() => scrollTo(i)}
-                className={[
-                  'h-2.5 w-2.5 rounded-full transition-opacity',
-                  i === currentIdx ? 'bg-white opacity-100' : 'bg-neutral-500 opacity-50',
-                ].join(' ')}
-                aria-label={`Vai a girone ${L}`}
-              />
-            ))}
-          </div>
-
-          {/* CAROUSEL */}
-          <div
-            className="snap-x snap-mandatory overflow-x-auto -mx-4 px-4"
-            onScroll={onScroll}
-          >
-            <div className="flex gap-4">
-              {letters.map((L) => {
-                const m = data.meta?.[L] ?? { capacity: 0, format: 'pool' as const }
-                const cap = m.capacity ?? 0
-                const rows = scheduleRows(L, data)
-
-                return (
-                  <section
-                    key={L}
-                    ref={(el: HTMLDivElement | null) => { (panelRefs.current as any)[L] = el }}
-                    className="snap-center shrink-0 w-full"
-                  >
-                    {/* GIRONE */}
-                    <div className="card p-0 overflow-hidden text-[14px] mb-3">
-                      <div className="px-3 py-2 text-white" style={{ background: colorFor(L) }}>
-                        <div className="flex items-center gap-3">
-                          <div className="font-extrabold tracking-wide">GIRONE {L}</div>
-                          <div className="text-xs opacity-90"># {cap}</div>
-                          <div className="text-xs opacity-90 uppercase">{m.format}</div>
+                  return (
+                    <section
+                      key={L}
+                      ref={(el) => { panelRefs.current[L] = el }}
+                      className="snap-center shrink-0 w-full"
+                    >
+                      {/* GIRONE */}
+                      <div className="card p-0 overflow-hidden text-[14px] mb-3">
+                        <div className="px-3 py-2 text-white" style={{ background: colorFor(L) }}>
+                          <div className="flex items-center gap-3">
+                            <div className="font-extrabold tracking-wide">GIRONE {L}</div>
+                            <div className="text-xs opacity-90"># {cap}</div>
+                            <div className="text-xs opacity-90 uppercase">{m.format}</div>
+                          </div>
+                        </div>
+                        <div className="p-3 space-y-2">
+                          {cap < 1 ? (
+                            <div className="text-xs text-neutral-500">Nessuna squadra.</div>
+                          ) : Array.from({ length: cap }, (_, k) => k + 1).map(slot => (
+                            <div key={`${L}-${slot}`} className="flex items-center gap-2">
+                              <div className="w-5 text-xs text-neutral-500">{slot}.</div>
+                              <div className="input w-full h-9 px-2 bg-neutral-900/60">
+                                {labelBySlot(data, L, slot)}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      <div className="p-3 space-y-2">
-                        {cap < 1 ? (
-                          <div className="text-xs text-neutral-500">Nessuna squadra.</div>
-                        ) : Array.from({ length: cap }, (_, k) => k + 1).map(slot => (
-                          <div key={`${L}-${slot}`} className="flex items-center gap-2">
-                            <div className="w-5 text-xs text-neutral-500">{slot}.</div>
-                            <div className="input w-full h-9 px-2 bg-neutral-900/60">
-                              {labelBySlot(data, L, slot)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
                     {/* PARTITE */}
                     <div className="card p-0 overflow-hidden text-[14px]">
                       <div className="h-9 px-3 flex items-center justify-between text-white" style={{ background: colorFor(L) }}>
