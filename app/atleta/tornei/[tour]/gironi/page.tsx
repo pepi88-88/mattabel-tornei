@@ -141,8 +141,8 @@ export default function AthleteGironiPage(){
 
           {/* Partite */}
           <div className="space-y-4">
-            {chunk(letters, 2).map((pair,i)=>(
-              <div key={i} className="grid gap-4" style={{gridTemplateColumns:'repeat(2,minmax(0,1fr))'}}>
+           {chunk(letters, 2).map((pair,i)=>(
+  <div key={i} className="grid gap-4 grid-cols-1 md:grid-cols-2">
                 {pair.map(L=>{
                   const rows = scheduleRows(L, data)
                   return (
@@ -155,15 +155,56 @@ export default function AthleteGironiPage(){
                         {rows.length===0 ? (
                           <div className="text-xs text-neutral-500">Nessuna partita.</div>
                         ) : rows.map((r,idx)=>(
-                          <div key={idx} className="grid items-center"
-                               style={{gridTemplateColumns:'72px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)', columnGap:'.35rem'}}>
-                            <div className="input h-8 pl-1 pr-0 text-sm tabular-nums">{(data.times?.[L]?.[idx] ?? '') || '—'}</div>
-                            <div className="min-w-0 truncate whitespace-nowrap text-sm text-right">{r.t1}</div>
-                            <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">{data.scores?.[L]?.[idx]?.a ?? ''}</div>
-                            <div className="w-6 text-center text-[13px] text-neutral-400">vs</div>
-                            <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">{data.scores?.[L]?.[idx]?.b ?? ''}</div>
-                            <div className="min-w-0 truncate whitespace-nowrap text-sm pl-1">{r.t2}</div>
-                          </div>
+                          {/* MOBILE: layout a 2 righe (solo < sm) */}
+<div key={`m-${idx}`} className="sm:hidden space-y-1">
+  {/* riga 1: orario, team A, punteggio A */}
+  <div className="flex items-center gap-2">
+    <div className="input h-8 w-14 px-1 text-[12px] tabular-nums">
+      {(data.times?.[L]?.[idx] ?? '') || '—'}
+    </div>
+    <div className="flex-1 min-w-0 truncate text-sm">{r.t1}</div>
+    <div className="input h-8 w-10 px-1 text-sm text-center tabular-nums">
+      {data.scores?.[L]?.[idx]?.a ?? ''}
+    </div>
+  </div>
+  {/* riga 2: indentata sotto l’orario, “vs”, punteggio B, team B */}
+  <div className="flex items-center gap-2 pl-[56px]">
+    <div className="w-6 text-center text-[12px] text-neutral-400">vs</div>
+    <div className="input h-8 w-10 px-1 text-sm text-center tabular-nums">
+      {data.scores?.[L]?.[idx]?.b ?? ''}
+    </div>
+    <div className="flex-1 min-w-0 truncate text-sm">{r.t2}</div>
+  </div>
+</div>
+
+{/* DESKTOP/TABLET: griglia compatta (solo ≥ sm) */}
+<div
+  key={`d-${idx}`}
+  className="hidden sm:grid items-center"
+  style={{
+    gridTemplateColumns:
+      '72px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
+    columnGap: '.35rem',
+  }}
+>
+  <div className="input h-8 pl-1 pr-0 text-sm tabular-nums">
+    {(data.times?.[L]?.[idx] ?? '') || '—'}
+  </div>
+  <div className="min-w-0 truncate whitespace-nowrap text-sm text-right">
+    {r.t1}
+  </div>
+  <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
+    {data.scores?.[L]?.[idx]?.a ?? ''}
+  </div>
+  <div className="w-6 text-center text-[13px] text-neutral-400">vs</div>
+  <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
+    {data.scores?.[L]?.[idx]?.b ?? ''}
+  </div>
+  <div className="min-w-0 truncate whitespace-nowrap text-sm pl-1">
+    {r.t2}
+  </div>
+</div>
+
                         ))}
                       </div>
                     </div>
