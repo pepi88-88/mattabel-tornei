@@ -146,46 +146,52 @@ const list: RegItemUI[] = React.useMemo(() => {
           <div className="text-sm text-neutral-500">Nessun iscritto per questa tappa.</div>
         ) : (
          <ResponsiveDesktopTableWrapper minWidthPx={900}>
-  <ul className="space-y-1 whitespace-nowrap">
-    {list.map((r, idx) => {
-      const waiting = r.isWaiting
-      return (
-        <li
-          key={r.id}
-          className={[
-            'flex items-center justify-between py-2 px-2 rounded-lg',
-            waiting ? 'bg-amber-500/10' : '',
-          ].join(' ')}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-7 text-xs text-neutral-500 tabular-nums">
-              {String(idx + 1).padStart(2, '0')}.
-            </div>
-
-            {/* ⬇️ tolto 'truncate' per non tagliare i nomi; manteniamo una sola riga */}
-            <div
-              className={[
-                'font-medium whitespace-nowrap pr-2',
-                'text-base md:text-lg',
-                waiting ? 'text-amber-400' : 'text-white',
-              ].join(' ')}
-              title={waiting ? 'In attesa' : 'Iscritto'}
-            >
-              {r.label}
-            </div>
+ <ul className="space-y-1">
+  {list.map((r, idx) => {
+    const waiting = r.isWaiting
+    return (
+      <li
+        key={r.id}
+        className={[
+          // ↓ un filo più compatta
+          'flex items-center justify-between py-1.5 px-2 rounded-lg',
+          waiting ? 'bg-amber-500/10' : '',
+        ].join(' ')}
+      >
+        {/* Numero + Nome (più vicini) */}
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Numero: più stretto, allineato a destra, font più piccolo */}
+          <div className="w-6 text-[12px] md:text-[13px] text-neutral-500 text-right tabular-nums">
+            {String(idx + 1).padStart(2, '0')}.
           </div>
 
-          <div className="shrink-0">
-            {waiting ? (
-              <span className="badge badge-warning badge-sm">in attesa</span>
-            ) : (
-              <span className="badge badge-primary badge-sm">iscritto</span>
-            )}
+          {/* Nome: font un filo più piccolo e tight */}
+          <div
+            className={[
+              'truncate font-medium leading-tight tracking-tight',
+              // ↓ leggermente downgrade del font
+              'text-sm md:text-base lg:text-lg',
+              waiting ? 'text-amber-400' : 'text-white',
+            ].join(' ')}
+            title={waiting ? 'In attesa' : 'Iscritto'}
+          >
+            {r.label}
           </div>
-        </li>
-      )
-    })}
-  </ul>
+        </div>
+
+        {/* Badge stato (invariato ma coerente col nuovo sizing) */}
+        <div className="shrink-0">
+          {waiting ? (
+            <span className="badge badge-warning badge-sm">in attesa</span>
+          ) : (
+            <span className="badge badge-primary badge-sm">iscritto</span>
+          )}
+        </div>
+      </li>
+    )
+  })}
+</ul>
+
 </ResponsiveDesktopTableWrapper>
 
         )}
