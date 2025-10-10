@@ -73,33 +73,37 @@ export default function AthleteTourHome({ params }: { params: { tour: string } }
         ) : (
           <ul className="space-y-2">
             {items.map(t => (
-              <li key={t.id} className="flex items-center justify-between gap-3 border-b border-neutral-800 py-2">
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{t.title || t.name}</div>
-                  <div className="text-xs text-neutral-500">
-                    {/* multiplier è opzionale: fallback 1 */}
-                    × {Number(t.multiplier ?? 1).toFixed(2)} • {t.event_date ?? 'gg/mm'} • tot: {t.max_teams ?? '—'}
-                  </div>
-                </div>
+              <li
+  key={t.id}
+  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 border-b border-neutral-800 py-2"
+>
+  <div className="min-w-0">
+    <div className="font-medium break-words whitespace-normal sm:truncate sm:whitespace-nowrap">
+      {t.title || t.name}
+    </div>
+    <div className="text-xs text-neutral-500">
+      × {Number(t.multiplier ?? 1).toFixed(2)} • {t.event_date ?? 'gg/mm'} • tot: {t.max_teams ?? '—'}
+    </div>
+  </div>
 
-                <div className="flex gap-2 shrink-0">
+  <div className="flex flex-wrap gap-2 sm:shrink-0">
                   {/* Passo tid e tname: la pagina Iscritti/Gironi li usa */}
                   <Link
-                    className="btn btn-ghost btn-sm"
+                    className="btn btn-ghost btn-sm w-full sm:w-auto"
                     href={`/atleta/tornei/${encodeURIComponent(tourSeg)}/iscritti?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}
                   >
                     Iscritti
                   </Link>
 
                   <Link
-                    className="btn btn-ghost btn-sm"
+                    className="btn btn-ghost btn-sm w-full sm:w-auto"
                     href={`/atleta/tornei/${encodeURIComponent(tourSeg)}/gironi?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}
                   >
                     Gironi
                   </Link>
 
                   <Link
-                    className="btn btn-ghost btn-sm"
+                    className="btn btn-ghost btn-sm w-full sm:w-auto"
                     href={`/atleta/tornei/${encodeURIComponent(tourSeg)}/risultati?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}
                   >
                     Risultati
