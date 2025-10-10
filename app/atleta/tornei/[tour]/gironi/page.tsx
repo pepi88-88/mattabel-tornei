@@ -111,7 +111,7 @@ export default function AthleteGironiPage(){
       ) : (
         <div className="space-y-6">
           {/* Griglie gironi */}
-         <div key={i} className="grid gap-4 grid-cols-1 md:grid-cols-2">
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
             {letters.map(L=>{
               const m = data.meta?.[L] ?? {capacity:0, format:'pool' as const}
               const cap = m.capacity ?? 0
