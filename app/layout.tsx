@@ -25,6 +25,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
       </body>
+      // dentro <html lang="it"> … </html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=6, user-scalable=yes" />
+  <script dangerouslySetInnerHTML={{
+    __html: `
+      (function(){
+        var m = document.querySelector('meta[name=viewport]');
+        console.log('VIEWPORT META:', m && m.getAttribute('content'));
+      })();
+    `
+  }} />
+</head>
+
     </html>
   )
 }
