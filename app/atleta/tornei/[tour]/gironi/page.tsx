@@ -110,17 +110,86 @@ export default function AthleteGironiPage(){
         <div className="card p-4 text-sm text-neutral-400">Nessun dato disponibile.</div>
       ) : (
         <div className="space-y-6">
-          {/* Griglie gironi */}
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-            {letters.map(L=>{
-              const m = data.meta?.[L] ?? {capacity:0, format:'pool' as const}
-              const cap = m.capacity ?? 0
-              return (
-                <div key={L} className="card p-0 overflow-hidden">
+         {/* Griglie gironi */}
+<div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+  {letters.map(L => {
+    const m = data.meta?.[L] ?? { capacity: 0, format: 'pool' as const }
+    const cap = m.capacity ?? 0
+    return (
+      <div key={L} className="card p-0 overflow-hidden">
+        {/* ⛔️ RIMUOVI il blocco che avevi incollato con overflow-x-auto e rows */}
+        {/* Mantieni SOLO l’header e la lista slot come prima */}
+        <div className="px-3 py-2 text-white" style={{ background: colorFor(L) }}>
+          <div className="flex items-center gap-3">
+            <div className="text-base font-extrabold tracking-wide">GIRONE {L}</div>
+            <div className="text-xs opacity-90"># {cap}</div>
+            <div className="text-xs opacity-90 uppercase">{m.format}</div>
+          </div>
+        </div>
+        <div className="p-3 space-y-2">
+          {cap < 1 ? (
+            <div className="text-xs text-neutral-500">Nessuna squadra.</div>
+          ) : Array.from({ length: cap }, (_, k) => k + 1).map(slot => (
+            <div key={`${L}-${slot}`} className="flex items-center gap-2">
+              <div className="w-5 text-xs text-neutral-500">{slot}.</div>
+              <div className="input w-full bg-neutral-900/60">{labelBySlot(data, L, slot)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  })}
+</div>
+
+            >
+              {/* orario */}
+              <div className="input h-8 pl-1 pr-0 text-sm tabular-nums">
+                {(data.times?.[L]?.[idx] ?? '') || '—'}
+              </div>
+
+              {/* team A */}
+              <div className="text-sm text-right">{r.t1}</div>
+
+              {/* punteggio A */}
+              <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
+                {data.scores?.[L]?.[idx]?.a ?? ''}
+              </div>
+
+              {/* vs */}
+              <div className="w-6 text-center text-[13px] text-neutral-400">vs</div>
+
+              {/* punteggio B */}
+              <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
+                {data.scores?.[L]?.[idx]?.b ?? ''}
+              </div>
+
+              {/* team B */}
+              <div className="text-sm pl-1">{r.t2}</div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  </div>
+</div>
+
+
+          {/* Partite */}
+          <div className="space-y-4">
+           {chunk(letters, 2).map((pair,i)=>(
+  <div key={i} className="grid gap-4 grid-cols-1 md:grid-cols-2">
+                {pair.map(L=>{
+                  const rows = scheduleRows(L, data)
+                  return (
+                    <div key={L} className="card p-0 overflow-hidden">
+                      <div className="h-9 px-3 flex items-center justify-between text-white" style={{background:colorFor(L)}}>
+                        <div className="text-sm font-semibold">Partite {L}</div>
+                        <div className="text-xs opacity-90">Campo {data.gField?.[L] ?? '—'}</div>
+                      </div>
                  <div className="p-3">
   {/* wrapper che abilita lo scroll orizzontale su schermi stretti */}
   <div className="overflow-x-auto -mx-3 sm:mx-0">
-    {/* larghezza “desktop” minima della tabella partite: regola a piacere */}
+    {/* larghezza “desktop” minima per tenere tutto su una riga */}
     <div className="inline-block min-w-[720px] sm:min-w-0 w-full">
       <div className="space-y-2">
         {rows.length === 0 ? (
@@ -168,86 +237,5 @@ export default function AthleteGironiPage(){
   </div>
 </div>
 
-
-          {/* Partite */}
-          <div className="space-y-4">
-           {chunk(letters, 2).map((pair,i)=>(
-  <div key={i} className="grid gap-4 grid-cols-1 md:grid-cols-2">
-                {pair.map(L=>{
-                  const rows = scheduleRows(L, data)
-                  return (
-                    <div key={L} className="card p-0 overflow-hidden">
-                      <div className="h-9 px-3 flex items-center justify-between text-white" style={{background:colorFor(L)}}>
-                        <div className="text-sm font-semibold">Partite {L}</div>
-                        <div className="text-xs opacity-90">Campo {data.gField?.[L] ?? '—'}</div>
-                      </div>
-                  <div className="p-3 space-y-2">
-  {rows.length === 0 ? (
-    <div className="text-xs text-neutral-500">Nessuna partita.</div>
-  ) : (
-    rows.map((r, idx) => (
-      <React.Fragment key={idx}>
-        {/* MOBILE: layout a 2 righe (solo < sm) */}
-        <div className="sm:hidden space-y-1">
-          {/* riga 1: orario, team A, punteggio A */}
-          <div className="flex items-center gap-2">
-            <div className="input h-8 w-14 px-1 text-[12px] tabular-nums">
-              {(data.times?.[L]?.[idx] ?? '') || '—'}
-            </div>
-            <div className="flex-1 min-w-0 truncate text-sm">{r.t1}</div>
-            <div className="input h-8 w-10 px-1 text-sm text-center tabular-nums">
-              {data.scores?.[L]?.[idx]?.a ?? ''}
-            </div>
-          </div>
-          {/* riga 2: indentata sotto l’orario, “vs”, punteggio B, team B */}
-          <div className="flex items-center gap-2 pl-[56px]">
-            <div className="w-6 text-center text-[12px] text-neutral-400">vs</div>
-            <div className="input h-8 w-10 px-1 text-sm text-center tabular-nums">
-              {data.scores?.[L]?.[idx]?.b ?? ''}
-            </div>
-            <div className="flex-1 min-w-0 truncate text-sm">{r.t2}</div>
-          </div>
-        </div>
-
-        {/* DESKTOP/TABLET: griglia compatta (solo ≥ sm) */}
-        <div
-          className="hidden sm:grid items-center"
-          style={{
-            gridTemplateColumns:
-              '72px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
-            columnGap: '.35rem',
-          }}
-        >
-          <div className="input h-8 pl-1 pr-0 text-sm tabular-nums">
-            {(data.times?.[L]?.[idx] ?? '') || '—'}
-          </div>
-          <div className="min-w-0 truncate whitespace-nowrap text-sm text-right">
-            {r.t1}
-          </div>
-          <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
-            {data.scores?.[L]?.[idx]?.a ?? ''}
-          </div>
-          <div className="w-6 text-center text-[13px] text-neutral-400">vs</div>
-          <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
-            {data.scores?.[L]?.[idx]?.b ?? ''}
-          </div>
-          <div className="min-w-0 truncate whitespace-nowrap text-sm pl-1">
-            {r.t2}
-          </div>
-        </div>
-      </React.Fragment>
-    ))
-  )}
-</div>
-
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
   )
 }
