@@ -277,80 +277,75 @@ export default function AthleteGironiPage(){
             </div>
           </div>
 
-          {/* ===== DESKTOP: griglia classica (fino a 4 colonne) ===== */}
-          <div className="hidden md:grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {letters.map((L) => {
-              const m = data.meta?.[L] ?? { capacity: 0, format: 'pool' as const }
-              const cap = m.capacity ?? 0
-              const rows = scheduleRows(L, data)
+     {/* ===== DESKTOP: griglia classica (gironi sopra, partite larghe sotto) ===== */}
+<div className="hidden md:grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 auto-rows-max">
+  {letters.map((L) => {
+    const m = data.meta?.[L] ?? { capacity: 0, format: 'pool' as const }
+    const cap = m.capacity ?? 0
+    const rows = scheduleRows(L, data)
 
-              return (
-                <div key={L} className="space-y-3">
-                  {/* GIRONE */}
-                  <div className="card p-0 overflow-hidden">
-                    <div className="px-3 py-2 text-white" style={{ background: colorFor(L) }}>
-                      <div className="flex items-center gap-3">
-                        <div className="font-extrabold tracking-wide">GIRONE {L}</div>
-                        <div className="text-xs opacity-90"># {cap}</div>
-                        <div className="text-xs opacity-90 uppercase">{m.format}</div>
-                      </div>
-                    </div>
-                    <div className="p-3 space-y-2">
-                      {cap < 1 ? (
-                        <div className="text-xs text-neutral-500">Nessuna squadra.</div>
-                      ) : Array.from({ length: cap }, (_, k) => k + 1).map(slot => (
-                        <div key={`${L}-${slot}`} className="flex items-center gap-2">
-                          <div className="w-5 text-xs text-neutral-500">{slot}.</div>
-                          <div className="input w-full bg-neutral-900/60">{labelBySlot(data, L, slot)}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* PARTITE */}
-                  <div className="card p-0 overflow-hidden">
-                    <div className="h-9 px-3 flex items-center justify-between text-white" style={{ background: colorFor(L) }}>
-                      <div className="text-sm font-semibold">Partite {L}</div>
-                      <div className="text-xs opacity-90">Campo {data.gField?.[L] ?? '—'}</div>
-                    </div>
-                    <div className="p-3 space-y-2">
-                      {rows.length === 0 ? (
-                        <div className="text-xs text-neutral-500">Nessuna partita.</div>
-                      ) : rows.map((r, idx) => (
-                        <div
-                          key={idx}
-                          className="grid items-center"
-                          style={{
-                            gridTemplateColumns: '72px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
-                            columnGap: '.35rem',
-                          }}
-                        >
-                          <div className="input h-8 pl-1 pr-0 text-sm tabular-nums">
-                            {(data.times?.[L]?.[idx] ?? '') || '—'}
-                          </div>
-                          <div className="min-w-0 truncate whitespace-nowrap text-sm text-right">
-                            {displayTeamLabel(L, r.t1, data)}
-                          </div>
-                          <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
-                            {data.scores?.[L]?.[idx]?.a ?? ''}
-                          </div>
-                          <div className="w-6 text-center text-[13px] text-neutral-400">vs</div>
-                          <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
-                            {data.scores?.[L]?.[idx]?.b ?? ''}
-                          </div>
-                          <div className="min-w-0 truncate whitespace-nowrap text-sm pl-1">
-                            {displayTeamLabel(L, r.t2, data)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+    return (
+      <React.Fragment key={L}>
+        {/* GIRONE */}
+        <div className="card p-0 overflow-hidden">
+          <div className="px-3 py-2 text-white" style={{ background: colorFor(L) }}>
+            <div className="flex items-center gap-3">
+              <div className="font-extrabold tracking-wide">GIRONE {L}</div>
+              <div className="text-xs opacity-90"># {cap}</div>
+              <div className="text-xs opacity-90 uppercase">{m.format}</div>
+            </div>
           </div>
-        </>
-      )}
-    </div>
-  )
-}
+          <div className="p-3 space-y-2">
+            {cap < 1 ? (
+              <div className="text-xs text-neutral-500">Nessuna squadra.</div>
+            ) : Array.from({ length: cap }, (_, k) => k + 1).map(slot => (
+              <div key={`${L}-${slot}`} className="flex items-center gap-2">
+                <div className="w-5 text-xs text-neutral-500">{slot}.</div>
+                <div className="input w-full bg-neutral-900/60">{labelBySlot(data, L, slot)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* PARTITE → larga due colonne */}
+        <div className="card p-0 overflow-hidden col-span-2">
+          <div className="h-9 px-3 flex items-center justify-between text-white" style={{ background: colorFor(L) }}>
+            <div className="text-sm font-semibold">Partite {L}</div>
+            <div className="text-xs opacity-90">Campo {data.gField?.[L] ?? '—'}</div>
+          </div>
+          <div className="p-3 space-y-2">
+            {rows.length === 0 ? (
+              <div className="text-xs text-neutral-500">Nessuna partita.</div>
+            ) : rows.map((r, idx) => (
+              <div
+                key={idx}
+                className="grid items-center"
+                style={{
+                  gridTemplateColumns: '72px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
+                  columnGap: '.35rem',
+                }}
+              >
+                <div className="input h-8 pl-1 pr-0 text-sm tabular-nums">
+                  {(data.times?.[L]?.[idx] ?? '') || '—'}
+                </div>
+                <div className="min-w-0 truncate whitespace-nowrap text-sm text-right">
+                  {displayTeamLabel(L, r.t1, data)}
+                </div>
+                <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
+                  {data.scores?.[L]?.[idx]?.a ?? ''}
+                </div>
+                <div className="w-6 text-center text-[13px] text-neutral-400">vs</div>
+                <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
+                  {data.scores?.[L]?.[idx]?.b ?? ''}
+                </div>
+                <div className="min-w-0 truncate whitespace-nowrap text-sm pl-1">
+                  {displayTeamLabel(L, r.t2, data)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </React.Fragment>
+    )
+  })}
+</div>
