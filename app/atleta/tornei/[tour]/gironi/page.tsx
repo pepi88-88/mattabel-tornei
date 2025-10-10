@@ -138,7 +138,7 @@ export default function AthleteGironiPage(){
   )
 
   // refs per scrollIntoView dei pannelli (MOBILE)
-  const panelRefs = React.useRef<Record<string, HTMLDivElement | null>>({})
+  const panelRefs = React.useRef<Record<string, HTMLElement | null>>({})
   const [currentIdx, setCurrentIdx] = React.useState(0)
   const scrollTo = (idx: number) => {
     const L = letters[idx]
