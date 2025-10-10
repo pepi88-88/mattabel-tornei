@@ -111,7 +111,7 @@ export default function AthleteGironiPage(){
       ) : (
         <div className="space-y-6">
           {/* Griglie gironi */}
-          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+         <div key={i} className="grid gap-4 grid-cols-1 md:grid-cols-2">
             {letters.map(L=>{
               const m = data.meta?.[L] ?? {capacity:0, format:'pool' as const}
               const cap = m.capacity ?? 0
@@ -151,62 +151,65 @@ export default function AthleteGironiPage(){
                         <div className="text-sm font-semibold">Partite {L}</div>
                         <div className="text-xs opacity-90">Campo {data.gField?.[L] ?? '—'}</div>
                       </div>
-                      <div className="p-3 space-y-2">
-                        {rows.length===0 ? (
-                          <div className="text-xs text-neutral-500">Nessuna partita.</div>
-                        ) : rows.map((r,idx)=>(
-                          {/* MOBILE: layout a 2 righe (solo < sm) */}
-<div key={`m-${idx}`} className="sm:hidden space-y-1">
-  {/* riga 1: orario, team A, punteggio A */}
-  <div className="flex items-center gap-2">
-    <div className="input h-8 w-14 px-1 text-[12px] tabular-nums">
-      {(data.times?.[L]?.[idx] ?? '') || '—'}
-    </div>
-    <div className="flex-1 min-w-0 truncate text-sm">{r.t1}</div>
-    <div className="input h-8 w-10 px-1 text-sm text-center tabular-nums">
-      {data.scores?.[L]?.[idx]?.a ?? ''}
-    </div>
-  </div>
-  {/* riga 2: indentata sotto l’orario, “vs”, punteggio B, team B */}
-  <div className="flex items-center gap-2 pl-[56px]">
-    <div className="w-6 text-center text-[12px] text-neutral-400">vs</div>
-    <div className="input h-8 w-10 px-1 text-sm text-center tabular-nums">
-      {data.scores?.[L]?.[idx]?.b ?? ''}
-    </div>
-    <div className="flex-1 min-w-0 truncate text-sm">{r.t2}</div>
-  </div>
+                  <div className="p-3 space-y-2">
+  {rows.length === 0 ? (
+    <div className="text-xs text-neutral-500">Nessuna partita.</div>
+  ) : (
+    rows.map((r, idx) => (
+      <React.Fragment key={idx}>
+        {/* MOBILE: layout a 2 righe (solo < sm) */}
+        <div className="sm:hidden space-y-1">
+          {/* riga 1: orario, team A, punteggio A */}
+          <div className="flex items-center gap-2">
+            <div className="input h-8 w-14 px-1 text-[12px] tabular-nums">
+              {(data.times?.[L]?.[idx] ?? '') || '—'}
+            </div>
+            <div className="flex-1 min-w-0 truncate text-sm">{r.t1}</div>
+            <div className="input h-8 w-10 px-1 text-sm text-center tabular-nums">
+              {data.scores?.[L]?.[idx]?.a ?? ''}
+            </div>
+          </div>
+          {/* riga 2: indentata sotto l’orario, “vs”, punteggio B, team B */}
+          <div className="flex items-center gap-2 pl-[56px]">
+            <div className="w-6 text-center text-[12px] text-neutral-400">vs</div>
+            <div className="input h-8 w-10 px-1 text-sm text-center tabular-nums">
+              {data.scores?.[L]?.[idx]?.b ?? ''}
+            </div>
+            <div className="flex-1 min-w-0 truncate text-sm">{r.t2}</div>
+          </div>
+        </div>
+
+        {/* DESKTOP/TABLET: griglia compatta (solo ≥ sm) */}
+        <div
+          className="hidden sm:grid items-center"
+          style={{
+            gridTemplateColumns:
+              '72px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
+            columnGap: '.35rem',
+          }}
+        >
+          <div className="input h-8 pl-1 pr-0 text-sm tabular-nums">
+            {(data.times?.[L]?.[idx] ?? '') || '—'}
+          </div>
+          <div className="min-w-0 truncate whitespace-nowrap text-sm text-right">
+            {r.t1}
+          </div>
+          <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
+            {data.scores?.[L]?.[idx]?.a ?? ''}
+          </div>
+          <div className="w-6 text-center text-[13px] text-neutral-400">vs</div>
+          <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
+            {data.scores?.[L]?.[idx]?.b ?? ''}
+          </div>
+          <div className="min-w-0 truncate whitespace-nowrap text-sm pl-1">
+            {r.t2}
+          </div>
+        </div>
+      </React.Fragment>
+    ))
+  )}
 </div>
 
-{/* DESKTOP/TABLET: griglia compatta (solo ≥ sm) */}
-<div
-  key={`d-${idx}`}
-  className="hidden sm:grid items-center"
-  style={{
-    gridTemplateColumns:
-      '72px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
-    columnGap: '.35rem',
-  }}
->
-  <div className="input h-8 pl-1 pr-0 text-sm tabular-nums">
-    {(data.times?.[L]?.[idx] ?? '') || '—'}
-  </div>
-  <div className="min-w-0 truncate whitespace-nowrap text-sm text-right">
-    {r.t1}
-  </div>
-  <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
-    {data.scores?.[L]?.[idx]?.a ?? ''}
-  </div>
-  <div className="w-6 text-center text-[13px] text-neutral-400">vs</div>
-  <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
-    {data.scores?.[L]?.[idx]?.b ?? ''}
-  </div>
-  <div className="min-w-0 truncate whitespace-nowrap text-sm pl-1">
-    {r.t2}
-  </div>
-</div>
-
-                        ))}
-                      </div>
                     </div>
                   )
                 })}
