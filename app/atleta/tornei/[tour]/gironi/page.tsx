@@ -136,7 +136,7 @@ export default function AthleteGironiPage(){
   )
 
   // refs per il carosello mobile
-  const panelRefs = React.useRef<Record<string, HTMLDivElement | null>>({})
+ const panelRefs = React.useRef<Record<string, HTMLElement | null>>({})
   const [currentIdx, setCurrentIdx] = React.useState(0)
   const scrollTo = (idx: number) => {
     const L = letters[idx]
