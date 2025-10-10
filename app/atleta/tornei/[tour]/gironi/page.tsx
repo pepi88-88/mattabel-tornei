@@ -64,7 +64,7 @@ export default function AthleteGironiPage(){
   const params = useSearchParams()
   const tId   = params.get('tid') || (typeof window!=='undefined' ? localStorage.getItem('selectedTournamentId') : '') || ''
 
-  // Titolo SOLO cosmetico (OK usare localStorage)
+  // Titolo SOLO cosmetico
   const [title, setTitle] = React.useState<string>('')
   React.useEffect(() => {
     if (!tId) { setTitle(''); return }
@@ -74,7 +74,7 @@ export default function AthleteGironiPage(){
     setTitle(fromTourPage || '')
   }, [tId, params])
 
-  // Stato pubblico dal SERVER (nessun fallback su localStorage)
+  // Stato pubblico dal SERVER
   const [pub, setPub] = React.useState<PublicState>({ is_public:false, state:null })
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string>('')
@@ -99,9 +99,26 @@ export default function AthleteGironiPage(){
     [data?.groupsCount]
   )
 
+  // refs per scrollIntoView dei pannelli
+  const panelRefs = React.useRef<Record<string, HTMLDivElement | null>>({})
+  const [currentIdx, setCurrentIdx] = React.useState(0)
+  const scrollTo = (idx: number) => {
+    const L = letters[idx]
+    if (!L) return
+    panelRefs.current[L]?.scrollIntoView({ behavior: 'smooth', inline: 'center' })
+  }
+
+  // aggiorna dot attivo con scroll snapping
+  const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    const w = el.clientWidth
+    const i = Math.round(el.scrollLeft / w)
+    if (i !== currentIdx) setCurrentIdx(Math.max(0, Math.min(i, letters.length-1)))
+  }
+
   return (
     <div className="p-6 max-w-[1400px] mx-auto">
-      <div className="text-2xl md:text-3xl font-semibold text-center mb-4">{title || 'Gironi'}</div>
+      <div className="text-2xl md:text-3xl font-semibold text-center mb-3">{title || 'Gironi'}</div>
 
       {loading ? (
         <div className="card p-4 text-sm text-neutral-400">Carico…</div>
@@ -112,94 +129,105 @@ export default function AthleteGironiPage(){
       ) : !data ? (
         <div className="card p-4 text-sm text-neutral-400">Nessun dato disponibile.</div>
       ) : (
-        <div className="space-y-6">
-          {/* === Griglie gironi compatte (2 colonne su mobile) === */}
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
-            {letters.map(L=>{
-              const m = data.meta?.[L] ?? {capacity:0, format:'pool' as const}
-              const cap = m.capacity ?? 0
-              return (
-                <div key={L} className="card p-0 overflow-hidden text-[13px]">
-                  <div className="px-2 py-2 text-white" style={{background:colorFor(L)}}>
-                    <div className="flex items-center gap-2">
-                      <div className="text-[13px] font-extrabold tracking-wide">GIRONE {L}</div>
-                      <div className="text-[11px] opacity-90"># {cap}</div>
-                      <div className="text-[11px] opacity-90 uppercase">{m.format}</div>
-                    </div>
-                  </div>
-                  <div className="p-2 space-y-1">
-                    {cap<1 ? (
-                      <div className="text-[11px] text-neutral-500">Nessuna squadra.</div>
-                    ) : Array.from({length:cap},(_,k)=>k+1).map(slot=>(
-                      <div key={`${L}-${slot}`} className="flex items-center gap-2">
-                        <div className="w-4 text-[11px] text-neutral-500">{slot}.</div>
-                        <div className="input w-full h-8 px-2 bg-neutral-900/60 text-[13px]">
-                          {labelBySlot(data,L,slot)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
+        <>
+          {/* DOTS / quick nav */}
+          <div className="flex justify-center gap-2 mb-3">
+            {letters.map((L, i) => (
+              <button
+                key={L}
+                onClick={()=>scrollTo(i)}
+                className={[
+                  'h-2.5 w-2.5 rounded-full transition-opacity',
+                  i === currentIdx ? 'bg-white opacity-100' : 'bg-neutral-500 opacity-50'
+                ].join(' ')}
+                aria-label={`Vai a girone ${L}`}
+              />
+            ))}
           </div>
 
-          {/* === Partite (scroll orizzontale + compatte) === */}
-          <div className="space-y-4">
-            {chunk(letters, 2).map((pair, i) => (
-              <div key={i} className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                {pair.map(L => {
-                  const rows = scheduleRows(L, data)
-                  return (
-                    <div key={L} className="card p-0 overflow-hidden text-[13px]">
-                      <div className="h-8 px-2 flex items-center justify-between text-white" style={{background:colorFor(L)}}>
-                        <div className="text-[13px] font-semibold">Partite {L}</div>
-                        <div className="text-[11px] opacity-90">Campo {data.gField?.[L] ?? '—'}</div>
+          {/* CAROUSEL a scorrimento orizzontale (snap) */}
+          <div
+            className="snap-x snap-mandatory overflow-x-auto -mx-4 px-4"
+            onScroll={onScroll}
+          >
+            <div className="flex gap-4">
+              {letters.map((L, i) => {
+                const m = data.meta?.[L] ?? {capacity:0, format:'pool' as const}
+                const cap = m.capacity ?? 0
+                const rows = scheduleRows(L, data)
+
+                return (
+                  <section
+                    key={L}
+                    ref={(el)=>{ panelRefs.current[L] = el }}
+                    className="snap-center shrink-0 w-full"
+                  >
+                    {/* CARD girone */}
+                    <div className="card p-0 overflow-hidden text-[14px] mb-3">
+                      <div className="px-3 py-2 text-white" style={{background:colorFor(L)}}>
+                        <div className="flex items-center gap-3">
+                          <div className="font-extrabold tracking-wide">GIRONE {L}</div>
+                          <div className="text-xs opacity-90"># {cap}</div>
+                          <div className="text-xs opacity-90 uppercase">{m.format}</div>
+                        </div>
+                      </div>
+                      <div className="p-3 space-y-2">
+                        {cap<1 ? (
+                          <div className="text-xs text-neutral-500">Nessuna squadra.</div>
+                        ) : Array.from({length:cap},(_,k)=>k+1).map(slot=>(
+                          <div key={`${L}-${slot}`} className="flex items-center gap-2">
+                            <div className="w-5 text-xs text-neutral-500">{slot}.</div>
+                            <div className="input w-full h-9 px-2 bg-neutral-900/60">{labelBySlot(data,L,slot)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* CARD partite del girone */}
+                    <div className="card p-0 overflow-hidden text-[14px]">
+                      <div className="h-9 px-3 flex items-center justify-between text-white" style={{background:colorFor(L)}}>
+                        <div className="text-sm font-semibold">Partite {L}</div>
+                        <div className="text-xs opacity-90">Campo {data.gField?.[L] ?? '—'}</div>
                       </div>
 
-                      <div className="p-2">
-                        <div className="overflow-x-auto -mx-2 sm:mx-0">
-                          <div className="inline-block min-w-[600px] sm:min-w-0 w-full">
+                      <div className="p-3">
+                        {/* scroll orizzontale se stringe */}
+                        <div className="overflow-x-auto -mx-3 sm:mx-0">
+                          <div className="inline-block min-w-[640px] sm:min-w-0 w-full">
                             <div className="space-y-2">
-                              {rows.length === 0 ? (
+                              {rows.length===0 ? (
                                 <div className="text-xs text-neutral-500">Nessuna partita.</div>
-                              ) : (
-                                rows.map((r, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="grid items-center whitespace-nowrap"
-                                    style={{
-                                      gridTemplateColumns:
-                                        '64px minmax(150px,1fr) 40px 20px 40px minmax(150px,1fr)',
-                                      columnGap: '.4rem',
-                                    }}
-                                  >
-                                    <div className="input h-7 pl-1 pr-0 tabular-nums">
-                                      {(data.times?.[L]?.[idx] ?? '') || '—'}
-                                    </div>
-                                    <div className="text-right">{r.t1}</div>
-                                    <div className="input h-7 w-10 px-1 text-center tabular-nums">
-                                      {data.scores?.[L]?.[idx]?.a ?? ''}
-                                    </div>
-                                    <div className="w-5 text-center text-[12px] text-neutral-400">vs</div>
-                                    <div className="input h-7 w-10 px-1 text-center tabular-nums">
-                                      {data.scores?.[L]?.[idx]?.b ?? ''}
-                                    </div>
-                                    <div className="pl-1">{r.t2}</div>
+                              ) : rows.map((r,idx)=>(
+                                <div
+                                  key={idx}
+                                  className="grid items-center whitespace-nowrap"
+                                  style={{
+                                    gridTemplateColumns:
+                                      '70px minmax(170px,1fr) 44px 18px 44px minmax(170px,1fr)',
+                                    columnGap: '.45rem',
+                                  }}
+                                >
+                                  <div className="input h-8 pl-1 pr-0 text-sm tabular-nums">
+                                    {(data.times?.[L]?.[idx] ?? '') || '—'}
                                   </div>
-                                ))
-                              )}
+                                  <div className="min-w-0 truncate text-sm text-right">{r.t1}</div>
+                                  <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">{data.scores?.[L]?.[idx]?.a ?? ''}</div>
+                                  <div className="w-5 text-center text-[12px] text-neutral-400">vs</div>
+                                  <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">{data.scores?.[L]?.[idx]?.b ?? ''}</div>
+                                  <div className="min-w-0 truncate text-sm pl-1">{r.t2}</div>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-            ))}
+                  </section>
+                )
+              })}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )
