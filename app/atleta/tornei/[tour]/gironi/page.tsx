@@ -59,6 +59,47 @@ function labelBySlot(data: Persist, L:string, slot:number){
   const rid = data?.assign?.[`${L}-${slot}`]
   return rid ? (data?.labels?.[rid] ?? `Slot ${slot}`) : `Slot ${slot}`
 }
+/** Pair fissi del pool 4: G1 = (1–4), G2 = (2–3) */
+function poolPairFor(gameIndex: number): [number, number] {
+  return gameIndex === 0 ? [1, 4] : [2, 3];
+}
+
+/** Prova a risolvere "Vincente G1" / "Perdente G2" usando i punteggi salvati. 
+ *  Se mancano i dati, restituisce il testo originale.
+ */
+function resolvePoolToken(L: string, token: string, data: Persist): string {
+  const m = token.match(/^(Vincente|Perdente)\s+G([12])$/i);
+  if (!m) return token;
+
+  const outcome = m[1].toLowerCase();         // 'vincente' | 'perdente'
+  const gIdx = Number(m[2]) - 1;              // 0 per G1, 1 per G2
+  const [slotA, slotB] = poolPairFor(gIdx);   // [1,4] oppure [2,3]
+
+  const nameA = labelBySlot(data, L, slotA);
+  const nameB = labelBySlot(data, L, slotB);
+
+  const sc = data?.scores?.[L]?.[gIdx];
+  const a = Number(sc?.a);
+  const b = Number(sc?.b);
+
+  // se non ho punteggi validi → lascio il testo originale
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return token;
+
+  if (outcome === 'vincente') {
+    return a > b ? nameA : nameB;
+  } else {
+    return a > b ? nameB : nameA;
+  }
+}
+
+/** Rende un’etichetta finale “risolta” (se è un token Vincente/Perdente Gx) */
+function displayTeamLabel(L: string, raw: string, data: Persist): string {
+  // solo nel formato pool 4 usiamo i token “G1/G2”
+  if (/^(Vincente|Perdente)\s+G[12]$/i.test(raw)) {
+    return resolvePoolToken(L, raw, data);
+  }
+  return raw;
+}
 
 export default function AthleteGironiPage(){
   const params = useSearchParams()
