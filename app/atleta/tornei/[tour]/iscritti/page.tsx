@@ -3,6 +3,7 @@
 import * as React from 'react'
 import useSWR from 'swr'
 import { useSearchParams } from 'next/navigation'
+import ResponsiveDesktopTableWrapper from '@/components/ResponsiveDesktopTable'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -144,44 +145,49 @@ const list: RegItemUI[] = React.useMemo(() => {
         {list.length === 0 ? (
           <div className="text-sm text-neutral-500">Nessun iscritto per questa tappa.</div>
         ) : (
-          <ul className="space-y-1">
-            {list.map((r, idx) => {
-              const waiting = r.isWaiting
-              return (
-                <li
-                  key={r.id}
-                  className={[
-                    'flex items-center justify-between py-2 px-2 rounded-lg',
-                    waiting ? 'bg-amber-500/10' : '',
-                  ].join(' ')}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-7 text-xs text-neutral-500 tabular-nums">
-                      {String(idx + 1).padStart(2, '0')}.
-                    </div>
-                    <div
-                      className={[
-                        'truncate font-medium',
-                        'text-base md:text-lg',
-                        waiting ? 'text-amber-400' : 'text-white',
-                      ].join(' ')}
-                      title={waiting ? 'In attesa' : 'Iscritto'}
-                    >
-                      {r.label}
-                    </div>
-                  </div>
+         <ResponsiveDesktopTableWrapper minWidthPx={900}>
+  <ul className="space-y-1 whitespace-nowrap">
+    {list.map((r, idx) => {
+      const waiting = r.isWaiting
+      return (
+        <li
+          key={r.id}
+          className={[
+            'flex items-center justify-between py-2 px-2 rounded-lg',
+            waiting ? 'bg-amber-500/10' : '',
+          ].join(' ')}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-7 text-xs text-neutral-500 tabular-nums">
+              {String(idx + 1).padStart(2, '0')}.
+            </div>
 
-                  <div className="shrink-0">
-                    {waiting ? (
-                      <span className="badge badge-warning badge-sm">in attesa</span>
-                    ) : (
-                      <span className="badge badge-primary badge-sm">iscritto</span>
-                    )}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+            {/* ⬇️ tolto 'truncate' per non tagliare i nomi; manteniamo una sola riga */}
+            <div
+              className={[
+                'font-medium whitespace-nowrap pr-2',
+                'text-base md:text-lg',
+                waiting ? 'text-amber-400' : 'text-white',
+              ].join(' ')}
+              title={waiting ? 'In attesa' : 'Iscritto'}
+            >
+              {r.label}
+            </div>
+          </div>
+
+          <div className="shrink-0">
+            {waiting ? (
+              <span className="badge badge-warning badge-sm">in attesa</span>
+            ) : (
+              <span className="badge badge-primary badge-sm">iscritto</span>
+            )}
+          </div>
+        </li>
+      )
+    })}
+  </ul>
+</ResponsiveDesktopTableWrapper>
+
         )}
       </div>
     </div>
