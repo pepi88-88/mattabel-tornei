@@ -41,8 +41,10 @@ function lastSurnames(label: string) {
 function makeSlotResolver(
   tourId?: string,
   tId?: string,
-  externalResolver?: (token: string) => string | undefined
-) {
+  externalResolver?: (token: string) => string | undefined,
+  publicGroups?: PublicPersist | null,  // 👈 aggiunto
+)
+ {
   const gmStore = (() => {
     try { return tId ? JSON.parse(localStorage.getItem(`gm:${tId}`) || 'null') : null }
     catch { return null }
@@ -54,6 +56,11 @@ function makeSlotResolver(
     if (t.toUpperCase() === 'BYE') return 'BYE'
 
     // A1, B2, ...
+    // 0) PRIMA DI TUTTO: tenta con lo stato pubblico dei gironi
+const ridPub = publicGroups?.assign?.[`${L}-${oneBased}`]
+const labPub = ridPub ? publicGroups?.labels?.[ridPub] : undefined
+if (labPub) return lastSurnames(labPub)
+
     const mAB = t.match(/^([A-Z])(\d{1,2})$/)
     if (mAB && tourId && tId) {
       const L = mAB[1].toUpperCase()
@@ -176,6 +183,11 @@ function buildRR_Ita(n: number): Array<[number, number]> {
     t.splice(0, t.length, fixed, ...rest)
   }
   return out
+}
+// Minimo indispensabile dallo stato pubblico gironi
+type PublicPersist = {
+  assign?: Record<string, string>; // es. "A-1" → "ridXYZ"
+  labels?: Record<string, string>; // es. "ridXYZ" → "Mario / Luca"
 }
 
 type ItaScore = { a?: number; b?: number }
@@ -321,6 +333,7 @@ export default function AthleteTabellonePage() {
   // blocco visibilità: mostra il tabellone solo quando i gironi sono confermati
   const [groupsConfirmed, setGroupsConfirmed] = useState<boolean>(false)
   const [isPublic, setIsPublic] = useState<boolean>(false)
+const [publicGroups, setPublicGroups] = useState<PublicPersist | null>(null)
 
   const [brackets, setBrackets] = useState<BracketType[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -379,15 +392,41 @@ export default function AthleteTabellonePage() {
 
     return () => { cancelled = true }
   }, [tId])
+useEffect(() => {
+  let cancelled = false
+  if (!tId) { setPublicGroups(null); return }
+  ;(async () => {
+    try {
+      const r = await fetch(`/api/groups/public/state?tournament_id=${encodeURIComponent(tId)}`, { cache: 'no-store' })
+      const js = await r.json()
+      if (!cancelled) setPublicGroups(js?.state ?? null)
+    } catch {
+      if (!cancelled) setPublicGroups(null)
+    }
+  })()
+  return () => { cancelled = true }
+}, [tId])
 
   // resolver per Vincente/Perdente e nomi
   const external = useMemo(() => makeExternalResolver(brackets, winnersById), [brackets, winnersById])
-  const resolve  = useMemo(() => makeSlotResolver(tourId, tId, external), [tourId, tId, external])
+ const resolve  = useMemo(() => makeSlotResolver(tourId, tId, external, publicGroups), [tourId, tId, external, publicGroups])
+
 
   const active = useMemo(
     () => brackets.find((b) => b.id === activeId) || null,
     [activeId, brackets]
   )
+const resolvedActive = useMemo(() => {
+  if (!active) return null
+  return {
+    ...active,
+    r1: (active.r1 || []).map(m => ({
+      A: resolve(m.A),
+      B: resolve(m.B),
+    })),
+    slots: (active.slots || []).map(s => resolve(s)),
+  }
+}, [active, resolve])
 
   return (
     <div className="min-h-screen px-4 sm:px-6 lg:px-8">
@@ -430,32 +469,25 @@ export default function AthleteTabellonePage() {
 
             {/* contenuto */}
             <div className="p-4">
-              {active && (
-                String(active.type).toUpperCase() === 'ITA' ? (
-                  <ItaViewer
-                    bracket={active}
-                    tourId={tourId}
-                    tId={tId}
-                    resolve={resolve}
-                    serverScores={itaScoresById[active.id]}
-                  />
-                ) : (
-                  <BracketCanvas
-                    bracket={active}
-                    interactive={false}
-                    confirmOnPick={false}
-                    winners={winnersById[active.id] || {}}
-                    onWinnersChange={() => {}}
-                    tourId={tourId}
-                    tId={tId}
-                    externalResolver={external}
-                  />
-                )
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+         {resolvedActive && (
+  String(resolvedActive.type).toUpperCase() === 'ITA' ? (
+    <ItaViewer
+      bracket={resolvedActive}
+      tourId={tourId}
+      tId={tId}
+      resolve={resolve}
+      serverScores={itaScoresById[resolvedActive.id]}
+    />
+  ) : (
+    <BracketCanvas
+      bracket={resolvedActive}
+      interactive={false}
+      confirmOnPick={false}
+      winners={winnersById[resolvedActive.id] || {}}
+      onWinnersChange={() => {}}
+      tourId={tourId}
+      tId={tId}
+      externalResolver={external}
+    />
   )
-}
+)}
