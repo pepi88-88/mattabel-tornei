@@ -99,24 +99,32 @@ setTappe(visible)
         ) : (
           <ul className="space-y-2">
             {tappe.map(t => (
-              <li key={t.id} className="flex items-center justify-between gap-3 border-b border-neutral-800 py-2">
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{t.name}</div>
-                  <div className="text-xs text-neutral-500">{t.event_date ? t.event_date : 'data da definire'}</div>
-                </div>
-                <div className="flex gap-2 shrink-0">
+             <li
+  key={t.id}
+  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 border-b border-neutral-800 py-2"
+>
+  <div className="min-w-0">
+    {/* niente truncate su mobile; da sm in su torna truncate */}
+    <div className="font-medium break-words whitespace-normal sm:truncate sm:whitespace-nowrap">
+      {t.name}
+    </div>
+    <div className="text-xs text-neutral-500">{t.event_date ? t.event_date : 'data da definire'}</div>
+  </div>
+
+  {/* su mobile i bottoni vanno a capo e occupano tutta la riga; da sm in su tornano inline */}
+  <div className="flex flex-wrap gap-2 sm:shrink-0">
 
                   {/* passiamo tid = tournament_id alle pagine atleta */}
 
- <Link  className="btn btn-ghost btn-sm"  href={`/atleta/tornei/${encodeURIComponent(tourId)}/iscritti?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}>
+ <Link  className="btn btn-ghost btn-sm w-full sm:w-auto" href={`/atleta/tornei/${encodeURIComponent(tourId)}/iscritti?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}>
   Iscritti
 </Link>
 
-<Link  className="btn btn-ghost btn-sm"  href={`/atleta/tornei/${encodeURIComponent(tourId)}/gironi?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}>
+<Link  className="btn btn-ghost btn-sm w-full sm:w-auto" href={`/atleta/tornei/${encodeURIComponent(tourId)}/gironi?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}>
   Gironi
 </Link>
 
-<Link className="btn btn-ghost btn-sm" href={`/atleta/tornei/${tourId}/tabellone?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}>
+<Link className="btn btn-ghost btn-sm w-full sm:w-auto" href={`/atleta/tornei/${tourId}/tabellone?tid=${t.id}&tname=${encodeURIComponent(t.name)}`}>
   Tabellone finale
 </Link>
 
