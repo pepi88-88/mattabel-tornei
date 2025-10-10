@@ -113,109 +113,94 @@ export default function AthleteGironiPage(){
         <div className="card p-4 text-sm text-neutral-400">Nessun dato disponibile.</div>
       ) : (
         <div className="space-y-6">
-          {/* === Griglie gironi (compatte, 2 colonne su mobile) === */}
-<div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
-  {letters.map(L=>{
-    const m = data.meta?.[L] ?? {capacity:0, format:'pool' as const}
-    const cap = m.capacity ?? 0
-    return (
-      <div key={L} className="card p-0 overflow-hidden text-[13px]">
-        <div
-          className="px-2 py-2 text-white"
-          style={{background: colorFor(L)}}
-        >
-          <div className="flex items-center gap-2">
-            <div className="text-[13px] font-extrabold tracking-wide">
-              GIRONE {L}
-            </div>
-            <div className="text-[11px] opacity-90"># {cap}</div>
-            <div className="text-[11px] opacity-90 uppercase">{m.format}</div>
+          {/* === Griglie gironi compatte (2 colonne su mobile) === */}
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
+            {letters.map(L=>{
+              const m = data.meta?.[L] ?? {capacity:0, format:'pool' as const}
+              const cap = m.capacity ?? 0
+              return (
+                <div key={L} className="card p-0 overflow-hidden text-[13px]">
+                  <div className="px-2 py-2 text-white" style={{background:colorFor(L)}}>
+                    <div className="flex items-center gap-2">
+                      <div className="text-[13px] font-extrabold tracking-wide">GIRONE {L}</div>
+                      <div className="text-[11px] opacity-90"># {cap}</div>
+                      <div className="text-[11px] opacity-90 uppercase">{m.format}</div>
+                    </div>
+                  </div>
+                  <div className="p-2 space-y-1">
+                    {cap<1 ? (
+                      <div className="text-[11px] text-neutral-500">Nessuna squadra.</div>
+                    ) : Array.from({length:cap},(_,k)=>k+1).map(slot=>(
+                      <div key={`${L}-${slot}`} className="flex items-center gap-2">
+                        <div className="w-4 text-[11px] text-neutral-500">{slot}.</div>
+                        <div className="input w-full h-8 px-2 bg-neutral-900/60 text-[13px]">
+                          {labelBySlot(data,L,slot)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        </div>
 
-        <div className="p-2 space-y-1">
-          {cap < 1 ? (
-            <div className="text-[11px] text-neutral-500">Nessuna squadra.</div>
-          ) : Array.from({length:cap},(_,k)=>k+1).map(slot => (
-            <div key={`${L}-${slot}`} className="flex items-center gap-2">
-              <div className="w-4 text-[11px] text-neutral-500">{slot}.</div>
-              <div className="input w-full h-8 px-2 bg-neutral-900/60 text-[13px]">
-                {labelBySlot(data,L,slot)}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  })}
-</div>
-
-
-          {/* === Partite: 2 card per riga da md in su, 1 per riga su mobile.
-                 Ogni riga partita resta su una sola linea; su mobile si scorre in orizzontale. === */}
+          {/* === Partite (scroll orizzontale + compatte) === */}
           <div className="space-y-4">
             {chunk(letters, 2).map((pair, i) => (
-             <div key={i} className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-
+              <div key={i} className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                 {pair.map(L => {
                   const rows = scheduleRows(L, data)
                   return (
-                    <div key={L} className="card p-0 overflow-hidden">
-                      <div className="h-9 px-3 flex items-center justify-between text-white" style={{background:colorFor(L)}}>
-                        <div className="text-sm font-semibold">Partite {L}</div>
-                        <div className="text-xs opacity-90">Campo {data.gField?.[L] ?? '—'}</div>
+                    <div key={L} className="card p-0 overflow-hidden text-[13px]">
+                      <div className="h-8 px-2 flex items-center justify-between text-white" style={{background:colorFor(L)}}>
+                        <div className="text-[13px] font-semibold">Partite {L}</div>
+                        <div className="text-[11px] opacity-90">Campo {data.gField?.[L] ?? '—'}</div>
                       </div>
 
-                    <div className="p-3">
-  {/* wrapper scrollabile in orizzontale su schermi stretti */}
-  <div className="overflow-x-auto -mx-3 sm:mx-0">
-    {/* larghezza “desktop” minima della singola riga: stringiamo a 600px */}
-    <div className="inline-block min-w-[600px] sm:min-w-0 w-full">
-      <div className="space-y-2">
-        {rows.length === 0 ? (
-          <div className="text-xs text-neutral-500">Nessuna partita.</div>
-        ) : (
-          rows.map((r, idx) => (
-            <div
-              key={idx}
-              className="grid items-center whitespace-nowrap text-[13px]"
-              style={{
-                // orario | team A | A | vs | B | team B
-                gridTemplateColumns:
-                  '64px minmax(150px,1fr) 40px 20px 40px minmax(150px,1fr)',
-                columnGap: '.4rem',
-              }}
-            >
-              {/* orario */}
-              <div className="input h-7 pl-1 pr-0 tabular-nums">
-                {(data.times?.[L]?.[idx] ?? '') || '—'}
+                      <div className="p-2">
+                        <div className="overflow-x-auto -mx-2 sm:mx-0">
+                          <div className="inline-block min-w-[600px] sm:min-w-0 w-full">
+                            <div className="space-y-2">
+                              {rows.length === 0 ? (
+                                <div className="text-xs text-neutral-500">Nessuna partita.</div>
+                              ) : (
+                                rows.map((r, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="grid items-center whitespace-nowrap"
+                                    style={{
+                                      gridTemplateColumns:
+                                        '64px minmax(150px,1fr) 40px 20px 40px minmax(150px,1fr)',
+                                      columnGap: '.4rem',
+                                    }}
+                                  >
+                                    <div className="input h-7 pl-1 pr-0 tabular-nums">
+                                      {(data.times?.[L]?.[idx] ?? '') || '—'}
+                                    </div>
+                                    <div className="text-right">{r.t1}</div>
+                                    <div className="input h-7 w-10 px-1 text-center tabular-nums">
+                                      {data.scores?.[L]?.[idx]?.a ?? ''}
+                                    </div>
+                                    <div className="w-5 text-center text-[12px] text-neutral-400">vs</div>
+                                    <div className="input h-7 w-10 px-1 text-center tabular-nums">
+                                      {data.scores?.[L]?.[idx]?.b ?? ''}
+                                    </div>
+                                    <div className="pl-1">{r.t2}</div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-
-              {/* team A */}
-              <div className="text-right">{r.t1}</div>
-
-              {/* punteggio A */}
-              <div className="input h-7 w-10 px-1 text-center tabular-nums">
-                {data.scores?.[L]?.[idx]?.a ?? ''}
-              </div>
-
-              {/* vs */}
-              <div className="w-5 text-center text-[12px] text-neutral-400">vs</div>
-
-              {/* punteggio B */}
-              <div className="input h-7 w-10 px-1 text-center tabular-nums">
-                {data.scores?.[L]?.[idx]?.b ?? ''}
-              </div>
-
-              {/* team B */}
-              <div className="pl-1">{r.t2}</div>
-            </div>
-          ))
-        )}
-      </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
-  </div>
-</div>
-
   )
 }
