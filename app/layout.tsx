@@ -9,6 +9,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="it">
+      <head>
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=5"
+        />
+      </head>
+
       {/* 👇 classe per regole globali admin */}
       <body className="app-admin bg-neutral-950 text-neutral-100">
         <AppHeader />
