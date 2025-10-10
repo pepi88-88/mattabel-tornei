@@ -37,14 +37,19 @@ function lastSurnames(label: string) {
   return parts.length>=2 ? `${ln(parts[0])} / ${ln(parts[1])}` : ln(String(label))
 }
 
+/* ===== stato pubblico gironi minimale ===== */
+type PublicPersist = {
+  assign?: Record<string, string>   // "A-1" -> "ridXYZ"
+  labels?: Record<string, string>   // "ridXYZ" -> "Mario / Luca"
+}
+
 /** risolutore token → nome: A1/B2, “3”, Vincente/Perdente … */
 function makeSlotResolver(
   tourId?: string,
   tId?: string,
   externalResolver?: (token: string) => string | undefined,
-  publicGroups?: PublicPersist | null,  // 👈 aggiunto
-)
- {
+  publicGroups?: PublicPersist | null,  // 👈 pubblico
+) {
   const gmStore = (() => {
     try { return tId ? JSON.parse(localStorage.getItem(`gm:${tId}`) || 'null') : null }
     catch { return null }
@@ -56,17 +61,17 @@ function makeSlotResolver(
     if (t.toUpperCase() === 'BYE') return 'BYE'
 
     // A1, B2, ...
-    // 0) PRIMA DI TUTTO: tenta con lo stato pubblico dei gironi
-const ridPub = publicGroups?.assign?.[`${L}-${oneBased}`]
-const labPub = ridPub ? publicGroups?.labels?.[ridPub] : undefined
-if (labPub) return lastSurnames(labPub)
-
     const mAB = t.match(/^([A-Z])(\d{1,2})$/)
     if (mAB && tourId && tId) {
       const L = mAB[1].toUpperCase()
       const oneBased = Number(mAB[2])
 
-      // 1) classifica gironi salvata
+      // 0) stato pubblico gironi
+      const ridPub = publicGroups?.assign?.[`${L}-${oneBased}`]
+      const labPub = ridPub ? publicGroups?.labels?.[ridPub] : undefined
+      if (labPub) return lastSurnames(labPub)
+
+      // 1) classifica gironi da localStorage (persistita da admin)
       try {
         const raw = localStorage.getItem(`groups_rank:${tourId}:${tId}`) || localStorage.getItem(`gironi_rank_${tourId}_${tId}`)
         if (raw) {
@@ -76,12 +81,13 @@ if (labPub) return lastSurnames(labPub)
         }
       } catch {}
 
-      // 2) fallback: gm:<tId>
+      // 2) fallback: gm:<tId> (labels/assign della pagina gironi)
       try {
         const rid = gmStore?.assign?.[`${L}-${oneBased}`]
         const label = rid ? gmStore?.labels?.[rid] : undefined
         if (label) return lastSurnames(label)
       } catch {}
+
       return t
     }
 
@@ -106,7 +112,8 @@ if (labPub) return lastSurnames(labPub)
   }
 
   return (token: string): string => {
-    const ext = externalResolver?.(token) // “Vincente/Perdente …”
+    // “Vincente/Perdente …” prima, poi normalizzazione
+    const ext = externalResolver?.(token)
     if (ext) return basic(ext)
     return basic(token)
   }
@@ -136,6 +143,8 @@ function makeExternalResolver(
   return (token: string): string | undefined => {
     if (!token) return undefined
     const t = token.trim()
+
+    // es. "Vincente Tabellone 1 R2" | "Perdente Main Draw R3" ecc.
     const m = t.match(/^(Perdente|Loser|Vincente|Winner)\s+(.+?)\s+([A-Za-z])(\d+)$/i)
     if (!m) return undefined
 
@@ -146,7 +155,7 @@ function makeExternalResolver(
 
     const br = byTitle.get(titleU)
     if (!br || !Number.isFinite(num) || num < 1) return undefined
-    if (letter === 'M') letter = 'R'
+    if (letter === 'M') letter = 'R'   // compat vecchia “M” per “R”
     if (letter !== 'R') return undefined
 
     const pair = br.r1?.[num - 1]
@@ -183,11 +192,6 @@ function buildRR_Ita(n: number): Array<[number, number]> {
     t.splice(0, t.length, fixed, ...rest)
   }
   return out
-}
-// Minimo indispensabile dallo stato pubblico gironi
-type PublicPersist = {
-  assign?: Record<string, string>; // es. "A-1" → "ridXYZ"
-  labels?: Record<string, string>; // es. "ridXYZ" → "Mario / Luca"
 }
 
 type ItaScore = { a?: number; b?: number }
@@ -333,7 +337,7 @@ export default function AthleteTabellonePage() {
   // blocco visibilità: mostra il tabellone solo quando i gironi sono confermati
   const [groupsConfirmed, setGroupsConfirmed] = useState<boolean>(false)
   const [isPublic, setIsPublic] = useState<boolean>(false)
-const [publicGroups, setPublicGroups] = useState<PublicPersist | null>(null)
+  const [publicGroups, setPublicGroups] = useState<PublicPersist | null>(null)
 
   const [brackets, setBrackets] = useState<BracketType[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -392,41 +396,44 @@ const [publicGroups, setPublicGroups] = useState<PublicPersist | null>(null)
 
     return () => { cancelled = true }
   }, [tId])
-useEffect(() => {
-  let cancelled = false
-  if (!tId) { setPublicGroups(null); return }
-  ;(async () => {
-    try {
-      const r = await fetch(`/api/groups/public/state?tournament_id=${encodeURIComponent(tId)}`, { cache: 'no-store' })
-      const js = await r.json()
-      if (!cancelled) setPublicGroups(js?.state ?? null)
-    } catch {
-      if (!cancelled) setPublicGroups(null)
-    }
-  })()
-  return () => { cancelled = true }
-}, [tId])
+
+  // carica stato pubblico per risoluzione A1/B2/… senza dipendere dal solo localStorage
+  useEffect(() => {
+    let cancelled = false
+    if (!tId) { setPublicGroups(null); return }
+    ;(async () => {
+      try {
+        const r = await fetch(`/api/groups/public/state?tournament_id=${encodeURIComponent(tId)}`, { cache: 'no-store' })
+        const js = await r.json()
+        if (!cancelled) setPublicGroups(js?.state ?? null)
+      } catch {
+        if (!cancelled) setPublicGroups(null)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [tId])
 
   // resolver per Vincente/Perdente e nomi
   const external = useMemo(() => makeExternalResolver(brackets, winnersById), [brackets, winnersById])
- const resolve  = useMemo(() => makeSlotResolver(tourId, tId, external, publicGroups), [tourId, tId, external, publicGroups])
-
+  const resolve  = useMemo(() => makeSlotResolver(tourId, tId, external, publicGroups), [tourId, tId, external, publicGroups])
 
   const active = useMemo(
     () => brackets.find((b) => b.id === activeId) || null,
     [activeId, brackets]
   )
-const resolvedActive = useMemo(() => {
-  if (!active) return null
-  return {
-    ...active,
-    r1: (active.r1 || []).map(m => ({
-      A: resolve(m.A),
-      B: resolve(m.B),
-    })),
-    slots: (active.slots || []).map(s => resolve(s)),
-  }
-}, [active, resolve])
+
+  // bracket con nomi già risolti (A1/B2/… + Vincente/Perdente …)
+  const resolvedActive = useMemo(() => {
+    if (!active) return null
+    return {
+      ...active,
+      r1: (active.r1 || []).map(m => ({
+        A: resolve(m.A),
+        B: resolve(m.B),
+      })),
+      slots: (active.slots || []).map(s => resolve(s)),
+    }
+  }, [active, resolve])
 
   return (
     <div className="min-h-screen px-4 sm:px-6 lg:px-8">
@@ -469,25 +476,32 @@ const resolvedActive = useMemo(() => {
 
             {/* contenuto */}
             <div className="p-4">
-         {resolvedActive && (
-  String(resolvedActive.type).toUpperCase() === 'ITA' ? (
-    <ItaViewer
-      bracket={resolvedActive}
-      tourId={tourId}
-      tId={tId}
-      resolve={resolve}
-      serverScores={itaScoresById[resolvedActive.id]}
-    />
-  ) : (
-    <BracketCanvas
-      bracket={resolvedActive}
-      interactive={false}
-      confirmOnPick={false}
-      winners={winnersById[resolvedActive.id] || {}}
-      onWinnersChange={() => {}}
-      tourId={tourId}
-      tId={tId}
-      externalResolver={external}
-    />
+              {resolvedActive && (
+                String(resolvedActive.type).toUpperCase() === 'ITA' ? (
+                  <ItaViewer
+                    bracket={resolvedActive}
+                    tourId={tourId}
+                    tId={tId}
+                    resolve={resolve}
+                    serverScores={itaScoresById[resolvedActive.id]}
+                  />
+                ) : (
+                  <BracketCanvas
+                    bracket={resolvedActive}
+                    interactive={false}
+                    confirmOnPick={false}
+                    winners={winnersById[resolvedActive.id] || {}}
+                    onWinnersChange={() => {}}
+                    tourId={tourId}
+                    tId={tId}
+                    externalResolver={external}
+                  />
+                )
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   )
-)}
+}
