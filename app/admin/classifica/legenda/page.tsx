@@ -3,16 +3,16 @@
 import * as React from 'react'
 
 type Gender = 'M'|'F'
-type Tappa = { id:string; title:string; date:string; multiplier:number; totalTeams:number }
 type ScoreCfg = { base:number; minLast:number; curvePercent:number }
 type ScoreCfgSet = { S:ScoreCfg; M:ScoreCfg; L:ScoreCfg; XL:ScoreCfg }
 
 const DEFAULT_SET: ScoreCfgSet = {
-  S:  { base:100, minLast:10, curvePercent:100 },
-  M:  { base:100, minLast:10, curvePercent:100 },
-  L:  { base:100, minLast:10, curvePercent:100 },
-  XL: { base:100, minLast:10, curvePercent:100 },
+  S: { base:100, minLast:10, curvePercent:100 },
+  M: { base:100, minLast:10, curvePercent:100 },
+  L: { base:100, minLast:10, curvePercent:100 },
+  XL:{ base:100, minLast:10, curvePercent:100 },
 }
+
 const pickBucket = (n:number): keyof ScoreCfgSet => n<=8?'S':n<=16?'M':n<=32?'L':'XL'
 const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) => {
   const cfg = set[pickBucket(total)]
@@ -20,54 +20,40 @@ const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) 
   const alpha = Math.max(0.01, cfg.curvePercent/100)
   const t = (total - pos) / (total - 1)
   const raw = cfg.minLast + (cfg.base - cfg.minLast) * Math.pow(t, alpha)
-  return Math.round(raw*mult)
+  return Math.round(raw * mult)
 }
 
-/* ===== API ===== */
-async function apiListTours(): Promise<string[]> {
-  // usa /api/tours (ritorna {items:[{id,name}]})
+/* ===== API (nuove) ===== */
+async function apiListTours(): Promise<{id:string;name:string}[]> {
   const r = await fetch('/api/tours', { cache: 'no-store' })
   const j = await r.json().catch(()=>({}))
-  const items = Array.isArray(j?.items) ? j.items : []
-  // Se la tua UI mostrava il nome “testuale” del tour, restituisci name;
-  // se preferisci usare l'id del tour, restituisci id.
-  return items.map((t:any) => t.id) // OPPURE: t.name
+  return Array.isArray(j?.items) ? j.items : []
 }
-
-async function apiGetSettings(tour: string, gender: Gender) {
-  const r = await fetch(`/api/ranking/legend-curve?tour_id=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
+async function apiGetSettings(tour_id: string, gender: Gender) {
+  const r = await fetch(`/api/ranking/legend-curve?tour_id=${encodeURIComponent(tour_id)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
   if (!r.ok) return { settings: DEFAULT_SET }
   return r.json() as Promise<{ settings: ScoreCfgSet|null }>
 }
-
-async function apiSaveSettings(tour: string, gender: Gender, settings: ScoreCfgSet) {
-  // genera rank_legend per tutte le taglie 2..64 (personalizzabile con totalsFrom/totalsTo)
+async function apiSaveSettings(tour_id: string, gender: Gender, settings: ScoreCfgSet) {
   const r = await fetch('/api/ranking/legend-curve', {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tour_id: tour, gender, settings, totalsFrom: 2, totalsTo: 64 }),
+    body: JSON.stringify({ tour_id, gender, settings, totalsFrom: 2, totalsTo: 64 }),
   })
   if (!r.ok) throw new Error(await r.text())
 }
 
-async function apiGetSnapshot(tour: string, gender: Gender) {
-  // Stub compat: non carica più le tappe, restituisce lista vuota
-  return Promise.resolve<{ data?: { tappe: Tappa[] } | null }>({ data: { tappe: [] } })
-}
-
 export default function LegendAdminPage(){
   // tours
-  const [availableTours, setAvailableTours] = React.useState<string[]>([])
+  const [tours, setTours] = React.useState<{id:string;name:string}[]>([])
   React.useEffect(()=>{ 
     let alive = true
-    apiListTours()
-      .then(ts => { if (alive) setAvailableTours(ts) })
-      .catch(()=>{ if (alive) setAvailableTours([]) })
+    apiListTours().then(ts => { if (alive) setTours(ts) }).catch(()=>{ if (alive) setTours([]) })
     return ()=>{ alive = false }
   },[])
 
   // stato base + persistenza
-  const [tour, setTour] = React.useState<string>(() =>
-    (typeof window !== 'undefined' && (localStorage.getItem('lb2:lastTour') || '')) || ''
+  const [tourId, setTourId] = React.useState<string>(() =>
+    (typeof window !== 'undefined' && (localStorage.getItem('lb2:lastTourId') || '')) || ''
   )
   const [gender, setGender] = React.useState<Gender>(() =>
     ((typeof window !== 'undefined' && (localStorage.getItem('lb2:lastGender') as Gender|null)) || 'M')
@@ -75,60 +61,52 @@ export default function LegendAdminPage(){
 
   // default al primo tour disponibile
   React.useEffect(()=>{
-    if (tour) return
-    if (!availableTours.length) return
-    setTour(availableTours[0])
-  },[availableTours, tour])
+    if (tourId) return
+    if (!tours.length) return
+    setTourId(tours[0].id)
+  },[tours, tourId])
 
   // persisti
-  React.useEffect(()=>{ if (tour) localStorage.setItem('lb2:lastTour', tour) },[tour])
+  React.useEffect(()=>{ if (tourId) localStorage.setItem('lb2:lastTourId', tourId) },[tourId])
   React.useEffect(()=>{ localStorage.setItem('lb2:lastGender', gender) },[gender])
-
-  // tappe + selezione
-  const [tappe,setTappe] = React.useState<Tappa[]>([])
-  const [tappaId,setTappaId] = React.useState<string>('')
 
   // impostazioni
   const [setCfg, setSetCfg] = React.useState<ScoreCfgSet>(DEFAULT_SET)
 
-  // carica snapshot + settings quando cambiano tour/genere
+  // preview: totale squadre + moltiplicatore (locali)
+  const [totalTeams, setTotalTeams] = React.useState<number>(8)
+  const [multiplier, setMultiplier] = React.useState<number>(1)
+
+  // carica settings quando cambiano tour/genere
   React.useEffect(()=>{
     let alive = true
-    Promise.all([
-      apiGetSnapshot(tour, gender),
-      apiGetSettings(tour, gender),
-    ])
-    .then(([snap, setts])=>{
-      if (!alive) return
-      const ts = Array.isArray(snap?.data?.tappe) ? snap!.data!.tappe : []
-      setTappe(ts)
-      setSetCfg(setts?.settings ?? DEFAULT_SET)
-      setTappaId(prev => (prev && ts.some(t=>t.id===prev)) ? prev : (ts[0]?.id || ''))
-    })
-    .catch(()=>{ if (alive){ setTappe([]); setTappaId(''); setSetCfg(DEFAULT_SET) }})
+    if (!tourId) return
+    apiGetSettings(tourId, gender)
+      .then((setts)=>{ if (alive) setSetCfg(setts?.settings ?? DEFAULT_SET) })
+      .catch(()=>{ if (alive) setSetCfg(DEFAULT_SET) })
     return ()=>{ alive = false }
-  },[tour, gender])
+  },[tourId, gender])
 
-  const tappa = tappe.find(t=>t.id===tappaId)
   const legend = React.useMemo(()=>{
-    if (!tappa) return []
-    return Array.from({length:tappa.totalTeams}, (_,i)=>({
-      pos: i+1, pts: pointsOfBucket(i+1, tappa.totalTeams, tappa.multiplier, setCfg)
+    if (!totalTeams || totalTeams < 1) return []
+    return Array.from({length: totalTeams}, (_,i)=>({
+      pos: i+1, pts: pointsOfBucket(i+1, totalTeams, multiplier, setCfg)
     }))
-  },[tappa,setCfg])
+  },[totalTeams, multiplier, setCfg])
 
   return (
     <div className="p-6 space-y-6">
       {/* Tabs */}
       <div className="flex items-center gap-2">
-        <a className="btn btn-outline btn-sm" href="/admin/classifica2">Classifica</a>
-        <span className="btn btn-primary btn-sm border-2 border-primary ring-2 ring-primary/30">Legenda punti</span>
+        <a className="btn btn-outline btn-sm" href="/admin/classifica">Classifica</a>
+        <span className="btn btn-primary btn-sm border-2 border-primary ring-2 ring-primary/30">
+          Legenda punti
+        </span>
         <div className="ml-auto flex items-center gap-2">
           <span className="text-sm text-neutral-400">Tour</span>
-          <select className="input input-sm max-w-xs" value={tour} onChange={e=>setTour(e.target.value)}>
-            {!tour && <option value="">— seleziona —</option>}
-            {(availableTours.length ? availableTours : (tour ? [tour] : []))
-              .map(t => <option key={t} value={t}>{t}</option>)}
+          <select className="input input-sm max-w-xs" value={tourId} onChange={e=>setTourId(e.target.value)}>
+            {!tourId && <option value="">— seleziona —</option>}
+            {tours.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
           <div className="ml-2 flex gap-2">
             <button className={`btn btn-sm ${gender==='M'?'btn-primary':''}`} onClick={()=>setGender('M')}>M</button>
@@ -137,29 +115,32 @@ export default function LegendAdminPage(){
         </div>
       </div>
 
-      {/* Selettori tappa */}
+      {/* Parametri preview: totale squadre + moltiplicatore */}
       <div className="card p-4 space-y-3">
         <div className="flex items-center gap-3">
-          <div className="w-28 text-sm text-neutral-400">Tappa</div>
-          <select className="select select-bordered" value={tappaId} onChange={e=>setTappaId(e.target.value)}>
-            {tappe.map(t=>{
-              const b = pickBucket(t.totalTeams)
-              const lab = b==='S'?'1–8':b==='M'?'9–16':b==='L'?'17–32':'33+'
-              return (
-                <option key={t.id} value={t.id}>
-                  {t.title} — ×{t.multiplier.toFixed(2)} — {t.date || 'gg/mm'} (tot {t.totalTeams} • {lab})
-                </option>
-              )
-            })}
-          </select>
+          <div className="w-40 text-sm text-neutral-400">Totale squadre</div>
+          <input
+            className="input w-40" type="number" min={2} max={128}
+            value={totalTeams} onChange={e=>setTotalTeams(Math.max(2, Number(e.target.value)||0))}
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="w-40 text-sm text-neutral-400">Moltiplicatore (preview)</div>
+          <input
+            className="input w-40" type="number" step="0.01" min={0}
+            value={multiplier} onChange={e=>setMultiplier(Math.max(0, Number(e.target.value)||0))}
+          />
+        </div>
+        <div className="text-xs text-neutral-500">
+          Questi valori sono solo per la <b>preview</b>. Il moltiplicatore reale si applica per tappa nella pagina Classifica.
         </div>
       </div>
 
       {/* Legenda calcolata */}
       <div className="card p-4">
         <div className="font-medium mb-2">Legenda calcolata</div>
-        {!tappa ? (
-          <div className="text-sm text-neutral-500">Nessuna tappa trovata.</div>
+        {legend.length === 0 ? (
+          <div className="text-sm text-neutral-500">Imposta un numero di squadre valido.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="text-sm">
@@ -176,7 +157,7 @@ export default function LegendAdminPage(){
         )}
       </div>
 
-      {/* Parametri */}
+      {/* Parametri S/M/L/XL */}
       <div className="card p-4 space-y-3">
         <div className="font-medium">Parametri di calcolo (S/M/L/XL)</div>
 
@@ -214,12 +195,13 @@ export default function LegendAdminPage(){
             className="btn"
             onClick={async ()=>{
               try {
-                await apiSaveSettings(tour, gender, setCfg)
-                alert('Impostazioni salvate.')
+                await apiSaveSettings(tourId, gender, setCfg)
+                alert('Impostazioni salvate. (Rank legend rigenerata per 2..64 squadre)')
               } catch (e:any) {
                 alert('Errore salvataggio: ' + (e?.message || ''))
               }
             }}
+            disabled={!tourId}
           >Salva impostazioni</button>
         </div>
       </div>
