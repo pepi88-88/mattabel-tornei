@@ -27,60 +27,84 @@ function TourControl({
 }) {
   const [text, setText] = React.useState('')
   const [open, setOpen] = React.useState(false)
+  const [busy, setBusy] = React.useState(false)
 
+  // mostra il nome del selezionato
   React.useEffect(()=>{
     const cur = editions.find(e=>e.id===editionId)
     setText(cur?.name || '')
   }, [editionId, editions])
 
-  const matchByName = (name:string) =>
+  const byName = (name:string) =>
     editions.find(e => e.name.trim().toLowerCase() === name.trim().toLowerCase())
 
   const selectByName = (name:string) => {
-    const m = matchByName(name)
+    const m = byName(name)
     if (m) onChangeEditionId(m.id)
   }
 
-  const save = async () => {
+  async function createNew() {
     const trimmed = text.trim()
     if (!trimmed) return
-    const existing = matchByName(trimmed)
+    if (byName(trimmed)) { onChangeEditionId(byName(trimmed)!.id); return }
+    setBusy(true)
+    try {
+      const r = await fetch('/api/ranking/editions', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        // se il tuo endpoint richiede un vero tour_id, sostituisci 'GLOBAL'
+        body: JSON.stringify({ tour_id: 'GLOBAL', gender, name: trimmed })
+      })
+      if (!r.ok) throw new Error(await r.text())
+      await refetchEditions()
+      selectByName(trimmed)
+    } catch (e:any) {
+      alert('Errore creazione tour: ' + (e?.message || e))
+    } finally {
+      setBusy(false); setOpen(false)
+    }
+  }
 
-    // se esiste già: seleziona
-    if (existing) { onChangeEditionId(existing.id); return }
-
-    // se ho un id selezionato e il nome è diverso -> rinomina
-    if (editionId) {
-      await fetch('/api/ranking/editions', {
+  async function renameSelected() {
+    if (!editionId) { await createNew(); return }
+    const trimmed = text.trim()
+    if (!trimmed) return
+    if (byName(trimmed)?.id === editionId) { setOpen(false); return }
+    setBusy(true)
+    try {
+      const r = await fetch('/api/ranking/editions', {
         method:'PUT', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ edition_id: editionId, name: trimmed })
       })
+      if (!r.ok) throw new Error(await r.text())
       await refetchEditions()
       selectByName(trimmed)
-      return
+    } catch (e:any) {
+      alert('Errore rinomina tour: ' + (e?.message || e))
+    } finally {
+      setBusy(false); setOpen(false)
     }
-
-    // altrimenti crea (se il tuo endpoint richiede tour_id, usa un default es. "GLOBAL")
-    await fetch('/api/ranking/editions', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ tour_id: 'GLOBAL', gender, name: trimmed })
-    })
-    await refetchEditions()
-    selectByName(trimmed)
   }
 
-  const del = async () => {
+  async function deleteSelected() {
     if (!editionId) return
     const cur = editions.find(e=>e.id===editionId)
     if (!cur) return
     if (!confirm(`Eliminare il tour “${cur.name}”?\n⚠️ Verranno rimossi anche giocatori, tappe e risultati collegati.`)) return
-    await fetch('/api/ranking/editions', {
-      method:'DELETE', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ edition_id: editionId })
-    })
-    await refetchEditions()
-    onChangeEditionId('')
-    setText('')
+    setBusy(true)
+    try {
+      const r = await fetch('/api/ranking/editions', {
+        method:'DELETE', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ edition_id: editionId })
+      })
+      if (!r.ok) throw new Error(await r.text())
+      await refetchEditions()
+      onChangeEditionId('')
+      setText('')
+    } catch (e:any) {
+      alert('Errore eliminazione tour: ' + (e?.message || e))
+    } finally {
+      setBusy(false); setOpen(false)
+    }
   }
 
   const filtered = editions
@@ -94,16 +118,22 @@ function TourControl({
       <div className="relative">
         <input
           className="input w-full"
-          placeholder="Scrivi per cercare, selezionare, creare o rinominare…"
+          placeholder="Scrivi nome tour… (Invio per creare/renominare)"
           value={text}
+          disabled={busy}
           onChange={e=>{ setText(e.target.value); setOpen(true) }}
           onFocus={()=>setOpen(true)}
           onKeyDown={(e)=>{
-            if (e.key==='Enter') { e.preventDefault(); save() }
+            if (e.key==='Enter') {
+              e.preventDefault()
+              // se c'è un tour selezionato -> rinomina, altrimenti crea
+              editionId ? renameSelected() : createNew()
+            }
             if (e.key==='Escape') setOpen(false)
           }}
         />
-        {open && (
+
+        {open && !busy && (
           <div className="absolute z-20 mt-1 w-full bg-neutral-900 border border-neutral-800 rounded-xl max-h-60 overflow-auto shadow-lg">
             {filtered.length===0 ? (
               <div className="px-3 py-2 text-sm text-neutral-500">
@@ -123,13 +153,13 @@ function TourControl({
       </div>
 
       <div className="flex gap-2">
-        <button className="btn" onClick={save} disabled={!text.trim()}>Salva</button>
-        <button className="btn" onClick={del} disabled={!editionId}>Elimina</button>
+        <button className="btn" onClick={createNew} disabled={busy || !text.trim()}>Crea</button>
+        <button className="btn" onClick={renameSelected} disabled={busy || !text.trim()}>Rinomina</button>
+        <button className="btn" onClick={deleteSelected} disabled={busy || !editionId}>Elimina</button>
       </div>
 
       <div className="text-xs text-neutral-500">
-        • Digita per <b>cercare</b> o inserisci un nome e premi <b>Salva</b> per <b>creare</b>.<br/>
-        • Con un tour selezionato, cambia il testo e premi <b>Salva</b> per <b>rinominare</b>.
+        Invio: crea se nessun tour è selezionato, rinomina se un tour è selezionato.
       </div>
     </div>
   )
