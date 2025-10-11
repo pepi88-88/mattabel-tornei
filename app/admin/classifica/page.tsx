@@ -20,15 +20,27 @@ export default function ClassificaPage() {
   const [gender, setGender] = useState<'M'|'F'>('M')
 
   useEffect(()=>{ if(!tourId && tours.length) setTourId(tours[0].id) },[tours, tourId])
+{/* Tour (combobox unico) */}
+<TourControl
+  gender={gender}
+  editions={editions}
+  editionId={editionId}
+  onChangeEditionId={setEditionId}
+  refetchEditions={refetchEd}
+/>
 
-  // ——— edizioni
-  const { data: edRes, mutate: refetchEd } = useSWR(
-    tourId ? `/api/ranking/editions?tour_id=${encodeURIComponent(tourId)}&gender=${gender}` : null,
-    fetcher, { revalidateOnFocus:false }
-  )
-  const editions: Edition[] = edRes?.items ?? []
-  const [editionId, setEditionId] = useState('')
-  useEffect(()=>{ if(editions.length && !editionId) setEditionId(editions[0].id); if(!editions.length) setEditionId('') },[editions, editionId])
+ // ——— tour (edizioni) — fetch per GENERE soltanto
+const { data: edRes, mutate: refetchEd } = useSWR(
+  `/api/ranking/editions?gender=${gender}`,
+  fetcher,
+  { revalidateOnFocus:false }
+)
+const editions: Edition[] = edRes?.items ?? []
+const [editionId, setEditionId] = useState('')
+useEffect(() => {
+  if (editions.length && !editionId) setEditionId(editions[0].id)
+  if (!editions.length) setEditionId('')
+}, [editions, editionId])
 
   // ——— players / stages / totals
   const { data: plRes, mutate: refetchPlayers } = useSWR(editionId ? `/api/ranking/players?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false })
