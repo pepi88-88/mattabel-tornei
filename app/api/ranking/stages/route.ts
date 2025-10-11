@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-
+const supabase = getSupabaseAdmin()
 /** GET ?edition_id=... -> lista tappe */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -36,4 +36,26 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ ok:false, error:error.message }, { status:500 })
   return NextResponse.json({ ok:true, id: data?.id })
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const b = await req.json()
+    const stage_id = String(b?.stage_id || '')
+    if (!stage_id) {
+      return NextResponse.json({ ok:false, error:'stage_id required' }, { status:400 })
+    }
+
+    // 1) elimina piazzamenti collegati (se esiste la tabella dei placements)
+    //    Adatta i nomi se diversi (es. rank_stage_placements)
+    await supabase.from('rank_stage_placements').delete().eq('stage_id', stage_id)
+
+    // 2) elimina la tappa
+    const del = await supabase.from('rank_stages').delete().eq('id', stage_id)
+    if (del.error) throw del.error
+
+    return NextResponse.json({ ok:true })
+  } catch (e:any) {
+    return NextResponse.json({ ok:false, error:String(e?.message || e) }, { status:500 })
+  }
 }
