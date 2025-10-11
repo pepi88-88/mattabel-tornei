@@ -4,18 +4,23 @@ import { supabaseAdmin } from '@/lib/supabaseServer'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const q = (searchParams.get('q') || '').trim()
+  // supporta sia ?search= che ?q=
+  const q = (searchParams.get('search') || searchParams.get('q') || '').trim()
+
   const sb = supabaseAdmin()
 
-  let query = sb.from('players')
-    .select('*')
+  // selezioniamo solo ciò che ci serve e costruiamo display_name lato API
+  let query = sb
+    .from('players')
+    .select('id, first_name, last_name, email')  // display_name lo costruiamo noi
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true })
     .limit(200)
 
   if (q) {
-    query = sb.from('players')
-      .select('*')
+    query = sb
+      .from('players')
+      .select('id, first_name, last_name, email')
       .or(`last_name.ilike.%${q}%,first_name.ilike.%${q}%,email.ilike.%${q}%`)
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true })
@@ -23,9 +28,19 @@ export async function GET(req: Request) {
   }
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ items: data ?? [] })
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // costruisci display_name: "Cognome Nome"
+  const items = (data || []).map((r: any) => ({
+    id: r.id,
+    display_name: [r.last_name, r.first_name].filter(Boolean).join(' ').trim()
+  }))
+
+  return NextResponse.json({ items })
 }
+
 
 export async function POST(req: Request) {
   const body = await req.json()
