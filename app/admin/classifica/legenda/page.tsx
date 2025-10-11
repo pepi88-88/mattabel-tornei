@@ -49,6 +49,10 @@ async function apiSaveSettings(tour: string, gender: Gender, settings: ScoreCfgS
   if (!r.ok) throw new Error(await r.text())
 }
 
+async function apiGetSnapshot(tour: string, gender: Gender) {
+  // Stub compat: non carica più le tappe, restituisce lista vuota
+  return Promise.resolve<{ data?: { tappe: Tappa[] } | null }>({ data: { tappe: [] } })
+}
 
 export default function LegendAdminPage(){
   // tours
