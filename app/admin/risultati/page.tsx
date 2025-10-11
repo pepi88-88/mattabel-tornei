@@ -48,31 +48,36 @@ function normalizeMeta(
 // ------------------------------------------------------------
 // Helper nomi brevi (cognomi) + risolutore token→nome
 // ------------------------------------------------------------
-// ------------------------------------------------------------
-// Helper nomi brevi (cognomi composti) + risolutore token→nome
-// ------------------------------------------------------------
 function shortSurname(full: string) {
-  const s = String(full || '').trim()
-    .replace(/\s+[A-Z]\.?$/u, '') // rimuove iniziale nome in coda ("ROSSI M.")
+  // es.: "DELLA COSTANZA M." -> ["DELLA","COSTANZA"]
+  const s = String(full || '').trim().replace(/\s+[A-Z]\.?$/u, '')
   const parts = s.split(/\s+/).filter(Boolean)
   if (parts.length === 0) return ''
 
+  // particelle in MAIUSCOLO per confronto; l’output mantiene il casing originale
   const PARTICLES = new Set([
-    'DE','DEL','DEI','DEGLI','DELLA','DELL’','DELL\'',
-    'DI','D’','D\'','DA','DAL','DALLA',
+    'DE','DEL','DEI','DEGLI','DEGLI','DELLA','DELL','DELL’','DELL\'','DELLA','DELLE','DELLO',
+    'DI','D’','D\'','DA','DAL','DALLA','DALL\'','DALL’',
     'LA','LE','LO',
-    'VAN','VON','VANDER',
-    'MAC','MC'
+    'VAN','VON','VANDER','DER',
   ])
 
-  const last = parts[parts.length - 1]
-  if (parts.length >= 2) {
-    const prevRaw = parts[parts.length - 2]
+  // prendi almeno l’ultima parola; poi risali all’indietro finché trovi particelle
+  let start = parts.length - 1
+  while (start - 1 >= 0) {
+    const prevRaw = parts[start - 1]
     const prevU = prevRaw.toUpperCase()
-    if (PARTICLES.has(prevU)) return `${prevRaw} ${last}`
+    if (PARTICLES.has(prevU)) {
+      start -= 1
+    } else {
+      break
+    }
   }
-  return last
+
+  // ricompone dal primo elemento “di cognome” fino alla fine
+  return parts.slice(start).join(' ')
 }
+
 
 function lastSurnames(label: string) {
   const parts = String(label).replace(/—/g,'/').split('/').map(p=>p.trim()).filter(Boolean)
