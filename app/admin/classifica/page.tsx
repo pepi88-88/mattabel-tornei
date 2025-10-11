@@ -50,42 +50,60 @@ export default function ClassificaPage() {
   /* ------------------------ TOUR (semplice e chiaro) ------------------------ */
   const [tourNameInput, setTourNameInput] = React.useState('')
 
-  const createEdition = async () => {
-    const name = tourNameInput.trim()
-    if (!name) return alert('Inserisci un nome tour')
-    try {
-      const r = await fetch('/api/ranking/editions', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        // Se il backend richiede un vero tour_id, sostituisci 'GLOBAL'
-        body: JSON.stringify({ tour_id: 'GLOBAL', gender, name })
-      })
-      if (!r.ok) throw new Error(await r.text())
-      await refetchEd()
-      // seleziona quello appena creato
-      const ed = (editions ?? []).find(e => e.name.toLowerCase() === name.toLowerCase())
-      if (ed) setEditionId(ed.id)
-      setTourNameInput('')
-    } catch (e:any) {
-      alert('Errore creazione tour: ' + (e?.message || ''))
-    }
-  }
+const createEdition = async () => {
+  const name = tourNameInput.trim()
+  if (!name) return alert('Inserisci un nome tour')
+  try {
+    const r = await fetch('/api/ranking/editions', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ tour_id:'GLOBAL', gender, name })
+    })
+    if (!r.ok) throw new Error(await r.text())
 
-  const renameEdition = async () => {
-    const name = tourNameInput.trim()
-    if (!editionId) return alert('Seleziona un tour')
-    if (!name) return alert('Inserisci il nuovo nome')
+    // 1) se l'API restituisce l'ID appena creato, usalo subito
+    let newId = ''
     try {
-      const r = await fetch('/api/ranking/editions', {
-        method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ edition_id: editionId, name })
-      })
-      if (!r.ok) throw new Error(await r.text())
-      await refetchEd()
-      setTourNameInput('')
-    } catch (e:any) {
-      alert('Errore rinomina tour: ' + (e?.message || ''))
+      const j = await r.json().catch(()=>null)
+      // accetta sia {id} sia {item:{id}} sia {data:{id}}
+      newId = j?.id || j?.item?.id || j?.data?.id || ''
+    } catch {}
+
+    // 2) se non ho l'id, chiedo a SWR i dati aggiornati
+    if (!newId) {
+      const fresh = await refetchEd() // mutate() ritorna i nuovi dati
+      const list: Edition[] = fresh?.items ?? []
+      const match = list.find(e => e.name.trim().toLowerCase() === name.toLowerCase())
+      newId = match?.id || ''
     }
+
+    // 3) seleziona il tour nuovo se l'abbiamo identificato
+    if (newId) setEditionId(newId)
+    setTourNameInput('')
+  } catch (e:any) {
+    alert('Errore creazione tour: ' + (e?.message || ''))
   }
+}
+
+const renameEdition = async () => {
+  const name = tourNameInput.trim()
+  if (!editionId) return alert('Seleziona un tour')
+  if (!name) return alert('Inserisci il nuovo nome')
+  try {
+    const r = await fetch('/api/ranking/editions', {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ edition_id: editionId, name })
+    })
+    if (!r.ok) throw new Error(await r.text())
+
+    // ricarica lista e resta sulla stessa edizione
+    await refetchEd()
+    setTourNameInput('')
+  } catch (e:any) {
+    alert('Errore rinomina tour: ' + (e?.message || ''))
+  }
+}
 
   const deleteEdition = async () => {
     if (!editionId) return
