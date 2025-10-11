@@ -25,28 +25,30 @@ const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) 
 
 /* ===== API ===== */
 async function apiListTours(): Promise<string[]> {
-  const r = await fetch('/api/lb2/snapshots/tours', { cache: 'no-store' })
-  if (!r.ok) return []
+  // usa /api/tours (ritorna {items:[{id,name}]})
+  const r = await fetch('/api/tours', { cache: 'no-store' })
   const j = await r.json().catch(()=>({}))
-  return Array.isArray(j?.tours) ? j.tours : []
+  const items = Array.isArray(j?.items) ? j.items : []
+  // Se la tua UI mostrava il nome “testuale” del tour, restituisci name;
+  // se preferisci usare l'id del tour, restituisci id.
+  return items.map((t:any) => t.id) // OPPURE: t.name
 }
-async function apiGetSnapshot(tour: string, gender: Gender) {
-  const r = await fetch(`/api/lb2/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
-  if (!r.ok) throw new Error('snapshot get failed')
-  return r.json() as Promise<{ data?: { tappe:Tappa[] }|null }>
-}
+
 async function apiGetSettings(tour: string, gender: Gender) {
-  const r = await fetch(`/api/leaderboard/settings?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
+  const r = await fetch(`/api/ranking/legend-curve?tour_id=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
   if (!r.ok) return { settings: DEFAULT_SET }
   return r.json() as Promise<{ settings: ScoreCfgSet|null }>
 }
+
 async function apiSaveSettings(tour: string, gender: Gender, settings: ScoreCfgSet) {
-  const r = await fetch('/api/leaderboard/settings', {
+  // genera rank_legend per tutte le taglie 2..64 (personalizzabile con totalsFrom/totalsTo)
+  const r = await fetch('/api/ranking/legend-curve', {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tour, gender, settings }),
+    body: JSON.stringify({ tour_id: tour, gender, settings, totalsFrom: 2, totalsTo: 64 }),
   })
   if (!r.ok) throw new Error(await r.text())
 }
+
 
 export default function LegendAdminPage(){
   // tours
