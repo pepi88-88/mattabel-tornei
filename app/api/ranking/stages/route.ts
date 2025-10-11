@@ -14,13 +14,16 @@ export async function GET(req: Request) {
 
     const { data, error } = await supabase
       .from('rank_stages')
-      .select('*')
+      .select('id, edition_id, name, day, month, multiplier, total_teams, created_at')
       .eq('edition_id', edition_id)
       .order('month', { ascending: true })
       .order('day',   { ascending: true })
       .order('created_at', { ascending: true })
 
-    if (error) throw error
+    if (error) {
+      // esponiamo l’errore per capire subito la causa (RLS/permessi/colonne)
+      return NextResponse.json({ ok:false, error: error.message }, { status:500 })
+    }
     return NextResponse.json({ ok:true, items: data ?? [] })
   } catch (e:any) {
     return NextResponse.json({ ok:false, error:String(e?.message || e) }, { status:500 })
@@ -33,11 +36,11 @@ export async function POST(req: Request) {
     const b = await req.json()
     const payload = {
       edition_id: String(b?.edition_id || ''),
-      name: String(b?.name || '').trim(),
-      day: Number(b?.day || 0),
-      month: Number(b?.month || 0),
+      name:       String(b?.name || '').trim(),
+      day:        Number(b?.day || 0),
+      month:      Number(b?.month || 0),
       multiplier: Number(b?.multiplier || 1),
-      total_teams: Number(b?.total_teams || 0),
+      total_teams:Number(b?.total_teams || 0),
     }
     if (!payload.edition_id || !payload.name || !payload.day || !payload.month || !payload.total_teams) {
       return NextResponse.json({ ok:false, error:'missing fields' }, { status:400 })
@@ -46,10 +49,10 @@ export async function POST(req: Request) {
     const { data, error } = await supabase
       .from('rank_stages')
       .insert(payload)
-      .select('*')
+      .select('id')
       .single()
 
-    if (error) throw error
+    if (error) return NextResponse.json({ ok:false, error: error.message }, { status:500 })
     return NextResponse.json({ ok:true, item:data })
   } catch (e:any) {
     return NextResponse.json({ ok:false, error:String(e?.message || e) }, { status:500 })
@@ -65,14 +68,9 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ ok:false, error:'stage_id required' }, { status:400 })
     }
 
-    // Se il DB ha ON DELETE CASCADE, basta questo.
-    // Altrimenti, prima cancella eventuali righe collegate (placements/results) qui.
-    const { error } = await supabase
-      .from('rank_stages')
-      .delete()
-      .eq('id', stage_id)
-
-    if (error) throw error
+    // se non hai ON DELETE CASCADE sulle tabelle figlie (placements), avvisami e aggiungiamo le delete “figlie” qui.
+    const { error } = await supabase.from('rank_stages').delete().eq('id', stage_id)
+    if (error) return NextResponse.json({ ok:false, error:error.message }, { status:500 })
     return NextResponse.json({ ok:true })
   } catch (e:any) {
     return NextResponse.json({ ok:false, error:String(e?.message || e) }, { status:500 })
