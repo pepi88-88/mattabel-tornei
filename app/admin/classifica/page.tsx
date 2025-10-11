@@ -126,58 +126,57 @@ export default function ClassificaPage() {
     }
   }
 
-  /* ------------------------ GIOCATORI ------------------------ */
-  const [playerInput, setPlayerInput] = React.useState('')
-  const [suggestions, setSuggestions] = React.useState<Player[]>([])
-  const [suggestOpen, setSuggestOpen] = React.useState(false)
+ /* ------------------------ AGGIUNGI GIOCATORE (autocomplete da "players") ------------------------ */
+type GlobalPlayer = { id: string; display_name: string }
 
-  // (opzionale) suggerimenti dal catalogo globale giocatori
-  React.useEffect(()=>{
-    const q = playerInput.trim()
-    if (!q) { setSuggestions([]); return }
-    const t = setTimeout(async ()=>{
-      try {
-        const r = await fetch(`/api/players?search=${encodeURIComponent(q)}`)
-        if (!r.ok) { setSuggestions([]); return }
-        const j = await r.json().catch(()=>({}))
-        const items: Player[] = j?.items ?? []
-        setSuggestions(items.slice(0,10))
-        setSuggestOpen(true)
-      } catch {
-        setSuggestions([]); setSuggestOpen(false)
-      }
-    }, 250)
-    return ()=>clearTimeout(t)
-  }, [playerInput])
+const [playerInput, setPlayerInput] = React.useState('')
+const [suggestions, setSuggestions] = React.useState<GlobalPlayer[]>([])
+const [suggestOpen, setSuggestOpen] = React.useState(false)
+const [isSearching, setIsSearching] = React.useState(false)
 
-  const addPlayerFromText = async (display_name: string) => {
-    if (!editionId || !display_name.trim()) return
-    await fetch('/api/ranking/players', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ edition_id: editionId, display_name: display_name.trim() })
+// debounce search sui players globali
+React.useEffect(() => {
+  const q = playerInput.trim()
+  if (!q) { setSuggestions([]); setSuggestOpen(false); return }
+  const t = setTimeout(async () => {
+    try {
+      setIsSearching(true)
+      // endpoint di ricerca global players (adatta se diverso)
+      const r = await fetch(`/api/players?search=${encodeURIComponent(q)}`, { cache:'no-store' })
+      const j = await r.json().catch(()=>({}))
+      const items: GlobalPlayer[] = j?.items ?? []
+      setSuggestions(items.slice(0, 12))
+      setSuggestOpen(true)
+    } catch {
+      setSuggestions([]); setSuggestOpen(false)
+    } finally {
+      setIsSearching(false)
+    }
+  }, 220)
+  return () => clearTimeout(t)
+}, [playerInput])
+
+// aggiungi alla classifica (edizione) il player selezionato dal catalogo
+const addPlayerById = async (p: GlobalPlayer) => {
+  if (!editionId) { alert('Seleziona un tour'); return }
+  try {
+    const r = await fetch('/api/ranking/players', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        edition_id: editionId,
+        player_id: p.id,               // usa id della tabella "players"
+        display_name: p.display_name,  // utile lato UI / fallback
+      })
     })
+    if (!r.ok) throw new Error(await r.text())
     setPlayerInput(''); setSuggestions([]); setSuggestOpen(false)
-    await refetchPlayers(); await refetchTotals()
+    // aggiorna elenco (anche se non lo mostriamo) e i totali
+    await Promise.all([refetchPlayers(), refetchTotals()])
+  } catch (e:any) {
+    alert('Errore aggiunta giocatore: ' + (e?.message || ''))
   }
-
-  const addPlayerFromCatalog = async (p: Player) => {
-    if (!editionId) return
-    await fetch('/api/ranking/players', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ edition_id: editionId, player_id: p.player_id, display_name: p.display_name })
-    })
-    setPlayerInput(''); setSuggestions([]); setSuggestOpen(false)
-    await refetchPlayers(); await refetchTotals()
-  }
-
-  const removePlayer = async (player_id:string) => {
-    if (!editionId) return
-    await fetch('/api/ranking/players', {
-      method:'DELETE', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ edition_id: editionId, player_id })
-    })
-    await refetchPlayers(); await refetchTotals()
-  }
+}
 
   /* ------------------------ TAPPE ------------------------ */
   const [stageForm, setStageForm] = React.useState({ name:'', day:'', month:'', multiplier:'1', total_teams:'8' })
@@ -277,41 +276,45 @@ export default function ClassificaPage() {
         <div className="text-xs text-neutral-500">Suggerimento: crea il tour, selezionalo nella tendina, poi rinominalo se serve.</div>
       </div>
 
-      {/* GIOCATORI */}
-      <div className="card p-4 space-y-3">
-        <div className="text-sm font-semibold">Giocatori (tour selezionato)</div>
-        <div className="relative">
-          <div className="flex flex-wrap items-center gap-2">
-            <input className="input w-96" placeholder="Cerca o scrivi nome giocatore…" value={playerInput} onChange={e=>setPlayerInput(e.target.value)} onFocus={()=>setSuggestOpen(true)} />
-            <button className="btn" onClick={()=>addPlayerFromText(playerInput)} disabled={!editionId || !playerInput.trim()}>Aggiungi come testo</button>
-          </div>
-          {suggestOpen && suggestions.length>0 && (
-            <div className="absolute z-20 mt-1 w-96 bg-neutral-900 border border-neutral-800 rounded-xl max-h-60 overflow-auto shadow-lg">
-              {suggestions.map(p=>(
-                <button key={p.player_id} className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-800"
-                        onClick={()=>addPlayerFromCatalog(p)}>
-                  {p.display_name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+   {/* AGGIUNGI GIOCATORE */}
+<div className="card p-4 space-y-3">
+  <div className="text-sm font-semibold">Aggiungi giocatore</div>
 
-        <div className="max-h-64 overflow-auto border border-neutral-800 rounded-xl p-2 mt-2">
-          {players.length===0 ? <div className="text-sm text-neutral-400">Nessun giocatore.</div> : (
-            <table className="w-full text-sm"><tbody>
-              {players.map(p=>(
-                <tr key={p.player_id} className="border-b border-neutral-800">
-                  <td className="py-1 pr-2">{p.display_name}</td>
-                  <td className="py-1 text-right">
-                    <button className="btn btn-sm" onClick={()=>removePlayer(p.player_id)}>Rimuovi</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody></table>
-          )}
-        </div>
+  <div className="relative max-w-[560px]">
+    <input
+      className="input w-full"
+      placeholder="Cerca un giocatore creato in “Crea giocatori”…"
+      value={playerInput}
+      onChange={(e)=>setPlayerInput(e.target.value)}
+      onFocus={()=> playerInput.trim() && setSuggestOpen(true)}
+    />
+    {isSearching && (
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">…</div>
+    )}
+
+    {suggestOpen && suggestions.length>0 && (
+      <div
+        className="absolute z-20 mt-1 w-full bg-neutral-900 border border-neutral-800 rounded-xl max-h-72 overflow-auto shadow-lg"
+        onMouseLeave={()=>setSuggestOpen(false)}
+      >
+        {suggestions.map(p => (
+          <button
+            key={p.id}
+            className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-800"
+            onClick={()=>addPlayerById(p)}
+          >
+            {p.display_name}
+          </button>
+        ))}
       </div>
+    )}
+  </div>
+
+  <div className="text-xs text-neutral-500">
+    Suggerimenti presi dalla tabella <code>players</code>. Se non trovi il nome, crealo prima in “Crea giocatori”.
+  </div>
+</div>
+
 
       {/* TAPPE */}
       <div className="card p-4 space-y-3">
@@ -394,20 +397,50 @@ export default function ClassificaPage() {
                 <th className="text-right w-28">Punti tappe</th>
                 <th className="text-right w-24">Δ</th>
                 <th className="text-right w-28">Totale</th>
+                <th className="text-right w-28">Azioni</th> {/* <-- NUOVO */}
               </tr>
             </thead>
-            <tbody>
-              {totals.map((r,i)=>(
-                <tr key={r.player_id} className="border-t border-neutral-800">
-                  <td className="py-1">{i+1}</td>
-                  <td className="py-1 truncate">{r.display_name}</td>
-                  <td className="py-1 text-right">{Number(r.points_from_stages||0).toFixed(2)}</td>
-                  <td className="py-1 text-right">{Number(r.delta_points||0).toFixed(2)}</td>
-                  <td className="py-1 text-right font-semibold">{Number(r.total_points||0).toFixed(2)}</td>
-                </tr>
-              ))}
-              {totals.length===0 && <tr><td colSpan={5} className="py-4 text-center text-neutral-500">Nessun dato</td></tr>}
-            </tbody>
+           <tbody>
+  {totals.map((r,i)=>(
+    <tr key={r.player_id} className="border-t border-neutral-800">
+      <td className="py-1">{i+1}</td>
+      <td className="py-1 truncate">{r.display_name}</td>
+      <td className="py-1 text-right">{Number(r.points_from_stages||0).toFixed(2)}</td>
+      <td className="py-1 text-right">{Number(r.delta_points||0).toFixed(2)}</td>
+      <td className="py-1 text-right font-semibold">{Number(r.total_points||0).toFixed(2)}</td>
+
+      {/* AZIONI */}
+      <td className="py-1 text-right">
+        <button
+          className="btn btn-sm"
+          onClick={async ()=>{
+            if (!editionId) return
+            if (!confirm(`Eliminare il giocatore “${r.display_name}” dal tour?\n⚠️ Verranno rimossi anche i suoi risultati.`)) return
+            try {
+              const del = await fetch('/api/ranking/players', {
+                method:'DELETE',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ edition_id: editionId, player_id: r.player_id })
+              })
+              if (!del.ok) throw new Error(await del.text())
+              await Promise.all([refetchPlayers(), refetchTotals()])
+            } catch (e:any) {
+              alert('Errore eliminazione: ' + (e?.message || ''))
+            }
+          }}
+        >
+          Elimina
+        </button>
+      </td>
+    </tr>
+  ))}
+  {totals.length===0 && (
+    <tr>
+      <td colSpan={6} className="py-4 text-center text-neutral-500">Nessun dato</td>
+    </tr>
+  )}
+</tbody>
+
           </table>
         </div>
       </div>
