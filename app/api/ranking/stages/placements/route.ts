@@ -15,10 +15,13 @@ export async function PUT(req: Request) {
     .maybeSingle()
   if (e1 || !stg) return NextResponse.json({ ok:false, error:e1?.message || 'stage not found' }, { status:404 })
 
-  const total_teams = Number(stg.total_teams || 0)
-  const multiplier = Number(stg.multiplier || 1)
-  const tour_id = stg.edition?.tour_id as string
-  const gender = (stg.edition?.gender as string) || 'M'
+const total_teams = Number(stg.total_teams || 0)
+const multiplier = Number(stg.multiplier || 1)
+
+// edition può arrivare come oggetto oppure come array: normalizza
+const ed = Array.isArray((stg as any).edition) ? (stg as any).edition[0] : (stg as any).edition
+const tour_id = (ed?.tour_id as string) || ''
+const gender = ((ed?.gender as string) || 'M').toUpperCase()
 
   // 2) carica legenda per (tour_id, gender, total_teams)
   const { data: legend, error: e2 } = await supabaseAdmin
@@ -63,3 +66,4 @@ export async function PUT(req: Request) {
 
   return NextResponse.json({ ok:true, count: upserts.length })
 }
+
