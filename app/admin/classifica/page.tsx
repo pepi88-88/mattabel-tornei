@@ -224,30 +224,34 @@ const renameEdition = async () => {
     setPlacementsMap(prev => ({ ...prev, [pid]: value }))
   }
 
-  const savePlacements = async () => {
-    if (!stageId) return alert('Seleziona una tappa')
-    if (!maxPos)  return alert('Imposta il totale squadre della tappa')
+ const savePlacements = async () => {
+  if (!stageId) return alert('Seleziona una tappa')
+  if (!maxPos)  return alert('Imposta il totale squadre della tappa')
 
-    // costruisci lista ordinata per posizione (1..N), ignorando '-'
-    const tuples = Object.entries(placementsMap)
-      .filter(([,v]) => v && v !== '-')
-      .map(([pid, v]) => ({ pid, pos: Number(v) }))
-      .filter(x => Number.isFinite(x.pos) && x.pos >= 1 && x.pos <= maxPos)
+  // costruisci lista [pid, pos] dalle select, ignora '-'
+  const tuples = Object.entries(placementsMap)
+    .filter(([, v]) => v && v !== '-')                       // solo chi ha una posizione
+    .map(([pid, v]) => ({ pid, pos: Number(v) }))            // parse numero
+    .filter(x => Number.isFinite(x.pos) && x.pos >= 1 && x.pos <= maxPos)
+    .sort((a, b) => a.pos - b.pos)                           // ordina per posizione 1..N
 
-    // ordina per posizione
-    tuples.sort((a,b)=> a.pos - b.pos)
+  // <-- QUI definiamo orderedPlayerIds
+  const orderedPlayerIds = tuples.map(t => t.pid)
 
-    // estrai l’array solo dei player_id, in ordine
-    const orderedPlayerIds = tuples.map(t => t.pid)
-
-    const r = await fetch('/api/ranking/stage/placements', {
-      method:'PUT', headers:{'Content-Type':'application/json'},
+  try {
+    const r = await fetch('/api/ranking/stages/placements', { // NB: "stages" (plurale)
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage_id: stageId, placements: orderedPlayerIds })
     })
-    if (!r.ok) return alert('Errore salvataggio piazzamenti: ' + await r.text())
+    if (!r.ok) throw new Error(await r.text())
+
     await refetchTotals()
     alert('Piazzamenti salvati')
+  } catch (e:any) {
+    alert('Errore salvataggio piazzamenti: ' + (e?.message || ''))
   }
+}
 
   /* ------------------------ RENDER ------------------------ */
   return (
