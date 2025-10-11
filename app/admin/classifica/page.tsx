@@ -10,6 +10,7 @@ type Edition = { id: string; name: string }
 type Player  = { player_id: string; display_name: string }
 type Stage   = { id: string; name: string; day: number; month: number; multiplier: number; total_teams: number }
 type Tot     = { player_id: string; display_name: string; points_from_stages: number; delta_points: number; total_points: number }
+type GlobalPlayer = { id: string; display_name: string }
 
 const fetcher = (u: string) => fetch(u).then(r => r.json()).catch(() => null)
 const asNum = (v: any, d=0) => Number.isFinite(Number(v)) ? Number(v) : d
@@ -41,11 +42,6 @@ export default function ClassificaPage() {
     editionId ? `/api/ranking/stages?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false }
   )
   const stages: Stage[] = stRes?.items ?? []
-  const [stageId, setStageId] = React.useState('')
-  React.useEffect(()=>{
-    if (stages.length && !stageId) setStageId(stages[0].id)
-    if (!stages.length) setStageId('')
-  },[stages, stageId])
 
   const { data: totRes, mutate: refetchTotals } = useSWR(
     editionId ? `/api/ranking/totals?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false }
@@ -66,14 +62,12 @@ export default function ClassificaPage() {
       })
       if (!r.ok) throw new Error(await r.text())
 
-      // prova a leggere subito l'id restituito
       let newId = ''
       try {
         const j = await r.json().catch(()=>null)
         newId = j?.id || j?.item?.id || j?.data?.id || ''
       } catch {}
 
-      // ricarica lista edizioni e seleziona
       const fresh = await refetchEd()
       const list: Edition[] = fresh?.items ?? []
       if (!newId) {
@@ -126,151 +120,138 @@ export default function ClassificaPage() {
     }
   }
 
- /* ------------------------ AGGIUNGI GIOCATORE (autocomplete da "players") ------------------------ */
-type GlobalPlayer = { id: string; display_name: string }
+  /* ------------------------ Aggiungi giocatore (autocomplete da "players") ------------------------ */
+  const [playerInput, setPlayerInput] = React.useState('')
+  const [suggestions, setSuggestions] = React.useState<GlobalPlayer[]>([])
+  const [suggestOpen, setSuggestOpen] = React.useState(false)
+  const [isSearching, setIsSearching] = React.useState(false)
 
-const [playerInput, setPlayerInput] = React.useState('')
-const [suggestions, setSuggestions] = React.useState<GlobalPlayer[]>([])
-const [suggestOpen, setSuggestOpen] = React.useState(false)
-const [isSearching, setIsSearching] = React.useState(false)
+  React.useEffect(() => {
+    const q = playerInput.trim()
+    if (!q) { setSuggestions([]); setSuggestOpen(false); return }
+    const t = setTimeout(async () => {
+      try {
+        setIsSearching(true)
+        const r = await fetch(`/api/players?search=${encodeURIComponent(q)}`, { cache:'no-store' })
+        const j = await r.json().catch(()=>({}))
+        const items: GlobalPlayer[] = j?.items ?? []
+        setSuggestions(items.slice(0, 12))
+        setSuggestOpen(true)
+      } catch {
+        setSuggestions([]); setSuggestOpen(false)
+      } finally {
+        setIsSearching(false)
+      }
+    }, 220)
+    return () => clearTimeout(t)
+  }, [playerInput])
 
-// debounce search sui players globali
-React.useEffect(() => {
-  const q = playerInput.trim()
-  if (!q) { setSuggestions([]); setSuggestOpen(false); return }
-  const t = setTimeout(async () => {
+  const addPlayerById = async (p: GlobalPlayer) => {
+    if (!editionId) { alert('Seleziona un tour'); return }
     try {
-      setIsSearching(true)
-      // endpoint di ricerca global players (adatta se diverso)
-      const r = await fetch(`/api/players?search=${encodeURIComponent(q)}`, { cache:'no-store' })
-      const j = await r.json().catch(()=>({}))
-      const items: GlobalPlayer[] = j?.items ?? []
-      setSuggestions(items.slice(0, 12))
-      setSuggestOpen(true)
-    } catch {
-      setSuggestions([]); setSuggestOpen(false)
-    } finally {
-      setIsSearching(false)
-    }
-  }, 220)
-  return () => clearTimeout(t)
-}, [playerInput])
-
-// aggiungi alla classifica (edizione) il player selezionato dal catalogo
-const addPlayerById = async (p: GlobalPlayer) => {
-  if (!editionId) { alert('Seleziona un tour'); return }
-  try {
-    const r = await fetch('/api/ranking/players', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({
-        edition_id: editionId,
-        player_id: p.id,               // usa id della tabella "players"
-        display_name: p.display_name,  // utile lato UI / fallback
-      })
-    })
-    if (!r.ok) throw new Error(await r.text())
-    setPlayerInput(''); setSuggestions([]); setSuggestOpen(false)
-    // aggiorna elenco (anche se non lo mostriamo) e i totali
-    await Promise.all([refetchPlayers(), refetchTotals()])
-  } catch (e:any) {
-    alert('Errore aggiunta giocatore: ' + (e?.message || ''))
-  }
-}
-
-/* ------------------------ TAPPE: stato minimal + placements per colonna ------------------------ */
-const [stageForm, setStageForm] = React.useState({ name:'', day:'', month:'', multiplier:'1', total_teams:'8' })
-
-// mappa: stageId -> (player_id -> posizionestring | '-')
-const [placementsByStage, setPlacementsByStage] = React.useState<Record<string, Record<string,string>>>({})
-
-// Inizializza entry vuote per (stages x players) senza perdere valori già digitati
-React.useEffect(()=>{
-  setPlacementsByStage(prev=>{
-    const next = { ...prev }
-    stages.forEach(st=>{
-      const cur = next[st.id] || {}
-      players.forEach(p=>{
-        if (cur[p.player_id] === undefined) cur[p.player_id] = '-' // default vuoto
-      })
-      next[st.id] = cur
-    })
-    // se sono state rimosse tappe, pulisci chiavi orfane
-    const valid = new Set(stages.map(s=>s.id))
-    Object.keys(next).forEach(k=>{ if(!valid.has(k)) delete (next as any)[k] })
-    return next
-  })
-}, [stages.map(s=>s.id).join(','), players.map(p=>p.player_id).join(',')])
-
-// crea tappa (inline)
-const addStage = async () => {
-  const payload = {
-    edition_id: editionId,
-    name: stageForm.name.trim(),
-    day: asNum(stageForm.day,0),
-    month: asNum(stageForm.month,0),
-    multiplier: asNum(stageForm.multiplier,1),
-    total_teams: asNum(stageForm.total_teams,0),
-  }
-  if (!payload.edition_id) return alert('Seleziona un tour')
-  if (!payload.name || !payload.day || !payload.month || !payload.total_teams) {
-    return alert('Compila Nome, Giorno, Mese e Totale squadre')
-  }
-  const r = await fetch('/api/ranking/stages', {
-    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
-  })
-  if (!r.ok) return alert('Errore creazione tappa: ' + await r.text())
-  setStageForm({ name:'', day:'', month:'', multiplier:'1', total_teams:'8' })
-  await refetchStages()
-}
-
-// elimina tappa
-const deleteStage = async (stage_id: string, label:string) => {
-  if (!confirm(`Eliminare la tappa "${label}"?`)) return
-  const r = await fetch('/api/ranking/stages', {
-    method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ stage_id })
-  })
-  if (!r.ok) return alert('Errore eliminazione tappa: ' + await r.text())
-  await refetchStages()
-  await refetchTotals()
-}
-
-// set select cella e auto-save debounced
-const _saveTimers = React.useRef<Record<string, any>>({}) // uno per stage
-const setPlacement = (stageId: string, playerId: string, value: string) => {
-  setPlacementsByStage(prev=>{
-    const map = { ...(prev[stageId]||{}) , [playerId]: value }
-    return { ...prev, [stageId]: map }
-  })
-
-  // debounce 400ms per singola tappa
-  clearTimeout(_saveTimers.current[stageId])
-  _saveTimers.current[stageId] = setTimeout(async ()=>{
-    const stage = stages.find(s=>s.id===stageId)
-    if (!stage) return
-    const maxPos = Math.max(1, Number(stage.total_teams||0))
-    const map = placementsByStage[stageId] || {}
-    // costruisci ordered list: pos 1..N -> player_id (ignora '-')
-    const tuples = Object.entries(map)
-      .filter(([,v]) => v && v !== '-')
-      .map(([pid, v]) => ({ pid, pos: Number(v) }))
-      .filter(x => Number.isFinite(x.pos) && x.pos>=1 && x.pos<=maxPos)
-      .sort((a,b) => a.pos - b.pos)
-    const orderedPlayerIds = tuples.map(t => t.pid)
-
-    try {
-      const r = await fetch('/api/ranking/stages/placements', {
-        method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ stage_id: stageId, placements: orderedPlayerIds })
+      const r = await fetch('/api/ranking/players', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          edition_id: editionId,
+          player_id: p.id,
+          display_name: p.display_name,
+        })
       })
       if (!r.ok) throw new Error(await r.text())
-      await refetchTotals()
+      setPlayerInput(''); setSuggestions([]); setSuggestOpen(false)
+      await Promise.all([refetchPlayers(), refetchTotals()])
     } catch (e:any) {
-      console.error(e)
+      alert('Errore aggiunta giocatore: ' + (e?.message || ''))
     }
-  }, 400)
-}
+  }
 
+  /* ------------------------ TAPPE inline + placements per colonna ------------------------ */
+  const [stageForm, setStageForm] = React.useState({ name:'', day:'', month:'', multiplier:'1', total_teams:'8' })
+  // mappa: stageId -> (player_id -> posizionestring | '-')
+  const [placementsByStage, setPlacementsByStage] = React.useState<Record<string, Record<string,string>>>({})
+
+  // Inizializza entry vuote per (stages x players)
+  React.useEffect(()=>{
+    setPlacementsByStage(prev=>{
+      const next = { ...prev }
+      stages.forEach(st=>{
+        const cur = next[st.id] || {}
+        players.forEach(p=>{
+          if (cur[p.player_id] === undefined) cur[p.player_id] = '-' // default vuoto
+        })
+        next[st.id] = cur
+      })
+      // pulisci chiavi orfane se tappe rimosse
+      const valid = new Set(stages.map(s=>s.id))
+      Object.keys(next).forEach(k=>{ if(!valid.has(k)) delete (next as any)[k] })
+      return next
+    })
+  }, [stages.map(s=>s.id).join(','), players.map(p=>p.player_id).join(',')])
+
+  const addStage = async () => {
+    const payload = {
+      edition_id: editionId,
+      name: stageForm.name.trim(),
+      day: asNum(stageForm.day,0),
+      month: asNum(stageForm.month,0),
+      multiplier: asNum(stageForm.multiplier,1),
+      total_teams: asNum(stageForm.total_teams,0),
+    }
+    if (!payload.edition_id) return alert('Seleziona un tour')
+    if (!payload.name || !payload.day || !payload.month || !payload.total_teams) {
+      return alert('Compila Nome, Giorno, Mese e Totale squadre')
+    }
+    const r = await fetch('/api/ranking/stages', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    })
+    if (!r.ok) return alert('Errore creazione tappa: ' + await r.text())
+    setStageForm({ name:'', day:'', month:'', multiplier:'1', total_teams:'8' })
+    await refetchStages()
+  }
+
+  const deleteStage = async (stage_id: string, label:string) => {
+    if (!confirm(`Eliminare la tappa "${label}"?`)) return
+    const r = await fetch('/api/ranking/stages', {
+      method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ stage_id })
+    })
+    if (!r.ok) return alert('Errore eliminazione tappa: ' + await r.text())
+    await refetchStages()
+    await refetchTotals()
+  }
+
+  // autosave debounced per singola tappa
+  const _saveTimers = React.useRef<Record<string, any>>({})
+  const setPlacement = (stageId: string, playerId: string, value: string) => {
+    setPlacementsByStage(prev=>{
+      const map = { ...(prev[stageId]||{}) , [playerId]: value }
+      return { ...prev, [stageId]: map }
+    })
+
+    clearTimeout(_saveTimers.current[stageId])
+    _saveTimers.current[stageId] = setTimeout(async ()=>{
+      const stage = stages.find(s=>s.id===stageId)
+      if (!stage) return
+      const maxPos = Math.max(1, Number(stage.total_teams||0))
+      const map = placementsByStage[stageId] || {}
+      const tuples = Object.entries(map)
+        .filter(([,v]) => v && v !== '-')
+        .map(([pid, v]) => ({ pid, pos: Number(v) }))
+        .filter(x => Number.isFinite(x.pos) && x.pos>=1 && x.pos<=maxPos)
+        .sort((a,b) => a.pos - b.pos)
+      const orderedPlayerIds = tuples.map(t => t.pid)
+      try {
+        const r = await fetch('/api/ranking/stages/placements', {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ stage_id: stageId, placements: orderedPlayerIds })
+        })
+        if (!r.ok) throw new Error(await r.text())
+        await refetchTotals()
+      } catch (e:any) {
+        console.error(e)
+      }
+    }, 400)
+  }
 
   /* ------------------------ RENDER ------------------------ */
   return (
@@ -300,157 +281,155 @@ const setPlacement = (stageId: string, playerId: string, value: string) => {
         <div className="text-xs text-neutral-500">Suggerimento: crea il tour, selezionalo nella tendina, poi rinominalo se serve.</div>
       </div>
 
-   {/* AGGIUNGI GIOCATORE */}
-<div className="card p-4 space-y-3">
-  <div className="text-sm font-semibold">Aggiungi giocatore</div>
-
-  <div className="relative max-w-[560px]">
-    <input
-      className="input w-full"
-      placeholder="Cerca un giocatore creato in “Crea giocatori”…"
-      value={playerInput}
-      onChange={(e)=>setPlayerInput(e.target.value)}
-      onFocus={()=> playerInput.trim() && setSuggestOpen(true)}
-    />
-    {isSearching && (
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">…</div>
-    )}
-
-    {suggestOpen && suggestions.length>0 && (
-      <div
-        className="absolute z-20 mt-1 w-full bg-neutral-900 border border-neutral-800 rounded-xl max-h-72 overflow-auto shadow-lg"
-        onMouseLeave={()=>setSuggestOpen(false)}
-      >
-        {suggestions.map(p => (
-          <button
-            key={p.id}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-800"
-            onClick={()=>addPlayerById(p)}
-          >
-            {p.display_name}
-          </button>
-        ))}
+      {/* AGGIUNGI GIOCATORE */}
+      <div className="card p-4 space-y-3">
+        <div className="text-sm font-semibold">Aggiungi giocatore</div>
+        <div className="relative max-w-[560px]">
+          <input
+            className="input w-full"
+            placeholder="Cerca un giocatore creato in “Crea giocatori”…"
+            value={playerInput}
+            onChange={(e)=>setPlayerInput(e.target.value)}
+            onFocus={()=> playerInput.trim() && setSuggestOpen(true)}
+          />
+          {isSearching && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">…</div>
+          )}
+          {suggestOpen && suggestions.length>0 && (
+            <div
+              className="absolute z-20 mt-1 w-full bg-neutral-900 border border-neutral-800 rounded-xl max-h-72 overflow-auto shadow-lg"
+              onMouseLeave={()=>setSuggestOpen(false)}
+            >
+              {suggestions.map(p => (
+                <button
+                  key={p.id}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-800"
+                  onClick={()=>addPlayerById(p)}
+                >
+                  {p.display_name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="text-xs text-neutral-500">
+          I suggerimenti vengono dalla tabella <code>players</code>. Se non trovi il nome, crealo prima in “Crea giocatori”.
+        </div>
       </div>
-    )}
-  </div>
 
-  <div className="text-xs text-neutral-500">
-    Suggerimenti presi dalla tabella <code>players</code>. Se non trovi il nome, crealo prima in “Crea giocatori”.
-  </div>
-</div>
-
-
-    {/* AGGIUNGI TAPPA (inline) */}
-<div className="card p-4 space-y-3">
-  <div className="text-sm font-semibold">Aggiungi tappa</div>
-  <div className="grid gap-2 sm:grid-cols-6">
-    <input className="input" placeholder="Nome tappa" value={stageForm.name} onChange={e=>setStageForm(s=>({...s, name:e.target.value}))}/>
-    <input className="input" placeholder="Giorno" value={stageForm.day} onChange={e=>setStageForm(s=>({...s, day:e.target.value}))}/>
-    <input className="input" placeholder="Mese" value={stageForm.month} onChange={e=>setStageForm(s=>({...s, month:e.target.value}))}/>
-    <input className="input" placeholder="Moltiplicatore" value={stageForm.multiplier} onChange={e=>setStageForm(s=>({...s, multiplier:e.target.value}))}/>
-    <input className="input" placeholder="Totale squadre" value={stageForm.total_teams} onChange={e=>setStageForm(s=>({...s, total_teams:e.target.value}))}/>
-    <button className="btn" onClick={addStage} disabled={!editionId}>Aggiungi</button>
-  </div>
-</div>
-
+      {/* AGGIUNGI TAPPA (inline) */}
+      <div className="card p-4 space-y-3">
+        <div className="text-sm font-semibold">Aggiungi tappa</div>
+        <div className="grid gap-2 sm:grid-cols-6">
+          <input className="input" placeholder="Nome tappa" value={stageForm.name} onChange={e=>setStageForm(s=>({...s, name:e.target.value}))}/>
+          <input className="input" placeholder="Giorno" value={stageForm.day} onChange={e=>setStageForm(s=>({...s, day:e.target.value}))}/>
+          <input className="input" placeholder="Mese" value={stageForm.month} onChange={e=>setStageForm(s=>({...s, month:e.target.value}))}/>
+          <input className="input" placeholder="Moltiplicatore" value={stageForm.multiplier} onChange={e=>setStageForm(s=>({...s, multiplier:e.target.value}))}/>
+          <input className="input" placeholder="Totale squadre" value={stageForm.total_teams} onChange={e=>setStageForm(s=>({...s, total_teams:e.target.value}))}/>
+          <button className="btn" onClick={addStage} disabled={!editionId}>Aggiungi</button>
+        </div>
+      </div>
 
       {/* CLASSIFICA TOTALE */}
-    <div className="card p-0 overflow-hidden">
-  <div className="px-3 py-2 border-b border-neutral-800 flex items-center justify-between">
-    <div className="text-sm font-semibold">Classifica totale</div>
-    <button className="btn btn-sm" onClick={()=>refetchTotals()}>Aggiorna</button>
-  </div>
+      <div className="card p-0 overflow-hidden">
+        <div className="px-3 py-2 border-b border-neutral-800 flex items-center justify-between">
+          <div className="text-sm font-semibold">Classifica totale</div>
+          <button className="btn btn-sm" onClick={()=>refetchTotals()}>Aggiorna</button>
+        </div>
 
-  <div className="p-3 overflow-x-auto">
-    <table className="w-full text-sm">
-      <thead className="text-xs uppercase opacity-70">
-        <tr>
-          <th className="text-left w-14">#</th>
-          <th className="text-left">Giocatore</th>
+        <div className="p-3 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs uppercase opacity-70">
+              <tr>
+                <th className="text-left w-14">#</th>
+                <th className="text-left">Giocatore</th>
 
-          {/* Colonne TAPPE dinamiche */}
-          {stages.map(st=>(
-            <th key={st.id} className="text-center min-w-[140px]">
-              <div className="flex items-center justify-center gap-2">
-                <span title={`x${st.multiplier} • ${String(st.day).padStart(2,'0')}/${String(st.month).padStart(2,'0')}`}>
-                  {st.name}
-                </span>
-                <button
-                  className="btn btn-xs"
-                  onClick={()=>deleteStage(st.id, st.name)}
-                  title="Elimina tappa"
-                >Elimina</button>
-              </div>
-            </th>
-          ))}
+                {/* Colonne TAPPE dinamiche */}
+                {stages.map(st=>(
+                  <th key={st.id} className="text-center min-w-[140px]">
+                    <div className="flex items-center justify-center gap-2">
+                      <span title={`x${st.multiplier} • ${String(st.day).padStart(2,'0')}/${String(st.month).padStart(2,'0')}`}>
+                        {st.name}
+                      </span>
+                      <button
+                        className="btn btn-xs"
+                        onClick={()=>deleteStage(st.id, st.name)}
+                        title="Elimina tappa"
+                      >Elimina</button>
+                    </div>
+                  </th>
+                ))}
 
-          <th className="text-right w-28">Punti tappe</th>
-          <th className="text-right w-24">Δ</th>
-          <th className="text-right w-28">Totale</th>
-          <th className="text-right w-28">Azioni</th>
-        </tr>
-      </thead>
+                <th className="text-right w-28">Punti tappe</th>
+                <th className="text-right w-24">Δ</th>
+                <th className="text-right w-28">Totale</th>
+                <th className="text-right w-28">Azioni</th>
+              </tr>
+            </thead>
 
-      <tbody>
-        {totals.map((r,i)=>(
-          <tr key={r.player_id} className="border-t border-neutral-800">
-            <td className="py-1">{i+1}</td>
-            <td className="py-1 truncate">{r.display_name}</td>
+            <tbody>
+              {totals.map((r,i)=>(
+                <tr key={r.player_id} className="border-t border-neutral-800">
+                  <td className="py-1">{i+1}</td>
+                  <td className="py-1 truncate">{r.display_name}</td>
 
-            {/* Celle selezione piazzamento per OGNI TAPPA */}
-            {stages.map(st=>{
-              const maxPos = Math.max(1, Number(st.total_teams||0))
-              const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
-              return (
-                <td key={`${st.id}-${r.player_id}`} className="py-1">
-                  <select
-                    className="input w-28"
-                    value={cur}
-                    onChange={e=>setPlacement(st.id, r.player_id, e.target.value)}
-                  >
-                    <option value="-">-</option>
-                    {Array.from({length: maxPos}, (_,n)=>n+1).map(n=>(
-                      <option key={n} value={String(n)}>{n}</option>
-                    ))}
-                  </select>
-                </td>
-              )
-            })}
+                  {/* Celle selezione piazzamento per OGNI TAPPA */}
+                  {stages.map(st=>{
+                    const maxPos = Math.max(1, Number(st.total_teams||0))
+                    const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
+                    return (
+                      <td key={`${st.id}-${r.player_id}`} className="py-1">
+                        <select
+                          className="input w-28"
+                          value={cur}
+                          onChange={e=>setPlacement(st.id, r.player_id, e.target.value)}
+                        >
+                          <option value="-">-</option>
+                          {Array.from({length: maxPos}, (_,n)=>n+1).map(n=>(
+                            <option key={n} value={String(n)}>{n}</option>
+                          ))}
+                        </select>
+                      </td>
+                    )
+                  })}
 
-            <td className="py-1 text-right">{Number(r.points_from_stages||0).toFixed(2)}</td>
-            <td className="py-1 text-right">{Number(r.delta_points||0).toFixed(2)}</td>
-            <td className="py-1 text-right font-semibold">{Number(r.total_points||0).toFixed(2)}</td>
+                  <td className="py-1 text-right">{Number(r.points_from_stages||0).toFixed(2)}</td>
+                  <td className="py-1 text-right">{Number(r.delta_points||0).toFixed(2)}</td>
+                  <td className="py-1 text-right font-semibold">{Number(r.total_points||0).toFixed(2)}</td>
 
-            {/* Elimina giocatore (come già fatto) */}
-            <td className="py-1 text-right">
-              <button
-                className="btn btn-sm"
-                onClick={async ()=>{
-                  if (!editionId) return
-                  if (!confirm(`Eliminare il giocatore “${r.display_name}” dal tour?\n⚠️ Verranno rimossi anche i suoi risultati.`)) return
-                  try {
-                    const del = await fetch('/api/ranking/players', {
-                      method:'DELETE',
-                      headers:{'Content-Type':'application/json'},
-                      body: JSON.stringify({ edition_id: editionId, player_id: r.player_id })
-                    })
-                    if (!del.ok) throw new Error(await del.text())
-                    await Promise.all([refetchPlayers(), refetchTotals()])
-                  } catch (e:any) {
-                    alert('Errore eliminazione: ' + (e?.message || ''))
-                  }
-                }}
-              >
-                Elimina
-              </button>
-            </td>
-          </tr>
-        ))}
+                  {/* Elimina giocatore dal tour */}
+                  <td className="py-1 text-right">
+                    <button
+                      className="btn btn-sm"
+                      onClick={async ()=>{
+                        if (!editionId) return
+                        if (!confirm(`Eliminare il giocatore “${r.display_name}” dal tour?\n⚠️ Verranno rimossi anche i suoi risultati.`)) return
+                        try {
+                          const del = await fetch('/api/ranking/players', {
+                            method:'DELETE',
+                            headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify({ edition_id: editionId, player_id: r.player_id })
+                          })
+                          if (!del.ok) throw new Error(await del.text())
+                          await Promise.all([refetchPlayers(), refetchTotals()])
+                        } catch (e:any) {
+                          alert('Errore eliminazione: ' + (e?.message || ''))
+                        }
+                      }}
+                    >
+                      Elimina
+                    </button>
+                  </td>
+                </tr>
+              ))}
 
-        {totals.length===0 && (
-          <tr><td colSpan={5 + stages.length} className="py-4 text-center text-neutral-500">Nessun dato</td></tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-</div>
+              {totals.length===0 && (
+                <tr><td colSpan={5 + stages.length} className="py-4 text-center text-neutral-500">Nessun dato</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
