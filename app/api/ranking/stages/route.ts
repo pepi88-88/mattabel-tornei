@@ -1,6 +1,8 @@
+// app/api/ranking/stages/route.ts
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabaseAdmin'
-const supabase = getSupabaseAdmin()
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin'   // ✅ usa getSupabaseAdmin
+const supabase = getSupabaseAdmin()                      // ✅ istanzia client
+
 /** GET ?edition_id=... -> lista tappe */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -59,3 +61,4 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ ok:false, error:String(e?.message || e) }, { status:500 })
   }
 }
+
