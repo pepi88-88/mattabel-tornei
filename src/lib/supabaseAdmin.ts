@@ -20,3 +20,5 @@ export function getSupabaseAdmin(): SupabaseClient {
   client = createClient(url, key, { auth: { persistSession: false } })
   return client
 }
+// alias compat per il resto del codice
+export const supabaseAdmin = getSupabaseAdmin()
