@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     }
 
     const { data, error } = await supabase
-      .from('rank_stages')
+      .from('rank_stage')
       .select('id, edition_id, name, day, month, multiplier, total_teams, created_at')
       .eq('edition_id', edition_id)
       .order('month', { ascending: true })
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     }
 
     const { data, error } = await supabase
-      .from('rank_stages')
+      .from('rank_stage')
       .insert(payload)
       .select('id')
       .single()
@@ -69,10 +69,11 @@ export async function DELETE(req: Request) {
     }
 
     // se non hai ON DELETE CASCADE sulle tabelle figlie (placements), avvisami e aggiungiamo le delete “figlie” qui.
-    const { error } = await supabase.from('rank_stages').delete().eq('id', stage_id)
+    const { error } = await supabase.from('rank_stage').delete().eq('id', stage_id)
     if (error) return NextResponse.json({ ok:false, error:error.message }, { status:500 })
     return NextResponse.json({ ok:true })
   } catch (e:any) {
     return NextResponse.json({ ok:false, error:String(e?.message || e) }, { status:500 })
   }
 }
+
