@@ -192,7 +192,13 @@ const legendSet: ScoreCfgSet = legendRes?.settings ?? DEFAULT_SET
   }
 
   /* ------------------------ TAPPE inline + placements per colonna ------------------------ */
-  const [stageForm, setStageForm] = React.useState({ name:'', day:'', month:'', multiplier:'1', total_teams:'8' })
+ // PRIMA toglilo/segnalo: const [stageForm, setStageForm] = React.useState({ name:'', day:'', month:'', multiplier:'1', total_teams:'8' })
+const [stageForm, setStageForm] = React.useState({
+  name: '',
+  dateText: '',      // <— testo libero "gg/mm"
+  multiplier: '1',
+  total_teams: '8'
+})
   // mappa: stageId -> (player_id -> posizionestring | '-')
   const [placementsByStage, setPlacementsByStage] = React.useState<Record<string, Record<string,string>>>({})
 // keep latest map in ref to avoid stale closure in setTimeout
@@ -217,36 +223,44 @@ React.useEffect(()=>{ placementsRef.current = placementsByStage }, [placementsBy
     })
   }, [stages.map(s=>s.id).join(','), players.map(p=>p.player_id).join(',')])
 
-  const addStage = async () => {
-    const payload = {
-      edition_id: editionId,
-      name: stageForm.name.trim(),
-      day: asNum(stageForm.day,0),
-      month: asNum(stageForm.month,0),
-      multiplier: asNum(stageForm.multiplier,1),
-      total_teams: asNum(stageForm.total_teams,0),
-    }
-    if (!payload.edition_id) return alert('Seleziona un tour')
-    if (!payload.name || !payload.day || !payload.month || !payload.total_teams) {
-      return alert('Compila Nome, Giorno, Mese e Totale squadre')
-    }
-    const r = await fetch('/api/ranking/stages', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
-    })
-    if (!r.ok) return alert('Errore creazione tappa: ' + await r.text())
-    setStageForm({ name:'', day:'', month:'', multiplier:'1', total_teams:'8' })
-    await refetchStages()
+const addStage = async () => {
+  if (!editionId) return alert('Seleziona un tour')
+
+  // parse "gg/mm" libero: accetta separatori / - .
+  const v = (stageForm.dateText || '').trim()
+  const m = v.match(/^(\d{1,2})\s*[/\-.]\s*(\d{1,2})$/)
+  if (!m) return alert('Data non valida. Usa il formato gg/mm (es. 05/08).')
+
+  const day = Number(m[1])
+  const month = Number(m[2])
+  if (!(day >= 1 && day <= 31))  return alert('Giorno non valido (1–31).')
+  if (!(month >= 1 && month <= 12)) return alert('Mese non valido (1–12).')
+
+  const payload = {
+    edition_id: editionId,
+    name: (stageForm.name || '').trim(),
+    day,
+    month,
+    multiplier: Number(stageForm.multiplier || 1),
+    total_teams: Number(stageForm.total_teams || 0),
   }
 
-  const deleteStage = async (stage_id: string, label:string) => {
-    if (!confirm(`Eliminare la tappa "${label}"?`)) return
-    const r = await fetch('/api/ranking/stages', {
-      method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ stage_id })
-    })
-    if (!r.ok) return alert('Errore eliminazione tappa: ' + await r.text())
-    await refetchStages()
-    await refetchTotals()
+  if (!payload.name || !payload.total_teams) {
+    return alert('Compila Nome tappa e Totale squadre.')
   }
+
+  const r = await fetch('/api/ranking/stages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  })
+  if (!r.ok) return alert('Errore creazione tappa: ' + await r.text())
+
+  setStageForm({ name:'', dateText:'', multiplier:'1', total_teams:'8' })
+  await refetchStages()
+  await refetchTotals()
+}
+
 
   // autosave debounced per singola tappa
   const _saveTimers = React.useRef<Record<string, any>>({})
@@ -367,8 +381,8 @@ const totalsSorted = [...totals].sort((a,b)=>{
 <div className="card p-4 space-y-3">
   <div className="text-sm font-semibold">Aggiungi tappa</div>
 
-  <div className="grid gap-3 sm:grid-cols-5">
-    <div className="sm:col-span-2">
+  <div className="grid gap-2 sm:grid-cols-[1fr_160px_120px_120px_auto] items-end">
+    <div>
       <div className="text-xs text-neutral-400 mb-1">Nome tappa</div>
       <input
         className="input w-full"
@@ -383,14 +397,8 @@ const totalsSorted = [...totals].sort((a,b)=>{
       <input
         className="input w-full"
         placeholder="es. 05/08"
-        value={`${stageForm.day || ''}${stageForm.day || stageForm.month ? '/' : ''}${stageForm.month || ''}`}
-        onChange={(e)=>{
-          const v = e.target.value.replace(/\s+/g,'')
-          const m = v.match(/^(\d{0,2})(?:\/)?(\d{0,2})$/)
-          const d = m ? m[1] : ''
-          const mo = m ? m[2] : ''
-          setStageForm(s=>({...s, day: d, month: mo }))
-        }}
+        value={stageForm.dateText}
+        onChange={e=>setStageForm(s=>({...s, dateText:e.target.value}))}
       />
     </div>
 
@@ -413,10 +421,10 @@ const totalsSorted = [...totals].sort((a,b)=>{
         onChange={e=>setStageForm(s=>({...s, total_teams:e.target.value}))}
       />
     </div>
-  </div>
 
-  <div>
-    <button className="btn" onClick={addStage} disabled={!editionId}>Aggiungi</button>
+    <div>
+      <button className="btn w-full" onClick={addStage} disabled={!editionId}>Aggiungi</button>
+    </div>
   </div>
 </div>
 
@@ -495,40 +503,39 @@ const totalsSorted = [...totals].sort((a,b)=>{
       </td>
 
       {/* Totale subito dopo il nome */}
-      <td className="py-1 text-right font-semibold tabular-nums">
-        {Number(r.total_points||0).toFixed(2)}
-      </td>
+    <td className="py-1 text-right font-semibold pl-3">
+  {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(Number(r.total_points||0))}
+</td>
 
       {/* Celle per ogni TAPPA: select posizione + punti calcolati, allineate sotto l’header */}
-      {stages.map((st, idx)=>{
-        const maxPos = Math.max(1, Number(st.total_teams||0))
-        const cur    = placementsByStage[st.id]?.[r.player_id] ?? '-'
-        const posNum = Number(cur)
-        const pts = (cur !== '-' && Number.isFinite(posNum))
-          ? pointsOfBucket(posNum, maxPos, Number(st.multiplier||1), legendSet)
-          : ''
+    {stages.map((st, idx) => {
+  const maxPos = Math.max(1, Number(st.total_teams||0))
+  const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
+  const posNum = Number(cur)
+  const pts = (cur !== '-' && Number.isFinite(posNum))
+    ? pointsOfBucket(posNum, maxPos, Number(st.multiplier||1), legendSet)
+    : ''
 
-        return (
-          <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx>=0 ? 'border-l border-neutral-800' : ''}`}>
-            <div className="flex flex-col items-center gap-1">
-              <select
-                className="input w-24"
-                value={cur}
-                onChange={e=>setPlacement(st.id, r.player_id, e.target.value)}
-                title="Posizione"
-              >
-                <option value="-">-</option>
-                {Array.from({length: maxPos}, (_,n)=>n+1).map(n=>(<option key={n} value={String(n)}>{n}</option>))}
-              </select>
-              <div className="text-xs text-neutral-400 tabular-nums">
-                {pts!=='' ? pts : '—'}
-              </div>
-            </div>
-          </td>
-        )
-      })}
-    </tr>
-  ))}
+  return (
+    <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx>0 ? 'border-l border-neutral-800' : ''}`}>
+      <div className="flex items-center justify-end gap-2">
+        {/* Punteggio a sinistra della select */}
+        <div className="w-10 text-right tabular-nums">{pts!=='' ? pts : '—'}</div>
+        <select
+          className="input w-14 px-1 text-right"
+          value={cur}
+          onChange={e=>setPlacement(st.id, r.player_id, e.target.value)}
+          title="Posizione"
+        >
+          <option value="-">-</option>
+          {Array.from({length: maxPos}, (_,n)=>n+1).map(n=>(
+            <option key={n} value={String(n)}>{n}</option>
+          ))}
+        </select>
+      </div>
+    </td>
+  )
+})}
 
   {totals.length===0 && (
     <tr><td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">Nessun dato</td></tr>
