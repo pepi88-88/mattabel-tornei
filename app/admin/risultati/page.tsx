@@ -1438,7 +1438,6 @@ return (
 
      {/* Partite */}
 
-/* MOBILE: carosello con gruppi ingranditi (200vw) */
 <MobileGroupsCarousel
   letters={letters}
   tId={tId}
@@ -1451,7 +1450,7 @@ return (
   scores={scores}
 />
 
-/* DESKTOP/TABLET: layout originale a griglia (immutato) */
+//* DESKTOP/TABLET: layout originale a griglia (immutato) *//
 <div className="hidden md:block space-y-4">
   {chunk(letters, 2).map((pair, idx) => (
     <div
