@@ -11,7 +11,7 @@ type Tot     = { player_id: string; display_name: string; points_from_stages: nu
 
 const fetcher = (u: string) => fetch(u).then(r => r.json()).catch(() => null)
 const asNum = (v: any, d=0) => Number.isFinite(Number(v)) ? Number(v) : d
-const TOUR_ID = 'GLOBAL' // lo stesso che vedi in Supabase e che usiamo nel POST
+
 
 export default function ClassificaPage() {
   /* ------------------------ Stato base ------------------------ */
