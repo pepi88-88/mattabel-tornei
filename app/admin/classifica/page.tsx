@@ -10,15 +10,18 @@ type Tot     = { player_id: string; display_name: string; points_from_stages: nu
 
 const fetcher = (u: string) => fetch(u).then(r => r.json()).catch(() => null)
 const asNum = (v: any, d=0) => Number.isFinite(Number(v)) ? Number(v) : d
+const TOUR_ID = 'GLOBAL' // lo stesso che vedi in Supabase e che usiamo nel POST
 
 export default function ClassificaPage() {
   /* ------------------------ Stato base ------------------------ */
   const [gender, setGender] = React.useState<'M'|'F'>('M')
 
   // Edizioni per GENERE
-  const { data: edRes, mutate: refetchEd } = useSWR(
-    `/api/ranking/editions?gender=${gender}`, fetcher, { revalidateOnFocus:false }
-  )
+ const { data: edRes, mutate: refetchEd } = useSWR(
+  `/api/ranking/editions?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
+  fetcher,
+  { revalidateOnFocus:false }
+)
   const editions: Edition[] = edRes?.items ?? []
   const [editionId, setEditionId] = React.useState('')
   React.useEffect(()=>{
@@ -54,11 +57,12 @@ const createEdition = async () => {
   const name = tourNameInput.trim()
   if (!name) return alert('Inserisci un nome tour')
   try {
-    const r = await fetch('/api/ranking/editions', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ tour_id:'GLOBAL', gender, name })
-    })
+   const r = await fetch('/api/ranking/editions', {
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body: JSON.stringify({ tour_id: TOUR_ID, gender, name })
+})
+
     if (!r.ok) throw new Error(await r.text())
 
     // 1) se l'API restituisce l'ID appena creato, usalo subito
