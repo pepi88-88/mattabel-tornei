@@ -65,6 +65,23 @@ const createEdition = async () => {
       body: JSON.stringify({ tour_id: TOUR_ID, gender, name })
     })
     if (!r.ok) throw new Error(await r.text())
+const renameEdition = async () => {
+  const name = tourNameInput.trim()
+  if (!editionId) return alert('Seleziona un tour')
+  if (!name) return alert('Inserisci il nuovo nome')
+  try {
+    const r = await fetch('/api/ranking/editions', {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ edition_id: editionId, name })
+    })
+    if (!r.ok) throw new Error(await r.text())
+    await refetchEd()
+    setTourNameInput('')
+  } catch (e:any) {
+    alert('Errore rinomina tour: ' + (e?.message || ''))
+  }
+}
 
     // ——— (opzione 4) prova a leggere SUBITO l’id restituito dall’API
     let newId = ''
@@ -94,10 +111,12 @@ const createEdition = async () => {
     if (!cur) return
     if (!confirm(`Eliminare il tour “${cur.name}”?\n⚠️ Saranno rimossi i giocatori, le tappe e i risultati collegati.`)) return
     try {
-      const r = await fetch('/api/ranking/editions', {
-        method:'DELETE', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ edition_id: editionId })
-      })
+     const r = await fetch('/api/ranking/stages/placements', {  // <-- stages (plurale)
+  method:'PUT',
+  headers:{'Content-Type':'application/json'},
+  body: JSON.stringify({ stage_id: stageId, placements: orderedPlayerIds })
+})
+
       if (!r.ok) throw new Error(await r.text())
       await refetchEd()
       setEditionId('')
