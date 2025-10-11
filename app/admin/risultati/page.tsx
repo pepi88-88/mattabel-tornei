@@ -48,11 +48,38 @@ function normalizeMeta(
 // ------------------------------------------------------------
 // Helper nomi brevi (cognomi) + risolutore token→nome
 // ------------------------------------------------------------
-function lastSurnames(label: string) {
-  const ln = (s: string) => s.trim().replace(/\s+[A-Z]\.?$/u, '').split(/\s+/)[0] || ''
-  const parts = String(label).replace(/—/g,'/').split('/').map(p=>p.trim()).filter(Boolean)
-  return parts.length>=2 ? `${ln(parts[0])} / ${ln(parts[1])}` : ln(String(label))
+// ------------------------------------------------------------
+// Helper nomi brevi (cognomi composti) + risolutore token→nome
+// ------------------------------------------------------------
+function shortSurname(full: string) {
+  const s = String(full || '').trim()
+    .replace(/\s+[A-Z]\.?$/u, '') // rimuove iniziale nome in coda ("ROSSI M.")
+  const parts = s.split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return ''
+
+  const PARTICLES = new Set([
+    'DE','DEL','DEI','DEGLI','DELLA','DELL’','DELL\'',
+    'DI','D’','D\'','DA','DAL','DALLA',
+    'LA','LE','LO',
+    'VAN','VON','VANDER',
+    'MAC','MC'
+  ])
+
+  const last = parts[parts.length - 1]
+  if (parts.length >= 2) {
+    const prevRaw = parts[parts.length - 2]
+    const prevU = prevRaw.toUpperCase()
+    if (PARTICLES.has(prevU)) return `${prevRaw} ${last}`
+  }
+  return last
 }
+
+function lastSurnames(label: string) {
+  const parts = String(label).replace(/—/g,'/').split('/').map(p=>p.trim()).filter(Boolean)
+  if (parts.length >= 2) return `${shortSurname(parts[0])} / ${shortSurname(parts[1])}`
+  return shortSurname(String(label))
+}
+
 
 function makeSlotResolver(
   tourId?: string,
@@ -489,10 +516,9 @@ const chunk = <T,>(arr: T[], size: number) => {
   return out
 }
 function bothSurnames(label: string) {
-  const ln = (s: string) => s.trim().replace(/\s+[A-Z]\.?$/u, '').split(/\s+/)[0] || ''
-  const parts = String(label).replace(/—/g,'/').split('/').map(p=>p.trim()).filter(Boolean)
-  return parts.length>=2 ? `${ln(parts[0])} / ${ln(parts[1])}` : ln(String(label))
+  return lastSurnames(label)
 }
+
 function rr(n: number) {
   const t = Array.from({ length: n }, (_, i) => i + 1)
   if (t.length < 2) return [] as Array<[number, number]>
