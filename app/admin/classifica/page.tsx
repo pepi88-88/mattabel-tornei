@@ -18,6 +18,31 @@ const asNum = (v: any, d=0) => Number.isFinite(Number(v)) ? Number(v) : d
 export default function ClassificaPage() {
   /* ------------------------ Stato base ------------------------ */
   const [gender, setGender] = React.useState<'M'|'F'>('M')
+// — legend-curve settings
+type ScoreCfg = { base:number; minLast:number; curvePercent:number }
+type ScoreCfgSet = { S:ScoreCfg; M:ScoreCfg; L:ScoreCfg; XL:ScoreCfg }
+const DEFAULT_SET: ScoreCfgSet = {
+  S:{ base:100, minLast:10, curvePercent:100 },
+  M:{ base:100, minLast:10, curvePercent:100 },
+  L:{ base:100, minLast:10, curvePercent:100 },
+  XL:{ base:100, minLast:10, curvePercent:100 },
+}
+const pickBucket = (n:number): keyof ScoreCfgSet => n<=8?'S':n<=16?'M':n<=32?'L':'XL'
+const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) => {
+  const cfg = set[pickBucket(total)]
+  if (total<=1) return Math.round(cfg.base * mult)
+  const alpha = Math.max(0.01, cfg.curvePercent/100)
+  const t = (total - pos) / (total - 1)
+  const raw = cfg.minLast + (cfg.base - cfg.minLast) * Math.pow(t, alpha)
+  return Math.round(raw * mult)
+}
+  // carica i parametri della curva per calcolo punti in client
+const { data: legendRes } = useSWR(
+  `/api/ranking/legend-curve?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
+  fetcher,
+  { revalidateOnFocus:false }
+)
+const legendSet: ScoreCfgSet = legendRes?.settings ?? DEFAULT_SET
 
   // Edizioni per GENERE (richiede tour_id)
   const { data: edRes, mutate: refetchEd } = useSWR(
@@ -252,6 +277,25 @@ export default function ClassificaPage() {
       }
     }, 400)
   }
+// ===== Ordinamento righe classifica + helper per “miglior piazzamento”
+const bestPlacementOf = (pid:string) => {
+  let best = Infinity
+  stages.forEach(st=>{
+    const v = placementsByStage[st.id]?.[pid]
+    const n = Number(v)
+    if (v && v !== '-' && Number.isFinite(n)) best = Math.min(best, n)
+  })
+  return best
+}
+
+const totalsSorted = [...totals].sort((a,b)=>{
+  const t = Number(b.total_points||0) - Number(a.total_points||0)  // 1) totale punti
+  if (t) return t
+  const ba = bestPlacementOf(a.player_id)                           // 2) miglior piazzamento (più basso meglio)
+  const bb = bestPlacementOf(b.player_id)
+  if (ba !== bb) return ba - bb
+  return a.display_name.localeCompare(b.display_name)               // 3) alfabetico
+})
 
   /* ------------------------ RENDER ------------------------ */
   return (
@@ -317,18 +361,63 @@ export default function ClassificaPage() {
         </div>
       </div>
 
-      {/* AGGIUNGI TAPPA (inline) */}
-      <div className="card p-4 space-y-3">
-        <div className="text-sm font-semibold">Aggiungi tappa</div>
-        <div className="grid gap-2 sm:grid-cols-6">
-          <input className="input" placeholder="Nome tappa" value={stageForm.name} onChange={e=>setStageForm(s=>({...s, name:e.target.value}))}/>
-          <input className="input" placeholder="Giorno" value={stageForm.day} onChange={e=>setStageForm(s=>({...s, day:e.target.value}))}/>
-          <input className="input" placeholder="Mese" value={stageForm.month} onChange={e=>setStageForm(s=>({...s, month:e.target.value}))}/>
-          <input className="input" placeholder="Moltiplicatore" value={stageForm.multiplier} onChange={e=>setStageForm(s=>({...s, multiplier:e.target.value}))}/>
-          <input className="input" placeholder="Totale squadre" value={stageForm.total_teams} onChange={e=>setStageForm(s=>({...s, total_teams:e.target.value}))}/>
-          <button className="btn" onClick={addStage} disabled={!editionId}>Aggiungi</button>
-        </div>
-      </div>
+    {/* AGGIUNGI TAPPA (inline) */}
+<div className="card p-4 space-y-3">
+  <div className="text-sm font-semibold">Aggiungi tappa</div>
+
+  <div className="grid gap-3 sm:grid-cols-4">
+    <div>
+      <div className="text-xs text-neutral-400 mb-1">Nome tappa</div>
+      <input
+        className="input w-full"
+        placeholder="Nome tappa"
+        value={stageForm.name}
+        onChange={e=>setStageForm(s=>({...s, name:e.target.value}))}
+      />
+    </div>
+
+    <div>
+      <div className="text-xs text-neutral-400 mb-1">Data (gg/mm)</div>
+      <input
+        className="input w-full"
+        placeholder="es. 05/08"
+        value={`${stageForm.day || ''}${stageForm.day || stageForm.month ? '/' : ''}${stageForm.month || ''}`}
+        onChange={(e)=>{
+          const v = e.target.value.replace(/\s+/g,'')
+          const m = v.match(/^(\d{0,2})(?:\/)?(\d{0,2})$/)
+          const d = m ? m[1] : ''
+          const mo = m ? m[2] : ''
+          setStageForm(s=>({...s, day: d, month: mo }))
+        }}
+      />
+    </div>
+
+    <div>
+      <div className="text-xs text-neutral-400 mb-1">Moltiplicatore</div>
+      <input
+        className="input w-full"
+        placeholder="x1.00"
+        value={stageForm.multiplier}
+        onChange={e=>setStageForm(s=>({...s, multiplier:e.target.value}))}
+      />
+    </div>
+
+    <div>
+      <div className="text-xs text-neutral-400 mb-1">Totale squadre</div>
+      <input
+        className="input w-full"
+        placeholder="es. 12"
+        value={stageForm.total_teams}
+        onChange={e=>setStageForm(s=>({...s, total_teams:e.target.value}))}
+      />
+    </div>
+  </div>
+
+  <div>
+    <button className="btn" onClick={addStage} disabled={!editionId}>Aggiungi</button>
+  </div>
+</div>
+
 
       {/* CLASSIFICA TOTALE */}
       <div className="card p-0 overflow-hidden">
@@ -345,57 +434,76 @@ export default function ClassificaPage() {
                 <th className="text-left">Giocatore</th>
 
                 {/* Colonne TAPPE dinamiche */}
-                {stages.map(st=>(
-                  <th key={st.id} className="text-center min-w-[140px]">
-                    <div className="flex items-center justify-center gap-2">
-                      <span title={`x${st.multiplier} • ${String(st.day).padStart(2,'0')}/${String(st.month).padStart(2,'0')}`}>
-                        {st.name}
-                      </span>
-                      <button
-                        className="btn btn-xs"
-                        onClick={()=>deleteStage(st.id, st.name)}
-                        title="Elimina tappa"
-                      >Elimina</button>
-                    </div>
-                  </th>
-                ))}
+              {stages.map((st, idx)=>(
+  <th
+    key={st.id}
+    className={`min-w-[160px] align-bottom ${idx>0 ? 'border-l border-neutral-800' : ''}`}
+  >
+    <div className="flex flex-col items-center gap-1 py-1">
+      <div className="font-medium">{st.name}</div>
+      <div className="text-xs text-neutral-400">
+        {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')}
+      </div>
+      <div className="text-[11px] text-neutral-500">x{Number(st.multiplier).toFixed(2)} · {st.total_teams} sq</div>
+      <button
+        className="btn btn-xs mt-1"
+        onClick={()=>deleteStage(st.id, st.name)}
+        title="Elimina tappa"
+      >Elimina</button>
+    </div>
+  </th>
+))}
 
-                <th className="text-right w-28">Punti tappe</th>
-                <th className="text-right w-24">Δ</th>
                 <th className="text-right w-28">Totale</th>
                 <th className="text-right w-28">Azioni</th>
               </tr>
             </thead>
 
             <tbody>
-              {totals.map((r,i)=>(
-                <tr key={r.player_id} className="border-t border-neutral-800">
-                  <td className="py-1">{i+1}</td>
-                  <td className="py-1 truncate">{r.display_name}</td>
+             {totalsSorted.map((r,i)=>(
+  <tr
+    key={r.player_id}
+    className={`border-t border-neutral-800 ${i===0 ? 'bg-yellow-500/10' : i>0 && i<8 ? 'bg-emerald-500/5' : ''}`}
+  >
+    <td className="py-1">
+      {i+1}
+      {i===0 && <span className="ml-1">👑</span>}
+    </td>
+    <td className="py-1 truncate">{r.display_name}</td>
+    {/* ... celle delle TAPPE ... */}
+    <td className="py-1 text-right font-semibold">{Number(r.total_points||0).toFixed(2)}</td>
+    {/* ... azioni ... */}
 
                   {/* Celle selezione piazzamento per OGNI TAPPA */}
-                  {stages.map(st=>{
-                    const maxPos = Math.max(1, Number(st.total_teams||0))
-                    const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
-                    return (
-                      <td key={`${st.id}-${r.player_id}`} className="py-1">
-                        <select
-                          className="input w-28"
-                          value={cur}
-                          onChange={e=>setPlacement(st.id, r.player_id, e.target.value)}
-                        >
-                          <option value="-">-</option>
-                          {Array.from({length: maxPos}, (_,n)=>n+1).map(n=>(
-                            <option key={n} value={String(n)}>{n}</option>
-                          ))}
-                        </select>
-                      </td>
-                    )
-                  })}
+               {stages.map((st, idx)=>{
+  const maxPos = Math.max(1, Number(st.total_teams||0))
+  const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
+  const posNum = Number(cur)
+  const pts = (cur !== '-' && Number.isFinite(posNum))
+    ? pointsOfBucket(posNum, maxPos, Number(st.multiplier||1), legendSet)
+    : ''
 
-                  <td className="py-1 text-right">{Number(r.points_from_stages||0).toFixed(2)}</td>
-                  <td className="py-1 text-right">{Number(r.delta_points||0).toFixed(2)}</td>
-                  <td className="py-1 text-right font-semibold">{Number(r.total_points||0).toFixed(2)}</td>
+  return (
+    <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx>0 ? 'border-l border-neutral-800' : ''}`}>
+      <div className="flex items-center justify-between gap-2">
+        <select
+          className="input w-24"
+          value={cur}
+          onChange={e=>setPlacement(st.id, r.player_id, e.target.value)}
+          title="Posizione"
+        >
+          <option value="-">-</option>
+          {Array.from({length: maxPos}, (_,n)=>n+1).map(n=>(
+            <option key={n} value={String(n)}>{n}</option>
+          ))}
+        </select>
+        <div className="w-14 text-right tabular-nums">{pts!=='' ? pts : '—'}</div>
+      </div>
+    </td>
+  )
+})}
+
+<td className="py-1 text-right font-semibold">{Number(r.total_points||0).toFixed(2)}</td>
 
                   {/* Elimina giocatore dal tour */}
                   <td className="py-1 text-right">
