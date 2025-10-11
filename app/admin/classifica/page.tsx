@@ -2,7 +2,9 @@
 
 import * as React from 'react'
 import useSWR from 'swr'
-const TOUR_ID = 'GLOBAL' // in alto, una sola volta nel file
+
+/** Costante usata dalle API delle edizioni (la tua GET richiede tour_id) */
+const TOUR_ID = 'GLOBAL'
 
 type Edition = { id: string; name: string }
 type Player  = { player_id: string; display_name: string }
@@ -12,17 +14,16 @@ type Tot     = { player_id: string; display_name: string; points_from_stages: nu
 const fetcher = (u: string) => fetch(u).then(r => r.json()).catch(() => null)
 const asNum = (v: any, d=0) => Number.isFinite(Number(v)) ? Number(v) : d
 
-
 export default function ClassificaPage() {
   /* ------------------------ Stato base ------------------------ */
   const [gender, setGender] = React.useState<'M'|'F'>('M')
 
-  // Edizioni per GENERE
- const { data: edRes, mutate: refetchEd } = useSWR(
-  `/api/ranking/editions?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
-  fetcher,
-  { revalidateOnFocus:false }
-)
+  // Edizioni per GENERE (richiede tour_id)
+  const { data: edRes, mutate: refetchEd } = useSWR(
+    `/api/ranking/editions?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
+    fetcher,
+    { revalidateOnFocus:false }
+  )
   const editions: Edition[] = edRes?.items ?? []
   const [editionId, setEditionId] = React.useState('')
   React.useEffect(()=>{
@@ -41,7 +42,7 @@ export default function ClassificaPage() {
   )
   const stages: Stage[] = stRes?.items ?? []
   const [stageId, setStageId] = React.useState('')
-  React.useEffect(()=>{ 
+  React.useEffect(()=>{
     if (stages.length && !stageId) setStageId(stages[0].id)
     if (!stages.length) setStageId('')
   },[stages, stageId])
@@ -51,59 +52,58 @@ export default function ClassificaPage() {
   )
   const totals: Tot[] = totRes?.items ?? []
 
-  /* ------------------------ TOUR (semplice e chiaro) ------------------------ */
+  /* ------------------------ TOUR (crea/rinomina/elimina) ------------------------ */
   const [tourNameInput, setTourNameInput] = React.useState('')
 
-
-const createEdition = async () => {
-  const name = tourNameInput.trim()
-  if (!name) return alert('Inserisci un nome tour')
-  try {
-    const r = await fetch('/api/ranking/editions', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ tour_id: TOUR_ID, gender, name })
-    })
-    if (!r.ok) throw new Error(await r.text())
-const renameEdition = async () => {
-  const name = tourNameInput.trim()
-  if (!editionId) return alert('Seleziona un tour')
-  if (!name) return alert('Inserisci il nuovo nome')
-  try {
-    const r = await fetch('/api/ranking/editions', {
-      method:'PUT',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ edition_id: editionId, name })
-    })
-    if (!r.ok) throw new Error(await r.text())
-    await refetchEd()
-    setTourNameInput('')
-  } catch (e:any) {
-    alert('Errore rinomina tour: ' + (e?.message || ''))
-  }
-}
-
-    // ——— (opzione 4) prova a leggere SUBITO l’id restituito dall’API
-    let newId = ''
+  const createEdition = async () => {
+    const name = tourNameInput.trim()
+    if (!name) return alert('Inserisci un nome tour')
     try {
-      const j = await r.json().catch(()=>null)
-      newId = j?.id || j?.item?.id || j?.data?.id || ''
-    } catch {}
+      const r = await fetch('/api/ranking/editions', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ tour_id: TOUR_ID, gender, name })
+      })
+      if (!r.ok) throw new Error(await r.text())
 
-    // ——— se non abbiamo l’id, chiedi a SWR i dati AGGIORNATI e seleziona per nome
-    const fresh = await refetchEd()          // mutate() ritorna i nuovi dati della GET
-    const list: Edition[] = fresh?.items ?? []
-    if (!newId) {
-      const match = list.find(e => e.name.trim().toLowerCase() === name.toLowerCase())
-      newId = match?.id || ''
+      // prova a leggere subito l'id restituito
+      let newId = ''
+      try {
+        const j = await r.json().catch(()=>null)
+        newId = j?.id || j?.item?.id || j?.data?.id || ''
+      } catch {}
+
+      // ricarica lista edizioni e seleziona
+      const fresh = await refetchEd()
+      const list: Edition[] = fresh?.items ?? []
+      if (!newId) {
+        const match = list.find(e => e.name.trim().toLowerCase() === name.toLowerCase())
+        newId = match?.id || ''
+      }
+      if (newId) setEditionId(newId)
+      setTourNameInput('')
+    } catch (e:any) {
+      alert('Errore creazione tour: ' + (e?.message || ''))
     }
-
-    if (newId) setEditionId(newId)
-    setTourNameInput('')
-  } catch (e:any) {
-    alert('Errore creazione tour: ' + (e?.message || ''))
   }
-}
+
+  const renameEdition = async () => {
+    const name = tourNameInput.trim()
+    if (!editionId) return alert('Seleziona un tour')
+    if (!name) return alert('Inserisci il nuovo nome')
+    try {
+      const r = await fetch('/api/ranking/editions', {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ edition_id: editionId, name })
+      })
+      if (!r.ok) throw new Error(await r.text())
+      await refetchEd()
+      setTourNameInput('')
+    } catch (e:any) {
+      alert('Errore rinomina tour: ' + (e?.message || ''))
+    }
+  }
 
   const deleteEdition = async () => {
     if (!editionId) return
@@ -111,17 +111,15 @@ const renameEdition = async () => {
     if (!cur) return
     if (!confirm(`Eliminare il tour “${cur.name}”?\n⚠️ Saranno rimossi i giocatori, le tappe e i risultati collegati.`)) return
     try {
-     const r = await fetch('/api/ranking/stages/placements', {  // <-- stages (plurale)
-  method:'PUT',
-  headers:{'Content-Type':'application/json'},
-  body: JSON.stringify({ stage_id: stageId, placements: orderedPlayerIds })
-})
-
+      const r = await fetch('/api/ranking/editions', {
+        method:'DELETE',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ edition_id: editionId })
+      })
       if (!r.ok) throw new Error(await r.text())
       await refetchEd()
       setEditionId('')
       setTourNameInput('')
-      // pulisci viste
       await Promise.all([refetchPlayers(), refetchStages(), refetchTotals()])
     } catch (e:any) {
       alert('Errore eliminazione tour: ' + (e?.message || ''))
@@ -132,13 +130,13 @@ const renameEdition = async () => {
   const [playerInput, setPlayerInput] = React.useState('')
   const [suggestions, setSuggestions] = React.useState<Player[]>([])
   const [suggestOpen, setSuggestOpen] = React.useState(false)
-  // debounce ricerca players globali
+
+  // (opzionale) suggerimenti dal catalogo globale giocatori
   React.useEffect(()=>{
     const q = playerInput.trim()
     if (!q) { setSuggestions([]); return }
     const t = setTimeout(async ()=>{
       try {
-        // opzionale: endpoint globale dei players (adegua se diverso)
         const r = await fetch(`/api/players?search=${encodeURIComponent(q)}`)
         if (!r.ok) { setSuggestions([]); return }
         const j = await r.json().catch(()=>({}))
@@ -166,7 +164,6 @@ const renameEdition = async () => {
     if (!editionId) return
     await fetch('/api/ranking/players', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      // se preferisci passare solo player_id e risolvere server-side, adegua l’API
       body: JSON.stringify({ edition_id: editionId, player_id: p.player_id, display_name: p.display_name })
     })
     setPlayerInput(''); setSuggestions([]); setSuggestOpen(false)
@@ -224,34 +221,33 @@ const renameEdition = async () => {
     setPlacementsMap(prev => ({ ...prev, [pid]: value }))
   }
 
- const savePlacements = async () => {
-  if (!stageId) return alert('Seleziona una tappa')
-  if (!maxPos)  return alert('Imposta il totale squadre della tappa')
+  const savePlacements = async () => {
+    if (!stageId) return alert('Seleziona una tappa')
+    if (!maxPos)  return alert('Imposta il totale squadre della tappa')
 
-  // costruisci lista [pid, pos] dalle select, ignora '-'
-  const tuples = Object.entries(placementsMap)
-    .filter(([, v]) => v && v !== '-')                       // solo chi ha una posizione
-    .map(([pid, v]) => ({ pid, pos: Number(v) }))            // parse numero
-    .filter(x => Number.isFinite(x.pos) && x.pos >= 1 && x.pos <= maxPos)
-    .sort((a, b) => a.pos - b.pos)                           // ordina per posizione 1..N
+    // costruisci lista [pid, pos] dalle select, ignora '-'
+    const tuples = Object.entries(placementsMap)
+      .filter(([, v]) => v && v !== '-')
+      .map(([pid, v]) => ({ pid, pos: Number(v) }))
+      .filter(x => Number.isFinite(x.pos) && x.pos >= 1 && x.pos <= maxPos)
+      .sort((a, b) => a.pos - b.pos)
 
-  // <-- QUI definiamo orderedPlayerIds
-  const orderedPlayerIds = tuples.map(t => t.pid)
+    const orderedPlayerIds = tuples.map(t => t.pid)
 
-  try {
-    const r = await fetch('/api/ranking/stages/placements', { // NB: "stages" (plurale)
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stage_id: stageId, placements: orderedPlayerIds })
-    })
-    if (!r.ok) throw new Error(await r.text())
+    try {
+      const r = await fetch('/api/ranking/stages/placements', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage_id: stageId, placements: orderedPlayerIds })
+      })
+      if (!r.ok) throw new Error(await r.text())
 
-    await refetchTotals()
-    alert('Piazzamenti salvati')
-  } catch (e:any) {
-    alert('Errore salvataggio piazzamenti: ' + (e?.message || ''))
+      await refetchTotals()
+      alert('Piazzamenti salvati')
+    } catch (e:any) {
+      alert('Errore salvataggio piazzamenti: ' + (e?.message || ''))
+    }
   }
-}
 
   /* ------------------------ RENDER ------------------------ */
   return (
@@ -265,7 +261,7 @@ const renameEdition = async () => {
         <a className="btn btn-outline btn-sm ml-auto" href="/admin/classifica/legenda">Legenda punti</a>
       </div>
 
-      {/* TOUR: select + azioni chiare */}
+      {/* TOUR: select + azioni */}
       <div className="card p-4 space-y-3">
         <div className="text-sm font-semibold">Tour</div>
         <div className="flex flex-wrap items-center gap-2">
@@ -273,12 +269,12 @@ const renameEdition = async () => {
             <option value="">— seleziona —</option>
             {editions.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
-          <input className="input w-72" placeholder="Nome tour (per creare/rinominare)" value={tourNameInput} onChange={e=>setTourNameInput(e.target.value)} />
+          <input className="input w-72" placeholder="Nome tour (crea/rinomina)" value={tourNameInput} onChange={e=>setTourNameInput(e.target.value)} />
           <button className="btn" onClick={createEdition}>Crea</button>
           <button className="btn" onClick={renameEdition} disabled={!editionId}>Rinomina</button>
           <button className="btn" onClick={deleteEdition} disabled={!editionId}>Elimina</button>
         </div>
-        <div className="text-xs text-neutral-500">Suggerimento: crea il tour, selezionalo nella select, poi rinominalo se serve.</div>
+        <div className="text-xs text-neutral-500">Suggerimento: crea il tour, selezionalo nella tendina, poi rinominalo se serve.</div>
       </div>
 
       {/* GIOCATORI */}
@@ -380,7 +376,7 @@ const renameEdition = async () => {
             </table>
           </div>
         )}
-        <div className="text-xs text-neutral-500">Le posizioni duplicate sono permesse in input, ma in salvataggio si usa l’ordine 1..N crescente e si ignorano i “-”.</div>
+        <div className="text-xs text-neutral-500">In salvataggio viene usato l’ordine 1..N e i “-” sono ignorati.</div>
       </div>
 
       {/* CLASSIFICA TOTALE */}
