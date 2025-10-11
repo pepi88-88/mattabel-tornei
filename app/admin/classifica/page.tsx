@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import useSWR from 'swr'
+const TOUR_ID = 'GLOBAL' // in alto, una sola volta nel file
 
 type Edition = { id: string; name: string }
 type Player  = { player_id: string; display_name: string }
@@ -53,7 +54,6 @@ export default function ClassificaPage() {
   /* ------------------------ TOUR (semplice e chiaro) ------------------------ */
   const [tourNameInput, setTourNameInput] = React.useState('')
 
-const TOUR_ID = 'GLOBAL' // in alto, una sola volta nel file
 
 const createEdition = async () => {
   const name = tourNameInput.trim()
