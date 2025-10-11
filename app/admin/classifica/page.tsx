@@ -450,7 +450,8 @@ export default function ClassificaPage() {
               <tr>
                 <th className="text-left w-14">#</th>
                 <th className="text-left">Giocatore</th>
-                <th className="text-right w-24">Totale</th>
+               <th className="text-right w-24 pr-4">Totale</th>
+
 
                 {stages.map((st, idx)=>(
                   <th
@@ -509,10 +510,9 @@ export default function ClassificaPage() {
                   </td>
 
                   {/* Totale subito dopo il nome (senza decimali) */}
-                  <td className="py-1 text-right font-semibold pl-3">
-                    {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 })
-                      .format(Number(r.total_points||0))}
-                  </td>
+                 <td className="py-1 text-right font-semibold pl-3 pr-4">
+  {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(Number(r.total_points||0))}
+</td>
 
                   {/* Celle per ogni TAPPA: punti a sinistra + select corta */}
                   {stages.map((st, idx) => {
@@ -524,22 +524,25 @@ export default function ClassificaPage() {
                       : ''
 
                     return (
-                      <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx>0 ? 'border-l border-neutral-800' : ''}`}>
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-10 text-right tabular-nums">{pts!=='' ? pts : '—'}</div>
-                          <select
-                            className="input w-14 px-1 text-right"
-                            value={cur}
-                            onChange={e=>setPlacement(st.id, r.player_id, e.target.value)}
-                            title="Posizione"
-                          >
-                            <option value="-">-</option>
-                            {Array.from({length: maxPos}, (_,n)=>n+1).map(n=>(
-                              <option key={n} value={String(n)}>{n}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
+                     <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx>0 ? 'border-l border-neutral-800' : ''}`}>
+  <div className="flex flex-col items-center gap-1">
+    {/* Punteggio sopra, centrato */}
+    <div className="text-xs tabular-nums">{pts!=='' ? pts : '—'}</div>
+    {/* Select stretta, centrata */}
+    <select
+      className="input w-14 text-center px-0"
+      value={cur}
+      onChange={e=>setPlacement(st.id, r.player_id, e.target.value)}
+      title="Posizione"
+    >
+      <option value="-">-</option>
+      {Array.from({length: maxPos}, (_,n)=>n+1).map(n=>(
+        <option key={n} value={String(n)}>{n}</option>
+      ))}
+    </select>
+  </div>
+</td>
+
                     )
                   })}
                 </tr>
