@@ -480,7 +480,6 @@ const totalsSorted = [...totals].sort((a,b)=>{
       <td className="py-1 truncate">
         <div className="flex items-center gap-2">
           <span className="truncate">{r.display_name}</span>
-          {/* elimina giocatore inline (senza colonna Azioni) */}
           <button
             className="btn btn-xs"
             onClick={async ()=>{
@@ -502,45 +501,52 @@ const totalsSorted = [...totals].sort((a,b)=>{
         </div>
       </td>
 
-      {/* Totale subito dopo il nome */}
-    <td className="py-1 text-right font-semibold pl-3">
-  {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(Number(r.total_points||0))}
-</td>
+      {/* Totale dopo il nome */}
+      <td className="py-1 text-right font-semibold pl-3">
+        {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 })
+          .format(Number(r.total_points||0))}
+      </td>
 
-      {/* Celle per ogni TAPPA: select posizione + punti calcolati, allineate sotto l’header */}
-    {stages.map((st, idx) => {
-  const maxPos = Math.max(1, Number(st.total_teams||0))
-  const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
-  const posNum = Number(cur)
-  const pts = (cur !== '-' && Number.isFinite(posNum))
-    ? pointsOfBucket(posNum, maxPos, Number(st.multiplier||1), legendSet)
-    : ''
+      {/* Celle per ogni TAPPA */}
+      {stages.map((st, idx) => {
+        const maxPos = Math.max(1, Number(st.total_teams||0))
+        const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
+        const posNum = Number(cur)
+        const pts = (cur !== '-' && Number.isFinite(posNum))
+          ? pointsOfBucket(posNum, maxPos, Number(st.multiplier||1), legendSet)
+          : ''
 
-  return (
-    <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx>0 ? 'border-l border-neutral-800' : ''}`}>
-      <div className="flex items-center justify-end gap-2">
-        {/* Punteggio a sinistra della select */}
-        <div className="w-10 text-right tabular-nums">{pts!=='' ? pts : '—'}</div>
-        <select
-          className="input w-14 px-1 text-right"
-          value={cur}
-          onChange={e=>setPlacement(st.id, r.player_id, e.target.value)}
-          title="Posizione"
-        >
-          <option value="-">-</option>
-          {Array.from({length: maxPos}, (_,n)=>n+1).map(n=>(
-            <option key={n} value={String(n)}>{n}</option>
-          ))}
-        </select>
-      </div>
-    </td>
-  )
-})}
+        return (
+          <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx>0 ? 'border-l border-neutral-800' : ''}`}>
+            <div className="flex items-center justify-end gap-2">
+              <div className="w-10 text-right tabular-nums">{pts!=='' ? pts : '—'}</div>
+              <select
+                className="input w-14 px-1 text-right"
+                value={cur}
+                onChange={e=>setPlacement(st.id, r.player_id, e.target.value)}
+                title="Posizione"
+              >
+                <option value="-">-</option>
+                {Array.from({length: maxPos}, (_,n)=>n+1).map(n=>(
+                  <option key={n} value={String(n)}>{n}</option>
+                ))}
+              </select>
+            </div>
+          </td>
+        )
+      })}
+    </tr>   {/* ← CHIUDI LA RIGA */}
+  ))}        {/* ← CHIUDI IL .map SULLE RIGHE */}
 
-  {totals.length===0 && (
-    <tr><td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">Nessun dato</td></tr>
+  {totalsSorted.length===0 && (
+    <tr>
+      <td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">
+        Nessun dato
+      </td>
+    </tr>
   )}
 </tbody>
+
 
           </table>
         </div>
