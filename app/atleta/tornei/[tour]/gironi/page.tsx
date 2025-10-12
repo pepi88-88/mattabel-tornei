@@ -77,24 +77,26 @@ function resolvePoolToken(L: string, token: string, data: Persist): string {
 
   const outcome = m[1].toLowerCase() as 'vincente'|'perdente'
   const gIdx = Number(m[2]) - 1               // 0 per G1, 1 per G2
+
   const [slotA, slotB] = poolPairFor(gIdx)    // [1,4] oppure [2,3]
   const nameA = labelBySlot(data, L, slotA)
   const nameB = labelBySlot(data, L, slotB)
 
   const sc = data?.scores?.[L]?.[gIdx]
-  const a = Number(sc?.a)
-  const b = Number(sc?.b)
+  const aRaw = sc?.a
+  const bRaw = sc?.b
 
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return token // senza punteggi → lascia token
+  // Valido SOLO se non vuoti/undefined/null e numeri finiti
+  const a = Number(aRaw)
+  const b = Number(bRaw)
+  const hasA = aRaw !== '' && aRaw !== null && aRaw !== undefined && Number.isFinite(a)
+  const hasB = bRaw !== '' && bRaw !== null && bRaw !== undefined && Number.isFinite(b)
+
+  // Se mancano i punteggi o è pareggio → lascia il token (Vincente/Perdente G1/G2)
+  if (!hasA || !hasB || a === b) return token
 
   if (outcome === 'vincente') return a > b ? nameA : nameB
-  return a > b ? nameB : nameA // perdente
-}
-
-function displayTeamLabel(L: string, raw: string, data: Persist): string {
-  return /^(Vincente|Perdente)\s+G[12]$/i.test(raw)
-    ? resolvePoolToken(L, raw, data)
-    : raw
+  return a > b ? nameB : nameA
 }
 
 /* === PAGE === */
