@@ -4,7 +4,7 @@
 import * as React from 'react'
 import useSWR from 'swr'
 
-type Gender = 'M' | 'F'
+type Gender  = 'M' | 'F'
 type Edition = { id: string; name: string }
 type Player  = { player_id: string; display_name: string }
 type Stage   = { id: string; name: string; day: number; month: number; multiplier: number; total_teams: number }
@@ -38,8 +38,7 @@ const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) 
 // NB: il backend usa tour_id fisso "GLOBAL"
 const TOUR_ID = 'GLOBAL'
 
-export default function ClassificaInner(){
-  // --- stato genere + persistenza
+export default function ClassificaInner() {
   const [gender, setGender] = React.useState<Gender>(() =>
     ((typeof window !== 'undefined' && (localStorage.getItem('ath:lastGender') as Gender|null)) || 'M')
   )
@@ -139,23 +138,33 @@ export default function ClassificaInner(){
 
   const classForRow = (rank:number)=>
     rank===1 ? 'bg-yellow-500/15'
-             : (rank>=2 && rank<=7 ? 'bg-emerald-500/10' : '')
+    : (rank>=2 && rank<=7 ? 'bg-emerald-500/10' : '')
 
   // ------------------------ RENDER ------------------------
   return (
     <div className="p-6 space-y-6">
-      {/* Top: genere + select edizione (SOLO visualizzazione, niente pulsanti admin) */}
+      {/* Top: genere + select edizione */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-xl overflow-hidden border border-neutral-700">
-          <button className={`px-3 py-2 text-sm ${gender==='M'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`} onClick={()=>setGender('M')}>Maschile</button>
-          <button className={`px-3 py-2 text-sm ${gender==='F'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`} onClick={()=>setGender('F')}>Femminile</button>
+          <button
+            className={`px-3 py-2 text-sm ${gender==='M'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`}
+            onClick={()=>setGender('M')}
+          >
+            Maschile
+          </button>
+          <button
+            className={`px-3 py-2 text-sm ${gender==='F'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`}
+            onClick={()=>setGender('F')}
+          >
+            Femminile
+          </button>
         </div>
         <select className="input w-80 ml-auto" value={editionId} onChange={e=>setEditionId(e.target.value)}>
           {editions.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
       </div>
 
-      {/* Classifica lettura-sola */}
+      {/* Card classifica */}
       <div className="card p-0 overflow-hidden">
         <div className="px-3 py-2 border-b border-neutral-800 flex items-center justify-between">
           <div className="text-sm font-semibold">Classifica</div>
@@ -169,6 +178,7 @@ export default function ClassificaInner(){
                 <th className="text-left w-12">#</th>
                 <th className="text-left">Giocatore</th>
                 <th className="text-right w-28 pr-4">Totale</th>
+
                 {stages.map((st, idx)=>(
                   <th key={st.id} className={`min-w-[160px] align-bottom ${idx>=0 ? 'border-l border-neutral-800' : ''}`}>
                     <div className="flex flex-col items-center gap-1 py-1">
@@ -195,14 +205,16 @@ export default function ClassificaInner(){
                 </tr>
               )}
             </thead>
+
             <tbody>
               {rows.map((r, i)=>(
                 <tr key={r.player_id} className={`border-t border-neutral-800 ${classForRow(i+1)}`}>
-                  <td className="py-1">{i+1}{i===0 && <span className="ml-1">👑</span>}</td>
-                  <td className="py-1 truncate">{r.name}</td>
+                  <td className="py-1">{i+1}</td>
+                  <td className="py-1">{r.name}</td>
                   <td className="py-1 text-right font-semibold pr-4">
                     {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(r.total)}
                   </td>
+
                   {stages.map((st, idx2)=>{
                     const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
                     const pts = pos ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet) : 0
@@ -217,6 +229,7 @@ export default function ClassificaInner(){
                   })}
                 </tr>
               ))}
+
               {rows.length===0 && (
                 <tr>
                   <td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">
@@ -228,59 +241,62 @@ export default function ClassificaInner(){
           </table>
         </div>
 
-      {/* ---- MOBILE: riga unica orizzontale (pos • nome • totale • tappe→scroll) ---- */}
-<div className="sm:hidden p-3 space-y-2">
-  {rows.length === 0 ? (
-    <div className="text-sm text-neutral-500">Nessun dato</div>
-  ) : rows.map((r, i) => (
-    <div key={r.player_id} className="overflow-x-auto">
-      <div
-        className={
-          // wrapper a scorrimento orizzontale, singola riga compatta
-          `inline-flex items-center gap-1.5 border border-neutral-800 rounded-lg px-2.5 py-1.5 whitespace-nowrap min-w-max ` +
-          `${classForRow(i+1)}`
-        }
-      >
-        {/* posizione compatta */}
-        <span className="text-[11px] px-1.5 py-0.5 rounded bg-neutral-800 tabular-nums shrink-0">
-          {i+1}
-        </span>
+        {/* ---- MOBILE: riga unica orizzontale (pos • nome • totale • tappe→scroll) ---- */}
+        <div className="sm:hidden p-3 space-y-2">
+          {rows.length === 0 ? (
+            <div className="text-sm text-neutral-500">Nessun dato</div>
+          ) : rows.map((r, i) => (
+            <div key={r.player_id} className="overflow-x-auto">
+              <div
+                className={
+                  `inline-flex items-center gap-1.5 border border-neutral-800 rounded-lg px-2.5 py-1.5 whitespace-nowrap min-w-max ` +
+                  `${classForRow(i+1)}`
+                }
+              >
+                {/* posizione compatta */}
+                <span className="text-[11px] px-1.5 py-0.5 rounded bg-neutral-800 tabular-nums shrink-0">
+                  {i+1}
+                </span>
 
-        {/* nome ben visibile, nessun truncate */}
-        <span className="text-sm font-medium">
-          {r.name}
-        </span>
+                {/* nome senza truncate, leggermente più piccolo */}
+                <span className="text-sm font-medium">
+                  {r.name}
+                </span>
 
-        {/* totale subito dopo il nome */}
-        <span className="ml-2 text-sm tabular-nums font-semibold shrink-0">
-          {new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(r.total)}
-        </span>
+                {/* totale subito dopo il nome */}
+                <span className="ml-2 text-sm tabular-nums font-semibold shrink-0">
+                  {new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(r.total)}
+                </span>
 
-        {/* separatore sottile prima delle tappe */}
-        {stages.length > 0 && <span className="mx-1 w-px h-4 bg-neutral-800 shrink-0" />}
+                {/* separatore sottile prima delle tappe */}
+                {stages.length > 0 && <span className="mx-1 w-px h-4 bg-neutral-800 shrink-0" />}
 
-        {/* chip tappe scorrevoli */}
-        {stages.map((st) => {
-          const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
-          const pts = pos
-            ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet)
-            : 0
-          return (
-            <span
-              key={st.id}
-              className="shrink-0 px-2 py-1 rounded-md border border-neutral-800 text-[11px] inline-flex items-center gap-2"
-              title={`${st.name} — ${String(st.day).padStart(2,'0')}/${String(st.month).padStart(2,'0')} · x${Number(st.multiplier).toFixed(2)}`}
-            >
-              <span className="text-[10px] text-neutral-400">
-                {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')} · x{Number(st.multiplier).toFixed(2)}
-              </span>
-              <span className="tabular-nums">
-                {pos || '—'} • {pts || '—'}
-              </span>
-            </span>
-          )
-        })}
+                {/* chip tappe scorrevoli */}
+                {stages.map((st) => {
+                  const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
+                  const pts = pos
+                    ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet)
+                    : 0
+                  return (
+                    <span
+                      key={st.id}
+                      className="shrink-0 px-2 py-1 rounded-md border border-neutral-800 text-[11px] inline-flex items-center gap-2"
+                      title={`${st.name} — ${String(st.day).padStart(2,'0')}/${String(st.month).padStart(2,'0')} · x${Number(st.multiplier).toFixed(2)}`}
+                    >
+                      <span className="text-[10px] text-neutral-400">
+                        {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')} · x{Number(st.multiplier).toFixed(2)}
+                      </span>
+                      <span className="tabular-nums">
+                        {pos || '—'} • {pts || '—'}
+                      </span>
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
-  ))}
-</div>
+  )
+}
