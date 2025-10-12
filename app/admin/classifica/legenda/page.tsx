@@ -40,6 +40,7 @@ async function apiSaveSettings(settings: ScoreCfgSet) {
   return r.json()
 }
 
+
 export default function LegendAdminPage() {
   const [setCfg, setSetCfg] = React.useState<ScoreCfgSet>(DEFAULT_SET)
   const [totalTeams, setTotalTeams] = React.useState<number>(8)
