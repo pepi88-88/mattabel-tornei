@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { supabaseAdmin } from '@/lib/supabaseAdmin' // ← è un client, NON chiamarlo
 
 // GET: restituisce le impostazioni uniche (S/M/L/XL)
 export async function GET() {
-  const sb = supabaseAdmin()
+  const sb = supabaseAdmin
   const { data, error } = await sb
     .from('rank_legend_curve')
     .select('bucket, base, min_last, curve_percent')
-  if (error) return NextResponse.json({ ok:false, error: error.message }, { status:500 })
 
-  // mappa in oggetto { S:{...}, M:{...}, L:{...}, XL:{...} }
+  if (error) {
+    return NextResponse.json({ ok:false, error: error.message }, { status:500 })
+  }
+
   const settings: any = { S:null, M:null, L:null, XL:null }
   for (const r of (data || [])) {
     settings[r.bucket] = {
@@ -21,7 +23,7 @@ export async function GET() {
   return NextResponse.json({ ok:true, settings })
 }
 
-// PUT: salva le impostazioni (protetto da ADMIN_SUPER_KEY)
+// PUT: salva impostazioni (protetto da ADMIN_SUPER_KEY) e rigenera rank_legend
 export async function PUT(req: Request) {
   const body = await req.json().catch(()=> ({}))
   const adminKey = String(body?.admin_key || '')
@@ -29,7 +31,6 @@ export async function PUT(req: Request) {
   const from = Number(body?.totalsFrom ?? 2)
   const to   = Number(body?.totalsTo   ?? 64)
 
-  // check chiave
   if (!adminKey || adminKey !== process.env.ADMIN_SUPER_KEY) {
     return NextResponse.json({ ok:false, error: 'Unauthorized' }, { status:401 })
   }
@@ -37,27 +38,26 @@ export async function PUT(req: Request) {
     return NextResponse.json({ ok:false, error:'Invalid settings' }, { status:400 })
   }
 
-  const sb = supabaseAdmin()
+  const sb = supabaseAdmin
 
-  // 1) upsert delle 4 righe S/M/L/XL nella tabella rank_legend_curve
+  // 1) upsert delle 4 righe S/M/L/XL
   const rows = (['S','M','L','XL'] as const).map(bucket => ({
     bucket,
     base: Number(settings[bucket]?.base ?? 100),
     min_last: Number(settings[bucket]?.minLast ?? 10),
     curve_percent: Number(settings[bucket]?.curvePercent ?? 100),
   }))
+  {
+    const { error } = await sb.from('rank_legend_curve').upsert(rows, { onConflict: 'bucket' })
+    if (error) return NextResponse.json({ ok:false, error: error.message }, { status:500 })
+  }
 
-  const { error: upErr } = await sb
-    .from('rank_legend_curve')
-    .upsert(rows, { onConflict: 'bucket' })
-  if (upErr) return NextResponse.json({ ok:false, error: upErr.message }, { status:500 })
+  // 2) rigenera rank_legend (unica per tutti)
+  {
+    const { error } = await sb.from('rank_legend').delete().gte('total_teams', 2).lte('total_teams', 512)
+    if (error) return NextResponse.json({ ok:false, error: error.message }, { status:500 })
+  }
 
-  // 2) rigenera la tabella rank_legend (2..64) una volta sola (unica per tutti)
-  //    puliamo e reinseriamo tutto
-  const { error: delErr } = await sb.from('rank_legend').delete().gte('total_teams', 2).lte('total_teams', 512)
-  if (delErr) return NextResponse.json({ ok:false, error: delErr.message }, { status:500 })
-
-  // helper per calcolo punti
   const pickBucket = (n:number)=> n<=8?'S':n<=16?'M':n<=32?'L':'XL'
   const calcPoints = (pos:number, total:number) => {
     const cfg = rows.find(r => r.bucket === pickBucket(total))!
@@ -76,8 +76,10 @@ export async function PUT(req: Request) {
     }
   }
 
-  const { error: insErr } = await sb.from('rank_legend').insert(legendRows)
-  if (insErr) return NextResponse.json({ ok:false, error: insErr.message }, { status:500 })
+  {
+    const { error } = await sb.from('rank_legend').insert(legendRows)
+    if (error) return NextResponse.json({ ok:false, error: error.message }, { status:500 })
+  }
 
   return NextResponse.json({ ok:true, regenerated: legendRows.length })
 }
