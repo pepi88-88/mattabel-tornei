@@ -2,202 +2,182 @@
 'use client'
 
 import * as React from 'react'
-import { useSearchParams } from 'next/navigation'
+import useSWR from 'swr'
 
-type Gender = 'M'|'F'
-type PlayerRow  = { id: string; name: string }
-type Tappa      = { id: string; title: string; date: string; multiplier: number; totalTeams: number }
-type Results    = Record<string /*playerId*/, Record<string /*tappaId*/, { pos?: number }>>
-type SaveShape  = { players: PlayerRow[]; tappe: Tappa[]; results: Results }
+type Gender = 'M' | 'F'
+type Edition = { id: string; name: string }
+type Player  = { player_id: string; display_name: string }
+type Stage   = { id: string; name: string; day: number; month: number; multiplier: number; total_teams: number }
 
-type ScoreCfg     = { base: number; minLast: number; curvePercent: number }
-type ScoreCfgSet  = { S: ScoreCfg; M: ScoreCfg; L: ScoreCfg; XL: ScoreCfg }
+/** Legenda (curva) unica globale */
+type ScoreCfg = { base:number; minLast:number; curvePercent:number }
+type ScoreCfgSet = { S:ScoreCfg; M:ScoreCfg; L:ScoreCfg; XL:ScoreCfg }
 
+// fetch helper
+const fetcher = (u: string) => fetch(u, { cache:'no-store' }).then(r => r.json()).catch(()=>null)
+
+// curve default (fallback UI)
 const DEFAULT_SET: ScoreCfgSet = {
-  S:  { base:100, minLast:10, curvePercent:100 },
-  M:  { base:100, minLast:10, curvePercent:100 },
-  L:  { base:100, minLast:10, curvePercent:100 },
-  XL: { base:100, minLast:10, curvePercent:100 },
+  S:{ base:100, minLast:10, curvePercent:100 },
+  M:{ base:100, minLast:10, curvePercent:100 },
+  L:{ base:100, minLast:10, curvePercent:100 },
+  XL:{ base:100, minLast:10, curvePercent:100 },
 }
-
-/* ===== API helpers ===== */
-async function apiGetSnapshot(tour: string, gender: Gender) {
-  const r = await fetch(`/api/leaderboard/snapshots?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
-  if (!r.ok) throw new Error('snapshot get failed')
-  return r.json() as Promise<{ data: SaveShape|null, meta?: {updated_at?: string, created_at?: string} }>
-}
-async function apiGetSettings(tour: string, gender: Gender) {
-  const r = await fetch(`/api/leaderboard/settings?tour=${encodeURIComponent(tour)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
-  if (!r.ok) throw new Error('settings get failed')
-  return r.json() as Promise<{ settings: ScoreCfgSet|null }>
-}
-
-async function apiListTours(): Promise<string[]> {
-  const r = await fetch(`/api/leaderboard/snapshots/tours`, { cache: 'no-store' })
-  if (!r.ok) return []
-  const j = await r.json()
-  return Array.isArray(j?.tours) ? j.tours : []
-}
-
-/* ===== punteggi ===== */
-function pickBucket(total:number): keyof ScoreCfgSet {
-  if (total <= 8) return 'S'
-  if (total <= 16) return 'M'
-  if (total <= 32) return 'L'
-  return 'XL'
-}
-function pointsOfBucket(pos: number | undefined, total: number, mult: number, set:ScoreCfgSet) {
-  if (!pos || pos < 1 || total < 1) return 0
+const pickBucket = (n:number): keyof ScoreCfgSet => (n<=8?'S':n<=16?'M':n<=32?'L':'XL')
+const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) => {
   const cfg = set[pickBucket(total)]
-  if (total === 1) return Math.round(cfg.base * mult)
-  const alpha = Math.max(0.01, cfg.curvePercent / 100)
+  if (!pos || pos<1 || total<1) return 0
+  if (total<=1) return Math.round(cfg.base * mult)
+  const alpha = Math.max(0.01, cfg.curvePercent/100)
   const t = (total - pos) / (total - 1)
   const raw = cfg.minLast + (cfg.base - cfg.minLast) * Math.pow(t, alpha)
   return Math.round(raw * mult)
 }
 
-export default function ClassificaInner() {
-  const params = useSearchParams()
+// NB: il backend usa tour_id fisso "GLOBAL"
+const TOUR_ID = 'GLOBAL'
 
-  // tendina tour popolata dal server
-  const [availableTours, setAvailableTours] = React.useState<string[]>([])
-  React.useEffect(()=>{ 
-    let alive = true
-    apiListTours()
-      .then(ts => { if (alive) setAvailableTours(ts) })
-      .catch(()=>{ if (alive) setAvailableTours([]) })
-    return ()=>{ alive = false }
-  },[])
-
-  // stato iniziale tour/genere
-  const [tour, setTour] = React.useState<string>('')
-
-React.useEffect(() => {
-  // prendiamo in ordine: param -> localStorage -> primo disponibile
-  const fromParams = params.get('tour') || ''
-  const fromLS = (typeof window !== 'undefined' ? (localStorage.getItem('semi:lastTour') || '') : '')
-  let chosen = ''
-
-  if (fromParams && availableTours.includes(fromParams)) {
-    chosen = fromParams
-  } else if (fromLS && availableTours.includes(fromLS)) {
-    chosen = fromLS
-  } else if (availableTours.length) {
-    chosen = availableTours[0]
-  }
-
-  if (chosen && tour !== chosen) setTour(chosen)
-}, [params, availableTours, tour])
-
+export default function ClassificaInner(){
   const [gender, setGender] = React.useState<Gender>(() =>
-    (typeof window !== 'undefined' ? (localStorage.getItem('semi:lastGender') as Gender|null) : null) || 'M'
+    ((typeof window !== 'undefined' && (localStorage.getItem('ath:lastGender') as Gender|null)) || 'M')
   )
+  React.useEffect(()=>{ if (typeof window!=='undefined') localStorage.setItem('ath:lastGender', gender) },[gender])
 
-  // persistenza lato client
-  React.useEffect(()=>{ if (typeof window!=='undefined') localStorage.setItem('semi:lastTour', tour) },[tour])
-  React.useEffect(()=>{ if (typeof window!=='undefined') localStorage.setItem('semi:lastGender', gender) },[gender])
+  // --- Legenda (curva unica) ---
+  const { data: legendRes } = useSWR('/api/ranking/legend-curve', fetcher, { revalidateOnFocus:false })
+  const legendSet: ScoreCfgSet = legendRes?.settings ?? DEFAULT_SET
 
-  // dati classifica dal SERVER
-  const [state, setState] = React.useState<SaveShape>({players:[],tappe:[],results:{}})
-  const [scoreSet, setScoreSet] = React.useState<ScoreCfgSet>(DEFAULT_SET)
-  const [loading, setLoading] = React.useState(false)
-  const [errorText, setErrorText] = React.useState<string>('')
+  // --- Edizioni per GENERE ---
+  const { data: edRes } = useSWR(
+    `/api/ranking/editions?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
+    fetcher, { revalidateOnFocus:false }
+  )
+  const editions: Edition[] = edRes?.items ?? []
 
+  const [editionId, setEditionId] = React.useState('')
   React.useEffect(()=>{
-    let alive = true
-    setLoading(true); setErrorText('')
-    Promise.all([ apiGetSnapshot(tour, gender), apiGetSettings(tour, gender) ])
-      .then(([snap, setts])=>{
-        if (!alive) return
-        const s: SaveShape = snap?.data ?? { players:[], tappe:[], results:{} }
-        setState({
-          players: Array.isArray(s.players)? s.players : [],
-          tappe:   Array.isArray(s.tappe)?   s.tappe   : [],
-          results: (s.results && typeof s.results==='object') ? s.results : {},
-        })
-        setScoreSet(setts?.settings ?? DEFAULT_SET)
-      })
-      .catch((err:any)=>{ if (alive) setErrorText(err?.message || 'Errore caricamento dati') })
-      .finally(()=>{ if (alive) setLoading(false) })
-    return ()=>{ alive = false }
-  },[tour, gender])
+    if (editions.length && !editionId) setEditionId(editions[0].id)
+    if (!editions.length) setEditionId('')
+  },[editions, editionId])
 
-  // computed
-  const rows = React.useMemo(()=>{
-    const out = state.players.map(p=>{
-      let total=0, bestPos=Infinity
-      for (const t of state.tappe){
-        const pos = state.results[p.id]?.[t.id]?.pos
-        const pts = pointsOfBucket(pos, t.totalTeams, t.multiplier, scoreSet)
-        total += pts
-        if (pos && pos < bestPos) bestPos = pos
+  // --- Dati dell’edizione selezionata ---
+  const { data: plRes } = useSWR(
+    editionId ? `/api/ranking/players?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false }
+  )
+  const players: Player[] = plRes?.items ?? []
+
+  const { data: stRes } = useSWR(
+    editionId ? `/api/ranking/stages?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false }
+  )
+  const stages: Stage[] = stRes?.items ?? []
+
+  // risultati salvati (posizioni per (stage,player))
+  const { data: resRes } = useSWR(
+    editionId ? `/api/ranking/stages/results?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false }
+  )
+  // mappa veloce: stageId -> (playerId -> posizione)
+  const placementsByStage = React.useMemo(()=>{
+    const m: Record<string, Record<string, number>> = {}
+    const items: Array<{stage_id:string; player_id:string; position:number}> = resRes?.items || []
+    for (const it of items) {
+      if (!m[it.stage_id]) m[it.stage_id] = {}
+      m[it.stage_id][it.player_id] = Number(it.position)
+    }
+    return m
+  }, [resRes?.items ? JSON.stringify(resRes.items) : ''])
+
+  // --- calcolo totale per player in base alla curva e alle tappe ---
+  const pointsForPlayer = React.useCallback((pid: string) => {
+    let sum = 0
+    for (const st of stages) {
+      const pos = placementsByStage[st.id]?.[pid] ?? 0
+      if (pos>0) {
+        sum += pointsOfBucket(
+          pos,
+          Number(st.total_teams || 0),
+          Number(st.multiplier || 1),
+          legendSet
+        )
       }
-      return { player:p, total, bestPos }
+    }
+    return sum
+  }, [stages, placementsByStage, legendSet])
+
+  // ordinamento: totale desc, miglior piazzamento asc, nome asc
+  const rows = React.useMemo(()=>{
+    const bestPlacementOf = (pid:string) => {
+      let best = Infinity
+      for (const st of stages) {
+        const p = placementsByStage[st.id]?.[pid]
+        if (p && p < best) best = p
+      }
+      return best
+    }
+
+    const out = players.map(p => ({
+      player_id: p.player_id,
+      name: p.display_name,
+      total: pointsForPlayer(p.player_id),
+      best: bestPlacementOf(p.player_id)
+    }))
+    out.sort((a,b)=>{
+      const t = b.total - a.total
+      if (t) return t
+      if (a.best !== b.best) return a.best - b.best
+      return a.name.localeCompare(b.name, 'it')
     })
-    out.sort((a,b)=>
-      (b.total - a.total)
-      || ((a.bestPos===b.bestPos?0:(a.bestPos - b.bestPos)))
-      || a.player.name.localeCompare(b.player.name,'it')
-    )
     return out
-  },[state, scoreSet])
+  }, [players, stages, placementsByStage, pointsForPlayer])
 
   const classForRow = (rank:number)=> rank===1 ? 'bg-yellow-900/20'
                         : (rank>=2 && rank<=8 ? 'bg-green-900/10' : '')
 
   return (
-    <div className="space-y-4">
-      {/* selezione tour/genere (tour da server) */}
-      <div className="flex items-center gap-2">
-        <div className="text-sm text-neutral-400">Tour</div>
-        <select className="input input-sm w-[220px]" value={tour} onChange={(e)=>setTour(e.target.value)}>
-          {(availableTours.length?availableTours:[tour]).map(t => <option key={t} value={t}>{t}</option>)}
+    <div className="p-6 space-y-6">
+      {/* Top: genere + select edizione (SOLO visualizzazione, niente pulsanti admin) */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-xl overflow-hidden border border-neutral-700">
+          <button className={`px-3 py-2 text-sm ${gender==='M'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`} onClick={()=>setGender('M')}>Maschile</button>
+          <button className={`px-3 py-2 text-sm ${gender==='F'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`} onClick={()=>setGender('F')}>Femminile</button>
+        </div>
+        <select className="input w-80 ml-auto" value={editionId} onChange={e=>setEditionId(e.target.value)}>
+          <option value="">— seleziona tour —</option>
+          {editions.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
-        <div className="ml-2 flex gap-2">
-          <button className={`btn btn-sm ${gender==='M'?'btn-primary':''}`} onClick={()=>setGender('M')}>Maschile</button>
-          <button className={`btn btn-sm ${gender==='F'?'btn-primary':''}`} onClick={()=>setGender('F')}>Femminile</button>
-        </div>
       </div>
 
-      {/* titolo */}
-      <div className="text-center font-semibold text-neutral-200">
-        <div className="inline-flex items-center gap-2 text-2xl">
-          <span>Classifica</span>
-          <span className="font-bold">{tour}</span>
-          <span className="ml-2 align-middle px-2 py-0.5 rounded bg-neutral-800 text-neutral-100 text-xs">
-            {gender === 'M' ? 'Maschile' : 'Femminile'}
-          </span>
+      {/* Classifica lettura-sola */}
+      <div className="card p-0 overflow-hidden">
+        <div className="px-3 py-2 border-b border-neutral-800 flex items-center justify-between">
+          <div className="text-sm font-semibold">Classifica</div>
         </div>
-      </div>
 
-      <div className="card p-4 overflow-x-auto">
-        {loading ? (
-          <div className="text-sm text-neutral-500">Carico…</div>
-        ) : errorText ? (
-          <div className="text-sm text-red-400">{errorText}</div>
-        ) : rows.length === 0 ? (
-          <div className="text-sm text-neutral-500">Nessun dato.</div>
-        ) : (
+        <div className="p-3 overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-neutral-400">
+            <thead className="text-xs uppercase opacity-70">
               <tr>
-                <th className="text-left py-2 pr-2 w-10">#</th>
-                <th className="text-left py-2 pr-4 w-[360px]">Nome</th>
-                <th className="text-left py-2 pr-2 w-[100px]">Totale</th>
-                {state.tappe.map((t)=>(
-                  <th key={t.id} className="text-left py-2 pr-2 border-l border-neutral-800 pl-3">
-                    <div className="font-medium">{t.title}</div>
-                    <div className="text-xs">× {t.multiplier.toFixed(2)} — {t.date || 'gg/mm'}</div>
-                    <div className="text-xs text-neutral-500">tot: {t.totalTeams}</div>
+                <th className="text-left w-12">#</th>
+                <th className="text-left">Giocatore</th>
+                <th className="text-right w-28 pr-4">Totale</th>
+
+                {stages.map((st, idx)=>(
+                  <th key={st.id} className={`min-w-[160px] align-bottom ${idx>=0 ? 'border-l border-neutral-800' : ''}`}>
+                    <div className="flex flex-col items-center gap-1 py-1">
+                      <div className="font-medium">{st.name}</div>
+                      <div className="text-xs text-neutral-400">
+                        {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')}
+                      </div>
+                      <div className="text-[11px] text-neutral-500">x{Number(st.multiplier).toFixed(2)} · {st.total_teams} sq</div>
+                    </div>
                   </th>
                 ))}
               </tr>
-              {state.tappe.length>0 && (
+              {stages.length>0 && (
                 <tr className="text-neutral-400">
                   <th /><th /><th />
-                  {state.tappe.map((t)=>(
-                    <th key={t.id} className="py-1 border-l border-neutral-800 pl-3">
-                      <div className="grid grid-cols-2 w-32">
+                  {stages.map(st=>(
+                    <th key={st.id} className="py-1 border-l border-neutral-800">
+                      <div className="grid grid-cols-2 w-32 mx-auto">
                         <span className="text-left">POS</span>
                         <span className="text-right">PTS</span>
                       </div>
@@ -206,33 +186,41 @@ React.useEffect(() => {
                 </tr>
               )}
             </thead>
+
             <tbody>
               {rows.map((r, i)=>(
-                <tr key={r.player.id} className={`border-t border-neutral-800 ${classForRow(i+1)}`}>
-                  <td className="py-2 pr-2 tabular-nums">{i+1}</td>
-                  <td className="py-2 pr-4">
-                    <span className={`font-medium ${i===0 ? 'text-yellow-300' : ''}`}>
-                      {r.player.name}{i===0 ? ' 👑' : ''}
-                    </span>
+                <tr key={r.player_id} className={`border-t border-neutral-800 ${classForRow(i+1)}`}>
+                  <td className="py-1">{i+1}{i===0 && <span className="ml-1">👑</span>}</td>
+                  <td className="py-1 truncate">{r.name}</td>
+                  <td className="py-1 text-right font-semibold pr-4">
+                    {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(r.total)}
                   </td>
-                  <td className="py-2 pr-2 tabular-nums font-semibold">{r.total}</td>
-                  {state.tappe.map((t)=>{
-                    const pos = state.results[r.player.id]?.[t.id]?.pos
-                    const pts = pointsOfBucket(pos, t.totalTeams, t.multiplier, scoreSet)
+
+                  {stages.map((st, idx2)=>{
+                    const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
+                    const pts = pos ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet) : 0
                     return (
-                      <td key={t.id} className="py-2 pr-2 border-l border-neutral-800 pl-3">
-                        <div className="grid grid-cols-2 items-center w-32">
-                          <div className="w-16 tabular-nums">{pos ?? '—'}</div>
-                          <div className="w-16 tabular-nums text-right">{pts}</div>
+                      <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx2>0 ? 'border-l border-neutral-800' : ''}`}>
+                        <div className="grid grid-cols-2 items-center w-32 mx-auto">
+                          <div className="w-16 tabular-nums text-left">{pos || '—'}</div>
+                          <div className="w-16 tabular-nums text-right">{pts ? pts : '—'}</div>
                         </div>
                       </td>
                     )
                   })}
                 </tr>
               ))}
+
+              {rows.length===0 && (
+                <tr>
+                  <td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">
+                    Nessun dato
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-        )}
+        </div>
       </div>
     </div>
   )
