@@ -37,12 +37,14 @@ export default function ClassificaPage() {
     raw = cfg.minLast + (cfg.base - cfg.minLast) * Math.pow(t, alpha)
     return Math.round(raw * mult)
   }
-  { data: legendRes } = useSWR(
-    `/api/ranking/legend-curve?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
-    fetcher,
-    { revalidateOnFocus:false }
-  )
-  legendSet: ScoreCfgSet = legendRes?.settings ?? DEFAULT_SET
+ // carica i parametri della curva per calcolo punti in client
+const { data: legendRes } = useSWR(
+  `/api/ranking/legend-curve?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
+  fetcher,
+  { revalidateOnFocus:false }
+)
+const legendSet: ScoreCfgSet = legendRes?.settings ?? DEFAULT_SET
+
 
   // Edizioni per GENERE (richiede tour_id)
   { data: edRes, mutate: refetchEd } = useSWR(
