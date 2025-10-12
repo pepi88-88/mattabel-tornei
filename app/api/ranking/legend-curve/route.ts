@@ -1,3 +1,4 @@
+// app/api/ranking/legend-curve/route.ts
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
@@ -11,48 +12,62 @@ const DEFAULT_SET: ScoreCfgSet = {
   XL:{ base:100, minLast:10, curvePercent:100 },
 }
 
+const BUCKETS: (keyof ScoreCfgSet)[] = ['S','M','L','XL']
+
+/** GET -> ritorna le 4 curve globali (S/M/L/XL) */
 export async function GET() {
   const sb = supabaseAdmin
   const { data, error } = await sb
     .from('rank_legend_curve')
     .select('bucket, base, min_last, curve_percent')
-  if (error) return NextResponse.json({ settings: DEFAULT_SET, error: error.message }, { status: 200 })
 
-  const map: any = { ...DEFAULT_SET }
-  ;(data||[]).forEach(r => {
-    const k = String(r.bucket) as keyof ScoreCfgSet
-    if (k === 'S' || k === 'M' || k === 'L' || k === 'XL') {
-      map[k] = {
-        base: Number(r.base),
-        minLast: Number(r.min_last),
-        curvePercent: Number(r.curve_percent),
-      }
-    }
-  })
-  return NextResponse.json({ settings: map })
-}
-
-export async function PUT(req: Request) {
-  const body = await req.json().catch(()=> ({}))
-  const adminKey = String(body?.admin_key || '')
-  if (!adminKey || adminKey !== process.env.ADMIN_SUPER_KEY) {
-    return NextResponse.json({ ok:false, error:'ADMIN_SUPER_KEY non valida' }, { status: 403 })
+  if (error) {
+    return NextResponse.json({ settings: DEFAULT_SET, error: error.message }, { status: 200 })
   }
 
-  const settings = body?.settings as ScoreCfgSet | null
-  if (!settings) return NextResponse.json({ ok:false, error:'settings mancanti' }, { status:400 })
+  const out: ScoreCfgSet = { ...DEFAULT_SET }
+  for (const row of (data ?? [])) {
+    const k = (row.bucket as keyof ScoreCfgSet)
+    if (!BUCKETS.includes(k)) continue
+    out[k] = {
+      base: Number(row.base ?? DEFAULT_SET[k].base),
+      minLast: Number(row.min_last ?? DEFAULT_SET[k].minLast),
+      curvePercent: Number(row.curve_percent ?? DEFAULT_SET[k].curvePercent),
+    }
+  }
+  return NextResponse.json({ settings: out })
+}
 
-  const rows = (['S','M','L','XL'] as (keyof ScoreCfgSet)[]).map(k => ({
+/** PUT -> salva le 4 curve globali (S/M/L/XL). Richiede ADMIN_SUPER_KEY. */
+export async function PUT(req: Request) {
+  const body = await req.json().catch(()=>null)
+  const admin_key = String(body?.admin_key || '')
+  const settings  = body?.settings as ScoreCfgSet | null
+
+  if (!process.env.ADMIN_SUPER_KEY) {
+    return NextResponse.json({ ok:false, error:'ADMIN_SUPER_KEY non configurata' }, { status: 500 })
+  }
+  if (admin_key !== process.env.ADMIN_SUPER_KEY) {
+    return NextResponse.json({ ok:false, error:'Chiave amministratore non valida' }, { status: 401 })
+  }
+  if (!settings) {
+    return NextResponse.json({ ok:false, error:'settings mancante' }, { status: 400 })
+  }
+
+  const rows = BUCKETS.map(k => ({
     bucket: k,
-    base: settings[k].base,
-    min_last: settings[k].minLast,
-    curve_percent: settings[k].curvePercent,
+    base: Number(settings[k]?.base ?? DEFAULT_SET[k].base),
+    min_last: Number(settings[k]?.minLast ?? DEFAULT_SET[k].minLast),
+    curve_percent: Number(settings[k]?.curvePercent ?? DEFAULT_SET[k].curvePercent),
   }))
 
   const sb = supabaseAdmin
-  const { error } = await sb.from('rank_legend_curve').upsert(rows, { onConflict:'bucket' })
-  if (error) return NextResponse.json({ ok:false, error: error.message }, { status:500 })
+  const { error } = await sb
+    .from('rank_legend_curve')
+    .upsert(rows, { onConflict: 'bucket' }) // richiede unique su bucket
+  if (error) {
+    return NextResponse.json({ ok:false, error: error.message }, { status: 500 })
+  }
 
   return NextResponse.json({ ok:true })
 }
-
