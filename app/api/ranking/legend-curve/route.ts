@@ -12,7 +12,7 @@ const DEFAULT_SET: ScoreCfgSet = {
 }
 
 export async function GET() {
-  const sb = supabaseAdmin()
+  const sb = supabaseAdmin
   const { data, error } = await sb
     .from('rank_legend_curve')
     .select('bucket, base, min_last, curve_percent')
@@ -49,9 +49,10 @@ export async function PUT(req: Request) {
     curve_percent: settings[k].curvePercent,
   }))
 
-  const sb = supabaseAdmin()
+  const sb = supabaseAdmin
   const { error } = await sb.from('rank_legend_curve').upsert(rows, { onConflict:'bucket' })
   if (error) return NextResponse.json({ ok:false, error: error.message }, { status:500 })
 
   return NextResponse.json({ ok:true })
 }
+
