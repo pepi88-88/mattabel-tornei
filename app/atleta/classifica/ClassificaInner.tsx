@@ -228,51 +228,59 @@ export default function ClassificaInner(){
           </table>
         </div>
 
-        {/* ---- MOBILE: riga unica orizzontale (rank • nome • totale • tappe→scroll) ---- */}
-        <div className="sm:hidden p-3 space-y-2">
-          {rows.length === 0 ? (
-            <div className="text-sm text-neutral-500">Nessun dato</div>
-          ) : rows.map((r, i) => (
-            <div key={r.player_id} className="overflow-x-auto">
-              <div
-                className={
-                  `inline-flex items-center gap-3 border border-neutral-800 rounded-xl px-3 py-2 min-w-full ` +
-                  `${classForRow(i+1)}`
-                }
-              >
-                <span className="text-xs px-2 py-0.5 rounded bg-neutral-800 shrink-0">
-                  {i+1}{i===0 ? ' 👑' : ''}
-                </span>
-                <span className="font-medium max-w-[44vw] truncate">{r.name}</span>
-                <span className="ml-1 tabular-nums font-semibold shrink-0">
-                  {new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(r.total)}
-                </span>
-                {stages.length > 0 && <div className="w-px h-5 bg-neutral-800 mx-1 shrink-0" />}
-                {stages.map((st) => {
-                  const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
-                  const pts = pos
-                    ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet)
-                    : 0
-                  return (
-                    <div
-                      key={st.id}
-                      className="shrink-0 px-2 py-1 rounded-lg border border-neutral-800 text-xs inline-flex items-center gap-2"
-                      title={`${st.name} — ${String(st.day).padStart(2,'0')}/${String(st.month).padStart(2,'0')} · x${Number(st.multiplier).toFixed(2)}`}
-                    >
-                      <span className="text-[10px] text-neutral-400">
-                        {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')} · x{Number(st.multiplier).toFixed(2)}
-                      </span>
-                      <span className="tabular-nums">
-                        {pos || '—'} • {pts || '—'}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* ---- MOBILE: riga unica orizzontale (pos • nome • totale • tappe→scroll) ---- */}
+<div className="sm:hidden p-3 space-y-2">
+  {rows.length === 0 ? (
+    <div className="text-sm text-neutral-500">Nessun dato</div>
+  ) : rows.map((r, i) => (
+    <div key={r.player_id} className="overflow-x-auto">
+      <div
+        className={
+          // wrapper a scorrimento orizzontale, singola riga compatta
+          `inline-flex items-center gap-1.5 border border-neutral-800 rounded-lg px-2.5 py-1.5 whitespace-nowrap min-w-max ` +
+          `${classForRow(i+1)}`
+        }
+      >
+        {/* posizione compatta */}
+        <span className="text-[11px] px-1.5 py-0.5 rounded bg-neutral-800 tabular-nums shrink-0">
+          {i+1}
+        </span>
+
+        {/* nome ben visibile, nessun truncate */}
+        <span className="text-sm font-medium">
+          {r.name}
+        </span>
+
+        {/* totale subito dopo il nome */}
+        <span className="ml-2 text-sm tabular-nums font-semibold shrink-0">
+          {new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(r.total)}
+        </span>
+
+        {/* separatore sottile prima delle tappe */}
+        {stages.length > 0 && <span className="mx-1 w-px h-4 bg-neutral-800 shrink-0" />}
+
+        {/* chip tappe scorrevoli */}
+        {stages.map((st) => {
+          const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
+          const pts = pos
+            ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet)
+            : 0
+          return (
+            <span
+              key={st.id}
+              className="shrink-0 px-2 py-1 rounded-md border border-neutral-800 text-[11px] inline-flex items-center gap-2"
+              title={`${st.name} — ${String(st.day).padStart(2,'0')}/${String(st.month).padStart(2,'0')} · x${Number(st.multiplier).toFixed(2)}`}
+            >
+              <span className="text-[10px] text-neutral-400">
+                {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')} · x{Number(st.multiplier).toFixed(2)}
+              </span>
+              <span className="tabular-nums">
+                {pos || '—'} • {pts || '—'}
+              </span>
+            </span>
+          )
+        })}
       </div>
     </div>
-  )
-}
+  ))}
+</div>
