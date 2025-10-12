@@ -23,6 +23,7 @@ const DEFAULT_SET: ScoreCfgSet = {
   L:{ base:100, minLast:10, curvePercent:100 },
   XL:{ base:100, minLast:10, curvePercent:100 },
 }
+
 const pickBucket = (n:number): keyof ScoreCfgSet => (n<=8?'S':n<=16?'M':n<=32?'L':'XL')
 const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) => {
   const cfg = set[pickBucket(total)]
@@ -38,6 +39,7 @@ const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) 
 const TOUR_ID = 'GLOBAL'
 
 export default function ClassificaInner(){
+  // --- stato genere + persistenza
   const [gender, setGender] = React.useState<Gender>(() =>
     ((typeof window !== 'undefined' && (localStorage.getItem('ath:lastGender') as Gender|null)) || 'M')
   )
@@ -54,16 +56,16 @@ export default function ClassificaInner(){
   )
   const editions: Edition[] = edRes?.items ?? []
 
- const [editionId, setEditionId] = React.useState('')
+  const [editionId, setEditionId] = React.useState('')
 
-// ogni volta che cambiano GENERE o LISTA edizioni => punta alla PRIMA
-React.useEffect(()=>{
-  if (editions.length) {
-    setEditionId(editions[0].id)
-  } else {
-    setEditionId('')
-  }
-}, [gender, editions.map(e=>e.id).join(',')])
+  // ogni volta che cambiano GENERE o LISTA edizioni => punta alla PRIMA
+  React.useEffect(()=>{
+    if (editions.length) {
+      setEditionId(editions[0].id)
+    } else {
+      setEditionId('')
+    }
+  }, [gender, editions.map(e=>e.id).join(',')])
 
   // --- Dati dell’edizione selezionata ---
   const { data: plRes } = useSWR(
@@ -80,6 +82,7 @@ React.useEffect(()=>{
   const { data: resRes } = useSWR(
     editionId ? `/api/ranking/stages/results?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false }
   )
+
   // mappa veloce: stageId -> (playerId -> posizione)
   const placementsByStage = React.useMemo(()=>{
     const m: Record<string, Record<string, number>> = {}
@@ -134,12 +137,11 @@ React.useEffect(()=>{
     return out
   }, [players, stages, placementsByStage, pointsForPlayer])
 
- const classForRow = (rank:number)=>
-  rank===1
-    ? 'bg-yellow-500/15'
-    : (rank>=2 && rank<=7 ? 'bg-emerald-500/10' : '')
+  const classForRow = (rank:number)=>
+    rank===1 ? 'bg-yellow-500/15'
+             : (rank>=2 && rank<=7 ? 'bg-emerald-500/10' : '')
 
-
+  // ------------------------ RENDER ------------------------
   return (
     <div className="p-6 space-y-6">
       {/* Top: genere + select edizione (SOLO visualizzazione, niente pulsanti admin) */}
@@ -148,10 +150,9 @@ React.useEffect(()=>{
           <button className={`px-3 py-2 text-sm ${gender==='M'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`} onClick={()=>setGender('M')}>Maschile</button>
           <button className={`px-3 py-2 text-sm ${gender==='F'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`} onClick={()=>setGender('F')}>Femminile</button>
         </div>
-       <select className="input w-80 ml-auto" value={editionId} onChange={e=>setEditionId(e.target.value)}>
-  {editions.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-</select>
-
+        <select className="input w-80 ml-auto" value={editionId} onChange={e=>setEditionId(e.target.value)}>
+          {editions.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+        </select>
       </div>
 
       {/* Classifica lettura-sola */}
@@ -160,130 +161,118 @@ React.useEffect(()=>{
           <div className="text-sm font-semibold">Classifica</div>
         </div>
 
-{/* ---- DESKTOP: tabella completa ---- */}
-<div className="hidden sm:block p-3 overflow-x-auto">
-  <table className="w-full text-sm">
-    <thead className="text-xs uppercase opacity-70">
-      <tr>
-        <th className="text-left w-12">#</th>
-        <th className="text-left">Giocatore</th>
-        <th className="text-right w-28 pr-4">Totale</th>
+        {/* ---- DESKTOP: tabella completa ---- */}
+        <div className="hidden sm:block p-3 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs uppercase opacity-70">
+              <tr>
+                <th className="text-left w-12">#</th>
+                <th className="text-left">Giocatore</th>
+                <th className="text-right w-28 pr-4">Totale</th>
+                {stages.map((st, idx)=>(
+                  <th key={st.id} className={`min-w-[160px] align-bottom ${idx>=0 ? 'border-l border-neutral-800' : ''}`}>
+                    <div className="flex flex-col items-center gap-1 py-1">
+                      <div className="font-medium">{st.name}</div>
+                      <div className="text-xs text-neutral-400">
+                        {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')}
+                      </div>
+                      <div className="text-[11px] text-neutral-500">x{Number(st.multiplier).toFixed(2)} · {st.total_teams} sq</div>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+              {stages.length>0 && (
+                <tr className="text-neutral-400">
+                  <th /><th /><th />
+                  {stages.map(st=>(
+                    <th key={st.id} className="py-1 border-l border-neutral-800">
+                      <div className="grid grid-cols-2 w-32 mx-auto">
+                        <span className="text-left">POS</span>
+                        <span className="text-right">PTS</span>
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              )}
+            </thead>
+            <tbody>
+              {rows.map((r, i)=>(
+                <tr key={r.player_id} className={`border-t border-neutral-800 ${classForRow(i+1)}`}>
+                  <td className="py-1">{i+1}{i===0 && <span className="ml-1">👑</span>}</td>
+                  <td className="py-1 truncate">{r.name}</td>
+                  <td className="py-1 text-right font-semibold pr-4">
+                    {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(r.total)}
+                  </td>
+                  {stages.map((st, idx2)=>{
+                    const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
+                    const pts = pos ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet) : 0
+                    return (
+                      <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx2>0 ? 'border-l border-neutral-800' : ''}`}>
+                        <div className="grid grid-cols-2 items-center w-32 mx-auto">
+                          <div className="w-16 tabular-nums text-left">{pos || '—'}</div>
+                          <div className="w-16 tabular-nums text-right">{pts ? pts : '—'}</div>
+                        </div>
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+              {rows.length===0 && (
+                <tr>
+                  <td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">
+                    Nessun dato
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
-        {stages.map((st, idx)=>(
-          <th key={st.id} className={`min-w-[160px] align-bottom ${idx>=0 ? 'border-l border-neutral-800' : ''}`}>
-            <div className="flex flex-col items-center gap-1 py-1">
-              <div className="font-medium">{st.name}</div>
-              <div className="text-xs text-neutral-400">
-                {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')}
+        {/* ---- MOBILE: riga unica orizzontale (rank • nome • totale • tappe→scroll) ---- */}
+        <div className="sm:hidden p-3 space-y-2">
+          {rows.length === 0 ? (
+            <div className="text-sm text-neutral-500">Nessun dato</div>
+          ) : rows.map((r, i) => (
+            <div key={r.player_id} className="overflow-x-auto">
+              <div
+                className={
+                  `inline-flex items-center gap-3 border border-neutral-800 rounded-xl px-3 py-2 min-w-full ` +
+                  `${classForRow(i+1)}`
+                }
+              >
+                <span className="text-xs px-2 py-0.5 rounded bg-neutral-800 shrink-0">
+                  {i+1}{i===0 ? ' 👑' : ''}
+                </span>
+                <span className="font-medium max-w-[44vw] truncate">{r.name}</span>
+                <span className="ml-1 tabular-nums font-semibold shrink-0">
+                  {new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(r.total)}
+                </span>
+                {stages.length > 0 && <div className="w-px h-5 bg-neutral-800 mx-1 shrink-0" />}
+                {stages.map((st) => {
+                  const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
+                  const pts = pos
+                    ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet)
+                    : 0
+                  return (
+                    <div
+                      key={st.id}
+                      className="shrink-0 px-2 py-1 rounded-lg border border-neutral-800 text-xs inline-flex items-center gap-2"
+                      title={`${st.name} — ${String(st.day).padStart(2,'0')}/${String(st.month).padStart(2,'0')} · x${Number(st.multiplier).toFixed(2)}`}
+                    >
+                      <span className="text-[10px] text-neutral-400">
+                        {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')} · x{Number(st.multiplier).toFixed(2)}
+                      </span>
+                      <span className="tabular-nums">
+                        {pos || '—'} • {pts || '—'}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
-              <div className="text-[11px] text-neutral-500">x{Number(st.multiplier).toFixed(2)} · {st.total_teams} sq</div>
             </div>
-          </th>
-        ))}
-      </tr>
-      {stages.length>0 && (
-        <tr className="text-neutral-400">
-          <th /><th /><th />
-          {stages.map(st=>(
-            <th key={st.id} className="py-1 border-l border-neutral-800">
-              <div className="grid grid-cols-2 w-32 mx-auto">
-                <span className="text-left">POS</span>
-                <span className="text-right">PTS</span>
-              </div>
-            </th>
           ))}
-        </tr>
-      )}
-    </thead>
-
-    <tbody>
-      {rows.map((r, i)=>(
-        <tr key={r.player_id} className={`border-t border-neutral-800 ${classForRow(i+1)}`}>
-          <td className="py-1">{i+1}{i===0 && <span className="ml-1">👑</span>}</td>
-          <td className="py-1 truncate">{r.name}</td>
-          <td className="py-1 text-right font-semibold pr-4">
-            {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(r.total)}
-          </td>
-
-          {stages.map((st, idx2)=>{
-            const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
-            const pts = pos ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet) : 0
-            return (
-              <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx2>0 ? 'border-l border-neutral-800' : ''}`}>
-                <div className="grid grid-cols-2 items-center w-32 mx-auto">
-                  <div className="w-16 tabular-nums text-left">{pos || '—'}</div>
-                  <div className="w-16 tabular-nums text-right">{pts ? pts : '—'}</div>
-                </div>
-              </td>
-            )
-          })}
-        </tr>
-      ))}
-
-      {rows.length===0 && (
-        <tr>
-          <td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">
-            Nessun dato
-          </td>
-        </tr>
-      )}
-    </tbody>
-  </table>
-</div>
-
-{/* ---- MOBILE: riga unica orizzontale (rank • nome • totale • tappe→scroll) ---- */}
-<div className="sm:hidden p-3 space-y-2">
-  {rows.length === 0 ? (
-    <div className="text-sm text-neutral-500">Nessun dato</div>
-  ) : rows.map((r, i) => (
-    <div key={r.player_id} className="overflow-x-auto">
-      {/* riga unica scrollabile */}
-      <div
-        className={
-          `inline-flex items-center gap-3 border border-neutral-800 rounded-xl px-3 py-2 min-w-full ` +
-          `${classForRow(i+1)}`
-        }
-      >
-        {/* Rank */}
-        <span className="text-xs px-2 py-0.5 rounded bg-neutral-800 shrink-0">
-          {i+1}{i===0 ? ' 👑' : ''}
-        </span>
-
-        {/* Nome (tronca su viewport stretti) */}
-        <span className="font-medium max-w-[44vw] truncate">{r.name}</span>
-
-        {/* Totale, sempre visibile vicino al nome */}
-        <span className="ml-1 tabular-nums font-semibold shrink-0">
-          {new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(r.total)}
-        </span>
-
-        {/* separatore prima delle tappe */}
-        {stages.length > 0 && <div className="w-px h-5 bg-neutral-800 mx-1 shrink-0" />}
-
-        {/* Tappe: POS/PTS inline, sulla stessa riga; scrollano orizzontalmente insieme */}
-        {stages.map((st) => {
-          const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
-          const pts = pos
-            ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet)
-            : 0
-          return (
-            <div
-              key={st.id}
-              className="shrink-0 px-2 py-1 rounded-lg border border-neutral-800 text-xs inline-flex items-center gap-2"
-              title={`${st.name} — ${String(st.day).padStart(2,'0')}/${String(st.month).padStart(2,'0')} · x${Number(st.multiplier).toFixed(2)}`}
-            >
-              {/* mini label data/moltiplicatore (compressa) */}
-              <span className="text-[10px] text-neutral-400">
-                {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')} · x{Number(st.multiplier).toFixed(2)}
-              </span>
-              {/* POS/PTS compatti */}
-              <span className="tabular-nums">
-                {pos || '—'} • {pts || '—'}
-              </span>
-            </div>
-          )
-        })}
+        </div>
       </div>
     </div>
-  ))}
-</div>
+  )
+}
