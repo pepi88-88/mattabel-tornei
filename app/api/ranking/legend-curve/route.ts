@@ -11,10 +11,8 @@ const DEFAULT_SET: ScoreCfgSet = {
   L:{ base:100, minLast:10, curvePercent:100 },
   XL:{ base:100, minLast:10, curvePercent:100 },
 }
-
 const BUCKETS: (keyof ScoreCfgSet)[] = ['S','M','L','XL']
 
-/** GET -> ritorna le 4 curve globali (S/M/L/XL) */
 export async function GET() {
   const sb = supabaseAdmin
   const { data, error } = await sb
@@ -27,7 +25,7 @@ export async function GET() {
 
   const out: ScoreCfgSet = { ...DEFAULT_SET }
   for (const row of (data ?? [])) {
-    const k = (row.bucket as keyof ScoreCfgSet)
+    const k = row.bucket as keyof ScoreCfgSet
     if (!BUCKETS.includes(k)) continue
     out[k] = {
       base: Number(row.base ?? DEFAULT_SET[k].base),
@@ -38,7 +36,6 @@ export async function GET() {
   return NextResponse.json({ settings: out })
 }
 
-/** PUT -> salva le 4 curve globali (S/M/L/XL). Richiede ADMIN_SUPER_KEY. */
 export async function PUT(req: Request) {
   const body = await req.json().catch(()=>null)
   const admin_key = String(body?.admin_key || '')
@@ -64,7 +61,7 @@ export async function PUT(req: Request) {
   const sb = supabaseAdmin
   const { error } = await sb
     .from('rank_legend_curve')
-    .upsert(rows, { onConflict: 'bucket' }) // richiede unique su bucket
+    .upsert(rows, { onConflict: 'bucket' }) // assicurati che rank_legend_curve.bucket sia UNIQUE
   if (error) {
     return NextResponse.json({ ok:false, error: error.message }, { status: 500 })
   }
