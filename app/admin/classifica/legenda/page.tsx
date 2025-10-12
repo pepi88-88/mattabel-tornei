@@ -29,18 +29,21 @@ async function apiListTours(): Promise<{id:string;name:string}[]> {
   const j = await r.json().catch(()=>({}))
   return Array.isArray(j?.items) ? j.items : []
 }
-async function apiGetSettings(tour_id: string, gender: Gender) {
-  const r = await fetch(`/api/ranking/legend-curve?tour_id=${encodeURIComponent(tour_id)}&gender=${gender}&ts=${Date.now()}`, { cache: 'no-store' })
+async function apiGetSettings() {
+  const r = await fetch(`/api/ranking/legend-curve?ts=${Date.now()}`, { cache:'no-store' })
   if (!r.ok) return { settings: DEFAULT_SET }
   return r.json() as Promise<{ settings: ScoreCfgSet|null }>
 }
-async function apiSaveSettings(tour_id: string, gender: Gender, settings: ScoreCfgSet) {
+
+async function apiSaveSettings(admin_key: string, settings: ScoreCfgSet) {
   const r = await fetch('/api/ranking/legend-curve', {
-    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tour_id, gender, settings, totalsFrom: 2, totalsTo: 64 }),
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ admin_key, settings, totalsFrom: 2, totalsTo: 64 }),
   })
   if (!r.ok) throw new Error(await r.text())
 }
+
 
 export default function LegendAdminPage(){
   // tours
@@ -70,22 +73,23 @@ export default function LegendAdminPage(){
   React.useEffect(()=>{ if (tourId) localStorage.setItem('lb2:lastTourId', tourId) },[tourId])
   React.useEffect(()=>{ localStorage.setItem('lb2:lastGender', gender) },[gender])
 
-  // impostazioni
-  const [setCfg, setSetCfg] = React.useState<ScoreCfgSet>(DEFAULT_SET)
+ const [adminKey, setAdminKey] = React.useState('')
+const [setCfg, setSetCfg] = React.useState<ScoreCfgSet>(DEFAULT_SET)
 
-  // preview: totale squadre + moltiplicatore (locali)
-  const [totalTeams, setTotalTeams] = React.useState<number>(8)
-  const [multiplier, setMultiplier] = React.useState<number>(1)
+// preview locali
+const [totalTeams, setTotalTeams] = React.useState<number>(8)
+const [multiplier, setMultiplier] = React.useState<number>(1)
+
 
   // carica settings quando cambiano tour/genere
-  React.useEffect(()=>{
-    let alive = true
-    if (!tourId) return
-    apiGetSettings(tourId, gender)
-      .then((setts)=>{ if (alive) setSetCfg(setts?.settings ?? DEFAULT_SET) })
-      .catch(()=>{ if (alive) setSetCfg(DEFAULT_SET) })
-    return ()=>{ alive = false }
-  },[tourId, gender])
+React.useEffect(()=>{
+  let alive = true
+  apiGetSettings()
+    .then(j => { if (alive) setSetCfg(j?.settings ?? DEFAULT_SET) })
+    .catch(()=>{ if (alive) setSetCfg(DEFAULT_SET) })
+  return ()=>{ alive = false }
+},[])
+
 
   const legend = React.useMemo(()=>{
     if (!totalTeams || totalTeams < 1) return []
@@ -97,23 +101,23 @@ export default function LegendAdminPage(){
   return (
     <div className="p-6 space-y-6">
       {/* Tabs */}
-      <div className="flex items-center gap-2">
-        <a className="btn btn-outline btn-sm" href="/admin/classifica">Classifica</a>
-        <span className="btn btn-primary btn-sm border-2 border-primary ring-2 ring-primary/30">
-          Legenda punti
-        </span>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-sm text-neutral-400">Tour</span>
-          <select className="input input-sm max-w-xs" value={tourId} onChange={e=>setTourId(e.target.value)}>
-            {!tourId && <option value="">— seleziona —</option>}
-            {tours.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-          <div className="ml-2 flex gap-2">
-            <button className={`btn btn-sm ${gender==='M'?'btn-primary':''}`} onClick={()=>setGender('M')}>M</button>
-            <button className={`btn btn-sm ${gender==='F'?'btn-primary':''}`} onClick={()=>setGender('F')}>F</button>
-          </div>
-        </div>
-      </div>
+    <div className="flex items-center gap-2">
+  <a className="btn btn-outline btn-sm" href="/admin/classifica">Classifica</a>
+  <span className="btn btn-primary btn-sm border-2 border-primary ring-2 ring-primary/30">
+    Legenda punti
+  </span>
+  <div className="ml-auto flex items-center gap-2">
+    <span className="text-sm text-neutral-400">ADMIN_SUPER_KEY</span>
+    <input
+      className="input input-sm w-64"
+      type="password"
+      placeholder="inserisci chiave per salvare"
+      value={adminKey}
+      onChange={e=>setAdminKey(e.target.value)}
+    />
+  </div>
+</div>
+
 
       {/* Parametri preview: totale squadre + moltiplicatore */}
       <div className="card p-4 space-y-3">
@@ -191,20 +195,18 @@ export default function LegendAdminPage(){
         ))}
 
         <div>
-          <button
-            className="btn"
-            onClick={async ()=>{
-              try {
-                await apiSaveSettings(tourId, gender, setCfg)
-                alert('Impostazioni salvate. (Rank legend rigenerata per 2..64 squadre)')
-              } catch (e:any) {
-                alert('Errore salvataggio: ' + (e?.message || ''))
-              }
-            }}
-            disabled={!tourId}
-          >Salva impostazioni</button>
-        </div>
-      </div>
+        <button
+  className="btn"
+  onClick={async ()=>{
+    try {
+      await apiSaveSettings(adminKey, setCfg)
+      alert('Impostazioni salvate.')
+    } catch (e:any) {
+      alert('Errore salvataggio: ' + (e?.message || ''))
+    }
+  }}
+  disabled={!adminKey}
+>Salva impostazioni</button>
 
       <div className="text-xs text-neutral-500">
         Formula: <code>punti = minLast + (base - minLast) * ((total - pos)/(total - 1))^(curvatura/100)</code>, poi × moltiplicatore.
