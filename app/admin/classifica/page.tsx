@@ -40,7 +40,7 @@ const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) 
 
 // carica i parametri della curva per calcolo punti in client
 const { data: legendRes } = useSWR(
-  `/api/ranking/legend-curve?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
+  `/api/ranking/legend-curve`,
   fetcher,
   { revalidateOnFocus:false }
 )
