@@ -54,11 +54,16 @@ export default function ClassificaInner(){
   )
   const editions: Edition[] = edRes?.items ?? []
 
-  const [editionId, setEditionId] = React.useState('')
-  React.useEffect(()=>{
-    if (editions.length && !editionId) setEditionId(editions[0].id)
-    if (!editions.length) setEditionId('')
-  },[editions, editionId])
+ const [editionId, setEditionId] = React.useState('')
+
+// ogni volta che cambiano GENERE o LISTA edizioni => punta alla PRIMA
+React.useEffect(()=>{
+  if (editions.length) {
+    setEditionId(editions[0].id)
+  } else {
+    setEditionId('')
+  }
+}, [gender, editions.map(e=>e.id).join(',')])
 
   // --- Dati dell’edizione selezionata ---
   const { data: plRes } = useSWR(
@@ -140,10 +145,10 @@ export default function ClassificaInner(){
           <button className={`px-3 py-2 text-sm ${gender==='M'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`} onClick={()=>setGender('M')}>Maschile</button>
           <button className={`px-3 py-2 text-sm ${gender==='F'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`} onClick={()=>setGender('F')}>Femminile</button>
         </div>
-        <select className="input w-80 ml-auto" value={editionId} onChange={e=>setEditionId(e.target.value)}>
-          <option value="">— seleziona tour —</option>
-          {editions.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-        </select>
+       <select className="input w-80 ml-auto" value={editionId} onChange={e=>setEditionId(e.target.value)}>
+  {editions.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+</select>
+
       </div>
 
       {/* Classifica lettura-sola */}
@@ -152,75 +157,122 @@ export default function ClassificaInner(){
           <div className="text-sm font-semibold">Classifica</div>
         </div>
 
-        <div className="p-3 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs uppercase opacity-70">
-              <tr>
-                <th className="text-left w-12">#</th>
-                <th className="text-left">Giocatore</th>
-                <th className="text-right w-28 pr-4">Totale</th>
+{/* ---- DESKTOP: tabella completa ---- */}
+<div className="hidden sm:block p-3 overflow-x-auto">
+  <table className="w-full text-sm">
+    <thead className="text-xs uppercase opacity-70">
+      <tr>
+        <th className="text-left w-12">#</th>
+        <th className="text-left">Giocatore</th>
+        <th className="text-right w-28 pr-4">Totale</th>
 
-                {stages.map((st, idx)=>(
-                  <th key={st.id} className={`min-w-[160px] align-bottom ${idx>=0 ? 'border-l border-neutral-800' : ''}`}>
-                    <div className="flex flex-col items-center gap-1 py-1">
-                      <div className="font-medium">{st.name}</div>
-                      <div className="text-xs text-neutral-400">
-                        {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')}
-                      </div>
-                      <div className="text-[11px] text-neutral-500">x{Number(st.multiplier).toFixed(2)} · {st.total_teams} sq</div>
-                    </div>
-                  </th>
-                ))}
-              </tr>
-              {stages.length>0 && (
-                <tr className="text-neutral-400">
-                  <th /><th /><th />
-                  {stages.map(st=>(
-                    <th key={st.id} className="py-1 border-l border-neutral-800">
-                      <div className="grid grid-cols-2 w-32 mx-auto">
-                        <span className="text-left">POS</span>
-                        <span className="text-right">PTS</span>
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              )}
-            </thead>
+        {stages.map((st, idx)=>(
+          <th key={st.id} className={`min-w-[160px] align-bottom ${idx>=0 ? 'border-l border-neutral-800' : ''}`}>
+            <div className="flex flex-col items-center gap-1 py-1">
+              <div className="font-medium">{st.name}</div>
+              <div className="text-xs text-neutral-400">
+                {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')}
+              </div>
+              <div className="text-[11px] text-neutral-500">x{Number(st.multiplier).toFixed(2)} · {st.total_teams} sq</div>
+            </div>
+          </th>
+        ))}
+      </tr>
+      {stages.length>0 && (
+        <tr className="text-neutral-400">
+          <th /><th /><th />
+          {stages.map(st=>(
+            <th key={st.id} className="py-1 border-l border-neutral-800">
+              <div className="grid grid-cols-2 w-32 mx-auto">
+                <span className="text-left">POS</span>
+                <span className="text-right">PTS</span>
+              </div>
+            </th>
+          ))}
+        </tr>
+      )}
+    </thead>
 
-            <tbody>
-              {rows.map((r, i)=>(
-                <tr key={r.player_id} className={`border-t border-neutral-800 ${classForRow(i+1)}`}>
-                  <td className="py-1">{i+1}{i===0 && <span className="ml-1">👑</span>}</td>
-                  <td className="py-1 truncate">{r.name}</td>
-                  <td className="py-1 text-right font-semibold pr-4">
-                    {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(r.total)}
-                  </td>
+    <tbody>
+      {rows.map((r, i)=>(
+        <tr key={r.player_id} className={`border-t border-neutral-800 ${classForRow(i+1)}`}>
+          <td className="py-1">{i+1}{i===0 && <span className="ml-1">👑</span>}</td>
+          <td className="py-1 truncate">{r.name}</td>
+          <td className="py-1 text-right font-semibold pr-4">
+            {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(r.total)}
+          </td>
 
-                  {stages.map((st, idx2)=>{
-                    const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
-                    const pts = pos ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet) : 0
-                    return (
-                      <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx2>0 ? 'border-l border-neutral-800' : ''}`}>
-                        <div className="grid grid-cols-2 items-center w-32 mx-auto">
-                          <div className="w-16 tabular-nums text-left">{pos || '—'}</div>
-                          <div className="w-16 tabular-nums text-right">{pts ? pts : '—'}</div>
-                        </div>
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
+          {stages.map((st, idx2)=>{
+            const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
+            const pts = pos ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet) : 0
+            return (
+              <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx2>0 ? 'border-l border-neutral-800' : ''}`}>
+                <div className="grid grid-cols-2 items-center w-32 mx-auto">
+                  <div className="w-16 tabular-nums text-left">{pos || '—'}</div>
+                  <div className="w-16 tabular-nums text-right">{pts ? pts : '—'}</div>
+                </div>
+              </td>
+            )
+          })}
+        </tr>
+      ))}
 
-              {rows.length===0 && (
-                <tr>
-                  <td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">
-                    Nessun dato
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {rows.length===0 && (
+        <tr>
+          <td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">
+            Nessun dato
+          </td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+</div>
+
+{/* ---- MOBILE: lista compatta ---- */}
+<div className="sm:hidden p-3 space-y-2">
+  {rows.length === 0 ? (
+    <div className="text-sm text-neutral-500">Nessun dato</div>
+  ) : rows.map((r, i) => (
+    <div key={r.player_id} className="border border-neutral-800 rounded-xl p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs px-2 py-0.5 rounded bg-neutral-800">
+            {i+1}{i===0?' 👑':''}
+          </span>
+          <span className="font-medium">{r.name}</span>
         </div>
+        <div className="tabular-nums font-semibold">
+          {new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(r.total)}
+        </div>
+      </div>
+
+      {stages.length>0 && (
+        <div className="mt-2 overflow-x-auto">
+          <div className="flex gap-2 min-w-full">
+            {stages.map(st => {
+              const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
+              const pts = pos
+                ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet)
+                : 0
+              return (
+                <div key={st.id} className="shrink-0 px-2 py-1 rounded-lg border border-neutral-800">
+                  <div className="text-[10px] text-neutral-400">
+                    {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')} · x{Number(st.multiplier).toFixed(2)}
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="tabular-nums">POS: {pos || '—'}</span>
+                    <span className="tabular-nums">PTS: {pts || '—'}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  ))}
+</div>
+
       </div>
     </div>
   )
