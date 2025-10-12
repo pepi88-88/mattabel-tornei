@@ -4,10 +4,10 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 export async function PUT(req: Request) {
   const b = await req.json()
   const stage_id = String(b?.stage_id||'')
-  const placements: string[] = Array.isArray(b?.placements) ? b.placements : []
+  const entries: Array<{player_id:string; position:number}> = Array.isArray(b?.entries) ? b.entries : []
   if (!stage_id) return NextResponse.json({ ok:false, error:'stage_id required' }, { status:400 })
 
-  // 1) leggi stage + edition + tour/gender
+  // 1) leggi stage + edition
   const { data: stg, error: e1 } = await supabaseAdmin
     .from('rank_stage')
     .select('id, edition_id, total_teams, multiplier, edition:rank_edition(tour_id, gender)')
@@ -15,15 +15,13 @@ export async function PUT(req: Request) {
     .maybeSingle()
   if (e1 || !stg) return NextResponse.json({ ok:false, error:e1?.message || 'stage not found' }, { status:404 })
 
-const total_teams = Number(stg.total_teams || 0)
-const multiplier = Number(stg.multiplier || 1)
+  const total_teams = Number(stg.total_teams || 0)
+  const multiplier = Number(stg.multiplier || 1)
+  const ed = Array.isArray((stg as any).edition) ? (stg as any).edition[0] : (stg as any).edition
+  const tour_id = (ed?.tour_id as string) || ''
+  const gender = ((ed?.gender as string) || 'M').toUpperCase()
 
-// edition può arrivare come oggetto oppure come array: normalizza
-const ed = Array.isArray((stg as any).edition) ? (stg as any).edition[0] : (stg as any).edition
-const tour_id = (ed?.tour_id as string) || ''
-const gender = ((ed?.gender as string) || 'M').toUpperCase()
-
-  // 2) carica legenda per (tour_id, gender, total_teams)
+  // 2) legenda punteggi per quel (tour, gender, total_teams)
   const { data: legend, error: e2 } = await supabaseAdmin
     .from('rank_legend')
     .select('position, points')
@@ -32,17 +30,15 @@ const gender = ((ed?.gender as string) || 'M').toUpperCase()
     .eq('total_teams', total_teams)
     .order('position', { ascending: true })
   if (e2) return NextResponse.json({ ok:false, error:e2.message }, { status:500 })
+  const ptsMap = new Map<number, number>(legend.map(r => [Number(r.position), Number(r.points)]))
 
-  const pointsByPos = new Map<number, number>(legend.map(r => [Number(r.position), Number(r.points)]))
-
-  // 3) costruisci upsert rows
-  const upserts = placements.map((player_id, idx) => {
-    const pos = idx + 1
-    const base = Number(pointsByPos.get(pos) || 0)
+  // 3) prepara righe con la POSIZIONE RICHIESTA
+  const upserts = entries.map(({ player_id, position }) => {
+    const base = Number(ptsMap.get(position) || 0)
     const pts = base * multiplier
     return {
       stage_id,
-      position: pos,
+      position,            // <— posizione scelta dall’utente
       player_id,
       base_points: base,
       multiplier,
@@ -50,7 +46,7 @@ const gender = ((ed?.gender as string) || 'M').toUpperCase()
     }
   })
 
-  // 4) transazione "povera": elimina risultati non più presenti, poi upsert
+  // 4) “transazione povera”: cancella e reinserisci
   const { error: delErr } = await supabaseAdmin
     .from('rank_stage_result')
     .delete()
@@ -58,6 +54,7 @@ const gender = ((ed?.gender as string) || 'M').toUpperCase()
   if (delErr) return NextResponse.json({ ok:false, error: delErr.message }, { status:500 })
 
   if (upserts.length) {
+    // se hai UNIQUE(stage_id, position) e ci sono doppioni, qui fallisce: fa fede lo schema
     const { error: insErr } = await supabaseAdmin
       .from('rank_stage_result')
       .upsert(upserts, { onConflict: 'stage_id,position' })
@@ -66,4 +63,3 @@ const gender = ((ed?.gender as string) || 'M').toUpperCase()
 
   return NextResponse.json({ ok:true, count: upserts.length })
 }
-
