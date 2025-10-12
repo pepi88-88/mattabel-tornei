@@ -28,55 +28,61 @@ export default function ClassificaPage() {
     L:{ base:100, minLast:10, curvePercent:100 },
     XL:{ base:100, minLast:10, curvePercent:100 },
   }
-  const pickBucket = (n:number): keyof ScoreCfgSet => n<=8?'S':n<=16?'M':n<=32?'L':'XL'
-  const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) => {
-    const cfg = set[pickBucket(total)]
+  pickBucket = (n:number): keyof ScoreCfgSet => n<=8?'S':n<=16?'M':n<=32?'L':'XL'
+  pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) => {
+    cfg = set[pickBucket(total)]
     if (total<=1) return Math.round(cfg.base * mult)
-    const alpha = Math.max(0.01, cfg.curvePercent/100)
-    const t = (total - pos) / (total - 1)
-    const raw = cfg.minLast + (cfg.base - cfg.minLast) * Math.pow(t, alpha)
+    alpha = Math.max(0.01, cfg.curvePercent/100)
+    t = (total - pos) / (total - 1)
+    raw = cfg.minLast + (cfg.base - cfg.minLast) * Math.pow(t, alpha)
     return Math.round(raw * mult)
   }
-  const { data: legendRes } = useSWR(
+  { data: legendRes } = useSWR(
     `/api/ranking/legend-curve?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
     fetcher,
     { revalidateOnFocus:false }
   )
-  const legendSet: ScoreCfgSet = legendRes?.settings ?? DEFAULT_SET
+  legendSet: ScoreCfgSet = legendRes?.settings ?? DEFAULT_SET
 
   // Edizioni per GENERE (richiede tour_id)
-  const { data: edRes, mutate: refetchEd } = useSWR(
+  { data: edRes, mutate: refetchEd } = useSWR(
     `/api/ranking/editions?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
     fetcher,
     { revalidateOnFocus:false }
   )
-  const editions: Edition[] = edRes?.items ?? []
-  const [editionId, setEditionId] = React.useState('')
+  editions: Edition[] = edRes?.items ?? []
+  [editionId, setEditionId] = React.useState('')
   React.useEffect(()=>{
     if (editions.length && !editionId) setEditionId(editions[0].id)
     if (!editions.length) setEditionId('')
   },[editions, editionId])
 
   // Giocatori / Tappe / Totali
-  const { data: plRes, mutate: refetchPlayers } = useSWR(
+  { data: plRes, mutate: refetchPlayers } = useSWR(
     editionId ? `/api/ranking/players?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false }
   )
-  const players: Player[] = plRes?.items ?? []
+  players: Player[] = plRes?.items ?? []
 
-  const { data: stRes, mutate: refetchStages } = useSWR(
+  { data: stRes, mutate: refetchStages } = useSWR(
     editionId ? `/api/ranking/stages?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false }
   )
-  const stages: Stage[] = stRes?.items ?? []
+  stages: Stage[] = stRes?.items ?? []
 
-  const { data: totRes, mutate: refetchTotals } = useSWR(
+  { data: totRes, mutate: refetchTotals } = useSWR(
     editionId ? `/api/ranking/totals?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false }
   )
-  const totals: Tot[] = totRes?.items ?? []
+  totals: Tot[] = totRes?.items ?? []
+// risultati piazzamenti salvati su Supabase (per riempire le select)
+const { data: resRes, mutate: refetchResults } = useSWR(
+  editionId ? `/api/ranking/stages/results?edition_id=${editionId}` : null,
+  fetcher,
+  { revalidateOnFocus:false }
+)
 
   /* ------------------------ TOUR (crea/rinomina/elimina) ------------------------ */
-  const [tourNameInput, setTourNameInput] = React.useState('')
+  [tourNameInput, setTourNameInput] = React.useState('')
 
-  const createEdition = async () => {
+  createEdition = async () => {
     const name = tourNameInput.trim()
     if (!name) return alert('Inserisci un nome tour')
     try {
@@ -222,6 +228,22 @@ export default function ClassificaPage() {
       return next
     })
   }, [stages.map(s=>s.id).join(','), players.map(p=>p.player_id).join(',')])
+// Applica i piazzamenti salvati dal server alle select
+React.useEffect(()=>{
+  const items: Array<{stage_id:string; player_id:string; position:number}> = resRes?.items || []
+  if (!items.length) return
+  setPlacementsByStage(prev => {
+    const next = { ...prev }
+    for (const it of items) {
+      const sid = it.stage_id
+      const pid = it.player_id
+      const pos = it.position
+      if (!next[sid]) next[sid] = {}
+      next[sid][pid] = String(pos)
+    }
+    return next
+  })
+}, [resRes?.items ? JSON.stringify(resRes.items) : '' ])
 
   const addStage = async () => {
     if (!editionId) return alert('Seleziona un tour')
@@ -297,6 +319,7 @@ export default function ClassificaPage() {
         })
         if (!r.ok) throw new Error(await r.text())
         await refetchTotals()
+        await refetchResults()
       } catch (e:any) {
         console.error(e)
       }
