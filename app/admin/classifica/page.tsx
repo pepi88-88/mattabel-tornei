@@ -338,7 +338,7 @@ _saveTimers.current[stageId] = setTimeout(async ()=>{
     console.error(e)
   }
 }, 400)
-
+};
 
 // --- Calcolo punteggi & ordinamento (dopo aver caricato totals/stages/placements) ---
 const pointsForPlayer = React.useCallback((playerId: string) => {
