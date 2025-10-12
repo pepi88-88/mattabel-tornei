@@ -65,20 +65,20 @@ function scheduleRows(L:string, data: Persist){
   return rr(Math.min(cap,6)).map(([a,b])=>({t1:labelBySlot(data,L,a), t2:labelBySlot(data,L,b)}))
 }
 
-/* === Pool4: risoluzione Vincente/Perdente G1/G2 === */
+// --- Pool4: mapping G1/G2 ---
 function poolPairFor(gameIndex: number): [number, number] {
   // G1 = (1,4), G2 = (2,3)
   return gameIndex === 0 ? [1, 4] : [2, 3]
 }
 
+// --- Risolve "Vincente/Perdente G1/G2" SOLO se i punteggi sono presenti e diversi ---
 function resolvePoolToken(L: string, token: string, data: Persist): string {
   const m = token.match(/^(Vincente|Perdente)\s+G([12])$/i)
   if (!m) return token
 
   const outcome = m[1].toLowerCase() as 'vincente'|'perdente'
   const gIdx = Number(m[2]) - 1               // 0 per G1, 1 per G2
-
-  const [slotA, slotB] = poolPairFor(gIdx)    // [1,4] oppure [2,3]
+  const [slotA, slotB] = poolPairFor(gIdx)    // [1,4] o [2,3]
   const nameA = labelBySlot(data, L, slotA)
   const nameB = labelBySlot(data, L, slotB)
 
@@ -86,17 +86,23 @@ function resolvePoolToken(L: string, token: string, data: Persist): string {
   const aRaw = sc?.a
   const bRaw = sc?.b
 
-  // Valido SOLO se non vuoti/undefined/null e numeri finiti
   const a = Number(aRaw)
   const b = Number(bRaw)
   const hasA = aRaw !== '' && aRaw !== null && aRaw !== undefined && Number.isFinite(a)
   const hasB = bRaw !== '' && bRaw !== null && bRaw !== undefined && Number.isFinite(b)
 
-  // Se mancano i punteggi o è pareggio → lascia il token (Vincente/Perdente G1/G2)
+  // senza punteggi o con pareggio → lascia il token letterale
   if (!hasA || !hasB || a === b) return token
 
   if (outcome === 'vincente') return a > b ? nameA : nameB
   return a > b ? nameB : nameA
+}
+
+// --- Wrapper da usare in render ---
+function displayTeamLabel(L: string, raw: string, data: Persist): string {
+  return /^(Vincente|Perdente)\s+G[12]$/i.test(raw)
+    ? resolvePoolToken(L, raw, data)
+    : raw
 }
 
 /* === PAGE === */
