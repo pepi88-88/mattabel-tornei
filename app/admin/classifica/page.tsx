@@ -46,6 +46,50 @@ const { data: legendRes } = useSWR(
 )
 const legendSet: ScoreCfgSet = legendRes?.settings ?? DEFAULT_SET
 
+// ---- punti per un singolo player su TUTTE le tappe (per il totale in tabella)
+const pointsForPlayer = (playerId: string) => {
+  let sum = 0
+  for (const st of stages) {
+    const cur = placementsByStage[st.id]?.[playerId]
+    const pos = Number(cur)
+    if (cur && cur !== '-' && Number.isFinite(pos)) {
+      const pts = pointsOfBucket(
+        pos,
+        Number(st.total_teams || 0),
+        Number(st.multiplier || 1),
+        legendSet
+      )
+      sum += pts
+    }
+  }
+  return sum
+}
+
+// arricchisci i totali con il totale calcolato client-side e ordina
+const totalsWithComputed = totals.map(t => ({
+  ...t,
+  client_total: pointsForPlayer(t.player_id),
+}))
+
+const totalsSorted = [...totalsWithComputed].sort((a, b) => {
+  const t = b.client_total - a.client_total                      // 1) totale calcolato
+  if (t) return t
+  // 2) miglior piazzamento (più basso è meglio)
+  const best = (pid: string) => {
+    let best = Infinity
+    stages.forEach(st => {
+      const v = placementsByStage[st.id]?.[pid]
+      const n = Number(v)
+      if (v && v !== '-' && Number.isFinite(n)) best = Math.min(best, n)
+    })
+    return best
+  }
+  const ba = best(a.player_id)
+  const bb = best(b.player_id)
+  if (ba !== bb) return ba - bb
+  // 3) alfabetico
+  return a.display_name.localeCompare(b.display_name)
+})
 
 
 // Edizioni per GENERE (richiede tour_id)
@@ -545,9 +589,11 @@ React.useEffect(()=>{
                   </td>
 
                   {/* Totale subito dopo il nome (senza decimali) */}
-                 <td className="py-1 text-right font-semibold pl-3 pr-4">
-  {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(Number(r.total_points||0))}
+              <td className="py-1 text-right font-semibold pl-3 pr-4">
+  {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 })
+    .format(Number(totalsSorted.find(x => x.player_id === r.player_id)?.client_total || 0))}
 </td>
+
 
                   {/* Celle per ogni TAPPA: punti a sinistra + select corta */}
                   {stages.map((st, idx) => {
@@ -559,19 +605,30 @@ React.useEffect(()=>{
                       : ''
 
                     return (
-                     <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx>0 ? 'border-l border-neutral-800' : ''}`}>
-  <div className="flex flex-col items-center gap-1">
-    {/* Punteggio sopra, centrato */}
-    <div className="text-xs tabular-nums">{pts!=='' ? pts : '—'}</div>
-    {/* Select stretta, centrata */}
+                    <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx>0 ? 'border-l border-neutral-800' : ''}`}>
+  <div className="flex items-center justify-center gap-3">
+    {/* punteggio a sinistra */}
+    <div className="w-10 text-right tabular-nums">
+      {(() => {
+        const maxPos = Math.max(1, Number(st.total_teams || 0))
+        const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
+        const posNum = Number(cur)
+        const pts = (cur !== '-' && Number.isFinite(posNum))
+          ? pointsOfBucket(posNum, maxPos, Number(st.multiplier || 1), legendSet)
+          : ''
+        return pts !== '' ? pts : '—'
+      })()}
+    </div>
+
+    {/* posizione (select) più larga, centrata */}
     <select
-      className="input w-14 text-center px-0"
-      value={cur}
-      onChange={e=>setPlacement(st.id, r.player_id, e.target.value)}
+      className="input w-16 text-center px-0"
+      value={placementsByStage[st.id]?.[r.player_id] ?? '-'}
+      onChange={e => setPlacement(st.id, r.player_id, e.target.value)}
       title="Posizione"
     >
       <option value="-">-</option>
-      {Array.from({length: maxPos}, (_,n)=>n+1).map(n=>(
+      {Array.from({ length: Math.max(1, Number(st.total_teams || 0)) }, (_, n) => n + 1).map(n => (
         <option key={n} value={String(n)}>{n}</option>
       ))}
     </select>
