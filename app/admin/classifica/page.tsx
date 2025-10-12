@@ -46,50 +46,6 @@ const { data: legendRes } = useSWR(
 )
 const legendSet: ScoreCfgSet = legendRes?.settings ?? DEFAULT_SET
 
-// ---- punti per un singolo player su TUTTE le tappe (per il totale in tabella)
-const pointsForPlayer = (playerId: string) => {
-  let sum = 0
-  for (const st of stages) {
-    const cur = placementsByStage[st.id]?.[playerId]
-    const pos = Number(cur)
-    if (cur && cur !== '-' && Number.isFinite(pos)) {
-      const pts = pointsOfBucket(
-        pos,
-        Number(st.total_teams || 0),
-        Number(st.multiplier || 1),
-        legendSet
-      )
-      sum += pts
-    }
-  }
-  return sum
-}
-
-// arricchisci i totali con il totale calcolato client-side e ordina
-const totalsWithComputed = totals.map(t => ({
-  ...t,
-  client_total: pointsForPlayer(t.player_id),
-}))
-
-const totalsSorted = [...totalsWithComputed].sort((a, b) => {
-  const t = b.client_total - a.client_total                      // 1) totale calcolato
-  if (t) return t
-  // 2) miglior piazzamento (più basso è meglio)
-  const best = (pid: string) => {
-    let best = Infinity
-    stages.forEach(st => {
-      const v = placementsByStage[st.id]?.[pid]
-      const n = Number(v)
-      if (v && v !== '-' && Number.isFinite(n)) best = Math.min(best, n)
-    })
-    return best
-  }
-  const ba = best(a.player_id)
-  const bb = best(b.player_id)
-  if (ba !== bb) return ba - bb
-  // 3) alfabetico
-  return a.display_name.localeCompare(b.display_name)
-})
 
 
 // Edizioni per GENERE (richiede tour_id)
@@ -387,6 +343,52 @@ const setPlacement = (stageId: string, playerId: string, value: string) => {
   }, 400)
 }
 
+// --- Calcolo punteggi & ordinamento (dopo aver caricato totals/stages/placements) ---
+const pointsForPlayer = React.useCallback((playerId: string) => {
+  let sum = 0
+  for (const st of stages) {
+    const cur = placementsByStage[st.id]?.[playerId]
+    const pos = Number(cur)
+    if (cur && cur !== '-' && Number.isFinite(pos)) {
+      const pts = pointsOfBucket(
+        pos,
+        Number(st.total_teams || 0),
+        Number(st.multiplier || 1),
+        legendSet
+      )
+      sum += pts
+    }
+  }
+  return sum
+}, [stages, placementsByStage, legendSet])
+
+const totalsWithComputed = React.useMemo(() => {
+  return totals.map(t => ({
+    ...t,
+    client_total: pointsForPlayer(t.player_id),
+  }))
+}, [totals, pointsForPlayer])
+
+const totalsSorted = React.useMemo(() => {
+  const best = (pid: string) => {
+    let best = Infinity
+    stages.forEach(st => {
+      const v = placementsByStage[st.id]?.[pid]
+      const n = Number(v)
+      if (v && v !== '-' && Number.isFinite(n)) best = Math.min(best, n)
+    })
+    return best
+  }
+
+  return [...totalsWithComputed].sort((a, b) => {
+    const t = Number(b.client_total || 0) - Number(a.client_total || 0) // 1) totale calcolato
+    if (t) return t
+    const ba = best(a.player_id)                                       // 2) miglior piazzamento
+    const bb = best(b.player_id)
+    if (ba !== bb) return ba - bb
+    return a.display_name.localeCompare(b.display_name)                 // 3) alfabetico
+  })
+}, [totalsWithComputed, stages, placementsByStage])
 
 
   /* ------------------------ RENDER ------------------------ */
