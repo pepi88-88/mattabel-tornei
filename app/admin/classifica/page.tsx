@@ -19,25 +19,26 @@ export default function ClassificaPage() {
   /* ------------------------ Stato base ------------------------ */
   const [gender, setGender] = React.useState<'M'|'F'>('M')
 
-  // — legend-curve settings (per calcolo punti a video)
-  type ScoreCfg = { base:number; minLast:number; curvePercent:number }
-  type ScoreCfgSet = { S:ScoreCfg; M:ScoreCfg; L:ScoreCfg; XL:ScoreCfg }
-  const DEFAULT_SET: ScoreCfgSet = {
-    S:{ base:100, minLast:10, curvePercent:100 },
-    M:{ base:100, minLast:10, curvePercent:100 },
-    L:{ base:100, minLast:10, curvePercent:100 },
-    XL:{ base:100, minLast:10, curvePercent:100 },
-  }
-  pickBucket = (n:number): keyof ScoreCfgSet => n<=8?'S':n<=16?'M':n<=32?'L':'XL'
-  pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) => {
-    cfg = set[pickBucket(total)]
-    if (total<=1) return Math.round(cfg.base * mult)
-    alpha = Math.max(0.01, cfg.curvePercent/100)
-    t = (total - pos) / (total - 1)
-    raw = cfg.minLast + (cfg.base - cfg.minLast) * Math.pow(t, alpha)
-    return Math.round(raw * mult)
-  }
- // carica i parametri della curva per calcolo punti in client
+// — legend-curve settings (per calcolo punti a video)
+type ScoreCfg = { base:number; minLast:number; curvePercent:number }
+type ScoreCfgSet = { S:ScoreCfg; M:ScoreCfg; L:ScoreCfg; XL:ScoreCfg }
+const DEFAULT_SET: ScoreCfgSet = {
+  S:{ base:100, minLast:10, curvePercent:100 },
+  M:{ base:100, minLast:10, curvePercent:100 },
+  L:{ base:100, minLast:10, curvePercent:100 },
+  XL:{ base:100, minLast:10, curvePercent:100 },
+}
+const pickBucket = (n:number): keyof ScoreCfgSet => (n<=8?'S':n<=16?'M':n<=32?'L':'XL')
+const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) => {
+  const cfg = set[pickBucket(total)]
+  if (total<=1) return Math.round(cfg.base * mult)
+  const alpha = Math.max(0.01, cfg.curvePercent/100)
+  const t = (total - pos) / (total - 1)
+  const raw = cfg.minLast + (cfg.base - cfg.minLast) * Math.pow(t, alpha)
+  return Math.round(raw * mult)
+}
+
+// carica i parametri della curva per calcolo punti in client
 const { data: legendRes } = useSWR(
   `/api/ranking/legend-curve?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
   fetcher,
@@ -46,34 +47,42 @@ const { data: legendRes } = useSWR(
 const legendSet: ScoreCfgSet = legendRes?.settings ?? DEFAULT_SET
 
 
-  // Edizioni per GENERE (richiede tour_id)
-  { data: edRes, mutate: refetchEd } = useSWR(
-    `/api/ranking/editions?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
-    fetcher,
-    { revalidateOnFocus:false }
-  )
-  editions: Edition[] = edRes?.items ?? []
-  [editionId, setEditionId] = React.useState('')
-  React.useEffect(()=>{
-    if (editions.length && !editionId) setEditionId(editions[0].id)
-    if (!editions.length) setEditionId('')
-  },[editions, editionId])
 
-  // Giocatori / Tappe / Totali
-  { data: plRes, mutate: refetchPlayers } = useSWR(
-    editionId ? `/api/ranking/players?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false }
-  )
-  players: Player[] = plRes?.items ?? []
+// Edizioni per GENERE (richiede tour_id)
+const { data: edRes, mutate: refetchEd } = useSWR(
+  `/api/ranking/editions?tour_id=${encodeURIComponent(TOUR_ID)}&gender=${gender}`,
+  fetcher,
+  { revalidateOnFocus:false }
+)
+const editions: Edition[] = edRes?.items ?? []
+const [editionId, setEditionId] = React.useState('')
+React.useEffect(()=>{
+  if (editions.length && !editionId) setEditionId(editions[0].id)
+  if (!editions.length) setEditionId('')
+},[editions, editionId])
 
-  { data: stRes, mutate: refetchStages } = useSWR(
-    editionId ? `/api/ranking/stages?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false }
-  )
-  stages: Stage[] = stRes?.items ?? []
+// Giocatori / Tappe / Totali
+const { data: plRes, mutate: refetchPlayers } = useSWR(
+  editionId ? `/api/ranking/players?edition_id=${editionId}` : null,
+  fetcher,
+  { revalidateOnFocus:false }
+)
+const players: Player[] = plRes?.items ?? []
 
-  { data: totRes, mutate: refetchTotals } = useSWR(
-    editionId ? `/api/ranking/totals?edition_id=${editionId}` : null, fetcher, { revalidateOnFocus:false }
-  )
-  totals: Tot[] = totRes?.items ?? []
+const { data: stRes, mutate: refetchStages } = useSWR(
+  editionId ? `/api/ranking/stages?edition_id=${editionId}` : null,
+  fetcher,
+  { revalidateOnFocus:false }
+)
+const stages: Stage[] = stRes?.items ?? []
+
+const { data: totRes, mutate: refetchTotals } = useSWR(
+  editionId ? `/api/ranking/totals?edition_id=${editionId}` : null,
+  fetcher,
+  { revalidateOnFocus:false }
+)
+const totals: Tot[] = totRes?.items ?? []
+
 // risultati piazzamenti salvati su Supabase (per riempire le select)
 const { data: resRes, mutate: refetchResults } = useSWR(
   editionId ? `/api/ranking/stages/results?edition_id=${editionId}` : null,
@@ -82,9 +91,10 @@ const { data: resRes, mutate: refetchResults } = useSWR(
 )
 
   /* ------------------------ TOUR (crea/rinomina/elimina) ------------------------ */
-  [tourNameInput, setTourNameInput] = React.useState('')
+ const [tourNameInput, setTourNameInput] = React.useState('')
 
-  createEdition = async () => {
+const createEdition = async () => {
+
     const name = tourNameInput.trim()
     if (!name) return alert('Inserisci un nome tour')
     try {
