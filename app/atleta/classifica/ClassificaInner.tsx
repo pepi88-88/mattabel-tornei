@@ -134,8 +134,11 @@ React.useEffect(()=>{
     return out
   }, [players, stages, placementsByStage, pointsForPlayer])
 
-  const classForRow = (rank:number)=> rank===1 ? 'bg-yellow-900/20'
-                        : (rank>=2 && rank<=8 ? 'bg-green-900/10' : '')
+ const classForRow = (rank:number)=>
+  rank===1
+    ? 'bg-yellow-500/15'
+    : (rank>=2 && rank<=7 ? 'bg-emerald-500/10' : '')
+
 
   return (
     <div className="p-6 space-y-6">
@@ -228,52 +231,59 @@ React.useEffect(()=>{
   </table>
 </div>
 
-{/* ---- MOBILE: lista compatta ---- */}
+{/* ---- MOBILE: riga unica orizzontale (rank • nome • totale • tappe→scroll) ---- */}
 <div className="sm:hidden p-3 space-y-2">
   {rows.length === 0 ? (
     <div className="text-sm text-neutral-500">Nessun dato</div>
   ) : rows.map((r, i) => (
-    <div key={r.player_id} className="border border-neutral-800 rounded-xl p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs px-2 py-0.5 rounded bg-neutral-800">
-            {i+1}{i===0?' 👑':''}
-          </span>
-          <span className="font-medium">{r.name}</span>
-        </div>
-        <div className="tabular-nums font-semibold">
-          {new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(r.total)}
-        </div>
-      </div>
+    <div key={r.player_id} className="overflow-x-auto">
+      {/* riga unica scrollabile */}
+      <div
+        className={
+          `inline-flex items-center gap-3 border border-neutral-800 rounded-xl px-3 py-2 min-w-full ` +
+          `${classForRow(i+1)}`
+        }
+      >
+        {/* Rank */}
+        <span className="text-xs px-2 py-0.5 rounded bg-neutral-800 shrink-0">
+          {i+1}{i===0 ? ' 👑' : ''}
+        </span>
 
-      {stages.length>0 && (
-        <div className="mt-2 overflow-x-auto">
-          <div className="flex gap-2 min-w-full">
-            {stages.map(st => {
-              const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
-              const pts = pos
-                ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet)
-                : 0
-              return (
-                <div key={st.id} className="shrink-0 px-2 py-1 rounded-lg border border-neutral-800">
-                  <div className="text-[10px] text-neutral-400">
-                    {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')} · x{Number(st.multiplier).toFixed(2)}
-                  </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <span className="tabular-nums">POS: {pos || '—'}</span>
-                    <span className="tabular-nums">PTS: {pts || '—'}</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+        {/* Nome (tronca su viewport stretti) */}
+        <span className="font-medium max-w-[44vw] truncate">{r.name}</span>
+
+        {/* Totale, sempre visibile vicino al nome */}
+        <span className="ml-1 tabular-nums font-semibold shrink-0">
+          {new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(r.total)}
+        </span>
+
+        {/* separatore prima delle tappe */}
+        {stages.length > 0 && <div className="w-px h-5 bg-neutral-800 mx-1 shrink-0" />}
+
+        {/* Tappe: POS/PTS inline, sulla stessa riga; scrollano orizzontalmente insieme */}
+        {stages.map((st) => {
+          const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
+          const pts = pos
+            ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet)
+            : 0
+          return (
+            <div
+              key={st.id}
+              className="shrink-0 px-2 py-1 rounded-lg border border-neutral-800 text-xs inline-flex items-center gap-2"
+              title={`${st.name} — ${String(st.day).padStart(2,'0')}/${String(st.month).padStart(2,'0')} · x${Number(st.multiplier).toFixed(2)}`}
+            >
+              {/* mini label data/moltiplicatore (compressa) */}
+              <span className="text-[10px] text-neutral-400">
+                {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')} · x{Number(st.multiplier).toFixed(2)}
+              </span>
+              {/* POS/PTS compatti */}
+              <span className="tabular-nums">
+                {pos || '—'} • {pts || '—'}
+              </span>
+            </div>
+          )
+        })}
+      </div>
     </div>
   ))}
 </div>
-
-      </div>
-    </div>
-  )
-}
