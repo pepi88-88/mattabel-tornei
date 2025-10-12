@@ -45,6 +45,7 @@ const PUBLIC_API_PREFIXES = [
   '/api/atleta',
   '/api/tours',
   '/api/players',
+  '/api/ranking',
 ]
 
 // ⬇️ AGGIUNGI QUESTO BLOCCO
