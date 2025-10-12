@@ -1,3 +1,4 @@
+// app/admin/classifica/legenda/page.tsx
 'use client'
 
 import * as React from 'react'
@@ -13,6 +14,7 @@ const DEFAULT_SET: ScoreCfgSet = {
 }
 
 const pickBucket = (n:number): keyof ScoreCfgSet => (n<=8?'S':n<=16?'M':n<=32?'L':'XL')
+
 const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) => {
   const cfg = set[pickBucket(total)]
   if (total<=1) return Math.round(cfg.base * mult)
@@ -22,46 +24,27 @@ const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) 
   return Math.round(raw * mult)
 }
 
-/* ===== API (globali) ===== */
-async function apiListTours(): Promise<{id:string;name:string}[]> {
-  const r = await fetch('/api/tours', { cache: 'no-store' })
-  const j = await r.json().catch(()=>({}))
-  return Array.isArray(j?.items) ? j.items : []
-}
+/* API helpers */
 async function apiGetSettings() {
-  const r = await fetch(`/api/ranking/legend-curve?ts=${Date.now()}`, { cache:'no-store' })
+  const r = await fetch('/api/ranking/legend-curve?ts=' + Date.now(), { cache: 'no-store' })
   if (!r.ok) return { settings: DEFAULT_SET }
   return r.json() as Promise<{ settings: ScoreCfgSet|null }>
 }
-async function apiSaveSettings(admin_key: string, settings: ScoreCfgSet) {
+async function apiSaveSettings(settings: ScoreCfgSet) {
   const r = await fetch('/api/ranking/legend-curve', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ admin_key, settings, totalsFrom: 2, totalsTo: 64 }),
+    body: JSON.stringify({ settings, totalsFrom: 2, totalsTo: 64 }),
   })
   if (!r.ok) throw new Error(await r.text())
+  return r.json()
 }
 
 export default function LegendAdminPage() {
-  // tours (non più usati per salvare, ma lasciati se ti servono altrove)
-  const [tours, setTours] = React.useState<{id:string;name:string}[]>([])
-  React.useEffect(()=>{ 
-    let alive = true
-    apiListTours().then(ts => { if (alive) setTours(ts) }).catch(()=>{ if (alive) setTours([]) })
-    return ()=>{ alive = false }
-  },[])
-
-  // admin key per sbloccare il salvataggio
-  const [adminKey, setAdminKey] = React.useState('')
-
-  // impostazioni globali S/M/L/XL
   const [setCfg, setSetCfg] = React.useState<ScoreCfgSet>(DEFAULT_SET)
-
-  // preview locali
   const [totalTeams, setTotalTeams] = React.useState<number>(8)
   const [multiplier, setMultiplier] = React.useState<number>(1)
 
-  // carica settings globali all'apertura
   React.useEffect(()=>{
     let alive = true
     apiGetSettings()
@@ -85,19 +68,9 @@ export default function LegendAdminPage() {
         <span className="btn btn-primary btn-sm border-2 border-primary ring-2 ring-primary/30">
           Legenda punti
         </span>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-sm text-neutral-400">ADMIN_SUPER_KEY</span>
-          <input
-            className="input input-sm w-64"
-            type="password"
-            placeholder="inserisci chiave per salvare"
-            value={adminKey}
-            onChange={e=>setAdminKey(e.target.value)}
-          />
-        </div>
       </div>
 
-      {/* Parametri preview: totale squadre + moltiplicatore */}
+      {/* Preview parametri */}
       <div className="card p-4 space-y-3">
         <div className="flex items-center gap-3">
           <div className="w-40 text-sm text-neutral-400">Totale squadre</div>
@@ -114,7 +87,7 @@ export default function LegendAdminPage() {
           />
         </div>
         <div className="text-xs text-neutral-500">
-          Questi valori sono solo per la <b>preview</b>. Il moltiplicatore reale si applica per tappa nella pagina Classifica.
+          Questi valori sono solo per la <b>preview</b>. Il moltiplicatore reale si imposta per tappa nella pagina Classifica.
         </div>
       </div>
 
@@ -127,17 +100,11 @@ export default function LegendAdminPage() {
           <div className="overflow-x-auto">
             <table className="text-sm">
               <thead className="text-neutral-400">
-                <tr>
-                  <th className="text-left pr-4">Pos</th>
-                  <th className="text-left">Punti</th>
-                </tr>
+                <tr><th className="text-left pr-4">Pos</th><th className="text-left">Punti</th></tr>
               </thead>
               <tbody>
                 {legend.map(r => (
-                  <tr key={r.pos}>
-                    <td className="py-1 pr-4">{r.pos}</td>
-                    <td className="py-1">{r.pts}</td>
-                  </tr>
+                  <tr key={r.pos}><td className="py-1 pr-4">{r.pos}</td><td className="py-1">{r.pts}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -178,21 +145,21 @@ export default function LegendAdminPage() {
           </div>
         ))}
 
-        <div>
+        <div className="flex items-center gap-3">
           <button
             className="btn"
             onClick={async ()=>{
               try {
-                await apiSaveSettings(adminKey, setCfg)
-                alert('Impostazioni salvate.')
+                await apiSaveSettings(setCfg)
+                alert('Impostazioni salvate.\nAttenzione: la classifica cambierà dopo aver salvato le nuove impostazioni.')
               } catch (e:any) {
                 alert('Errore salvataggio: ' + (e?.message || ''))
               }
             }}
-            disabled={!adminKey}
           >
             Salva impostazioni
           </button>
+          <span className="text-xs text-neutral-500">Verranno rigenerate le voci 2..64 in <code>rank_legend</code>.</span>
         </div>
       </div>
 
