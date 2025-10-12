@@ -1,9 +1,9 @@
-// app/api/ranking/legend-curve/route.ts
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
+type BucketKey = 'S' | 'M' | 'L' | 'XL'
 type ScoreCfg = { base:number; minLast:number; curvePercent:number }
-type ScoreCfgSet = { S:ScoreCfg; M:ScoreCfg; L:ScoreCfg; XL:ScoreCfg }
+type ScoreCfgSet = Record<BucketKey, ScoreCfg>
 
 const DEFAULT_SET: ScoreCfgSet = {
   S:{ base:100, minLast:10, curvePercent:100 },
@@ -12,95 +12,103 @@ const DEFAULT_SET: ScoreCfgSet = {
   XL:{ base:100, minLast:10, curvePercent:100 },
 }
 
-const pickBucket = (n:number): keyof ScoreCfgSet => (n<=8?'S':n<=16?'M':n<=32?'L':'XL')
+const pickBucket = (n:number): BucketKey => (n<=8?'S':n<=16?'M':n<=32?'L':'XL')
+const pointsOfBucket = (pos:number, total:number, cfg:ScoreCfg) => {
+  if (total <= 1) return Math.round(cfg.base)
+  const alpha = Math.max(0.01, cfg.curvePercent / 100)
+  const t = (total - pos) / (total - 1)
+  const raw = cfg.minLast + (cfg.base - cfg.minLast) * Math.pow(t, alpha)
+  return Math.round(raw)
+}
 
-/** GET: restituisce impostazioni globali S/M/L/XL */
+/** GET: restituisce la configurazione globale S/M/L/XL */
 export async function GET() {
-  const { data, error } = await supabaseAdmin
+  const sb = supabaseAdmin // ⚠️ NON chiamare come funzione
+
+  const { data, error } = await sb
     .from('rank_legend_curve')
     .select('bucket, base, min_last, curve_percent')
 
   if (error) {
-    // se la tabella non esiste o è vuota, torna i default
-    return NextResponse.json({ settings: DEFAULT_SET })
+    // se non esiste la tabella o è vuota, ritorna default
+    return NextResponse.json({ settings: DEFAULT_SET }, { status: 200 })
   }
 
   const set: ScoreCfgSet = { ...DEFAULT_SET }
-  for (const r of data || []) {
-    const k = String(r.bucket).toUpperCase() as keyof ScoreCfgSet
-    if (set[k]) {
-      set[k] = {
-        base: Number(r.base) || 0,
-        minLast: Number(r.min_last) || 0,
-        curvePercent: Number(r.curve_percent) || 100,
-      }
+  for (const row of data || []) {
+    const k = String(row.bucket).toUpperCase() as BucketKey
+    if (!['S','M','L','XL'].includes(k)) continue
+    set[k] = {
+      base:       Number(row.base ?? DEFAULT_SET[k].base),
+      minLast:    Number(row.min_last ?? DEFAULT_SET[k].minLast),
+      curvePercent:Number(row.curve_percent ?? DEFAULT_SET[k].curvePercent),
     }
   }
-  return NextResponse.json({ settings: set })
+  return NextResponse.json({ settings: set }, { status: 200 })
 }
 
-/** PUT: salva impostazioni e rigenera rank_legend (2..64 squadre) */
+/** PUT: salva la configurazione e rigenera la tabella rank_legend */
 export async function PUT(req: Request) {
-  const body = await req.json().catch(()=> ({}))
-  const settings = (body?.settings || {}) as Partial<ScoreCfgSet>
-  const totalsFrom = Math.max(2, Number(body?.totalsFrom ?? 2))
-  const totalsTo   = Math.min(128, Math.max(totalsFrom, Number(body?.totalsTo ?? 64)))
+  const sb = supabaseAdmin
+  const body = await req.json().catch(()=>null)
 
-  // normalizza con default
-  const set: ScoreCfgSet = {
-    S: { ...(settings.S || DEFAULT_SET.S) },
-    M: { ...(settings.M || DEFAULT_SET.M) },
-    L: { ...(settings.L || DEFAULT_SET.L) },
-    XL:{ ...(settings.XL|| DEFAULT_SET.XL) },
+  const settings = body?.settings as ScoreCfgSet | null
+  const totalsFrom = Math.max(2, Number(body?.totalsFrom ?? 2))
+  const totalsTo   = Math.max(totalsFrom, Number(body?.totalsTo ?? 64))
+
+  if (!settings || typeof settings !== 'object') {
+    return NextResponse.json({ ok:false, error:'Invalid settings' }, { status:400 })
   }
 
-  // 1) upsert rank_legend_curve
-  const curveRows = (['S','M','L','XL'] as (keyof ScoreCfgSet)[]).map(k => ({
-    bucket: k,
-    base: set[k].base,
-    min_last: set[k].minLast,
-    curve_percent: set[k].curvePercent,
+  // normalizza numeri
+  const norm = (v:any, def:number) => Number.isFinite(Number(v)) ? Number(v) : def
+  const set: ScoreCfgSet = {
+    S:{ base:norm(settings.S?.base,100), minLast:norm(settings.S?.minLast,10), curvePercent:norm(settings.S?.curvePercent,100) },
+    M:{ base:norm(settings.M?.base,100), minLast:norm(settings.M?.minLast,10), curvePercent:norm(settings.M?.curvePercent,100) },
+    L:{ base:norm(settings.L?.base,100), minLast:norm(settings.L?.minLast,10), curvePercent:norm(settings.L?.curvePercent,100) },
+    XL:{ base:norm(settings.XL?.base,100), minLast:norm(settings.XL?.minLast,10), curvePercent:norm(settings.XL?.curvePercent,100) },
+  }
+
+  // 1) upsert su rank_legend_curve (4 righe)
+  const rows = (['S','M','L','XL'] as BucketKey[]).map(b=>({
+    bucket: b,
+    base: set[b].base,
+    min_last: set[b].minLast,
+    curve_percent: set[b].curvePercent,
   }))
+  {
+    const { error } = await sb
+      .from('rank_legend_curve')
+      .upsert(rows, { onConflict: 'bucket' })
+    if (error) return NextResponse.json({ ok:false, error:error.message }, { status:500 })
+  }
 
-  const { error: upErr } = await supabaseAdmin
-    .from('rank_legend_curve')
-    .upsert(curveRows, { onConflict: 'bucket' })
+  // 2) rigenera rank_legend (globale, senza tour/genere)
+  //    cancelliamo solo il range richiesto, poi re-inseriamo
+  {
+    const { error: delErr } = await sb
+      .from('rank_legend')
+      .delete()
+      .gte('total_teams', totalsFrom)
+      .lte('total_teams', totalsTo)
+    if (delErr) return NextResponse.json({ ok:false, error: delErr.message }, { status:500 })
+  }
 
-  if (upErr) return NextResponse.json({ ok:false, error: upErr.message }, { status:500 })
-
-  // 2) rigenera tabella rank_legend (posizioni “base”, senza moltiplicatore)
-  //    schema atteso: total_teams int, position int, points int
-  //    (se hai colonne tour_id/gender, rimuovi i filtri dove indicato)
-  const rows:any[] = []
+  const insertBatch: { total_teams:number; position:number; points:number }[] = []
   for (let total = totalsFrom; total <= totalsTo; total++) {
     const cfg = set[pickBucket(total)]
-    const alpha = Math.max(0.01, cfg.curvePercent/100)
-    for (let pos=1; pos<=total; pos++) {
-      const t = (total - pos) / (total - 1 || 1)
-      const raw = cfg.minLast + (cfg.base - cfg.minLast) * Math.pow(t, alpha)
-      const points = Math.round(raw)
-      rows.push({
-        total_teams: total,
-        position: pos,
-        points,
-      })
+    for (let pos = 1; pos <= total; pos++) {
+      const pts = pointsOfBucket(pos, total, cfg)
+      insertBatch.push({ total_teams: total, position: pos, points: pts })
     }
   }
 
-  // pulizia per range (facciamo REPLACE del range rigenerato)
-  const { error: delErr } = await supabaseAdmin
-    .from('rank_legend')
-    .delete()
-    .gte('total_teams', totalsFrom)
-    .lte('total_teams', totalsTo)
-
-  if (delErr) return NextResponse.json({ ok:false, error: delErr.message }, { status:500 })
-
-  // inserisci rigenerati
-  if (rows.length) {
-    const { error: insErr } = await supabaseAdmin.from('rank_legend').insert(rows)
+  if (insertBatch.length) {
+    const { error: insErr } = await sb
+      .from('rank_legend')
+      .insert(insertBatch)
     if (insErr) return NextResponse.json({ ok:false, error: insErr.message }, { status:500 })
   }
 
-  return NextResponse.json({ ok:true, regenerated: { from: totalsFrom, to: totalsTo } })
+  return NextResponse.json({ ok:true, regenerated: { from: totalsFrom, to: totalsTo } }, { status:200 })
 }
