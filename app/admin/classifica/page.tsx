@@ -348,58 +348,46 @@ React.useEffect(()=>{
     await refetchTotals()
   }
 
-  // autosave debounced per singola tappa
-  const _saveTimers = React.useRef<Record<string, any>>({})
-  const setPlacement = (stageId: string, playerId: string, value: string) => {
-    setPlacementsByStage(prev=>{
-      const map = { ...(prev[stageId]||{}) , [playerId]: value }
-      return { ...prev, [stageId]: map }
-    })
-
-    clearTimeout(_saveTimers.current[stageId])
-    _saveTimers.current[stageId] = setTimeout(async ()=>{
-      const stage = stages.find(s=>s.id===stageId)
-      if (!stage) return
-      const maxPos = Math.max(1, Number(stage.total_teams||0))
-      const map = placementsRef.current[stageId] || {}
-      const tuples = Object.entries(map)
-        .filter(([,v]) => v && v !== '-')
-        .map(([pid, v]) => ({ pid, pos: Number(v) }))
-        .filter(x => Number.isFinite(x.pos) && x.pos>=1 && x.pos<=maxPos)
-        .sort((a,b) => a.pos - b.pos)
-      const orderedPlayerIds = tuples.map(t => t.pid)
-      try {
-        const r = await fetch('/api/ranking/stages/placements', {
-          method:'PUT', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ stage_id: stageId, placements: orderedPlayerIds })
-        })
-        if (!r.ok) throw new Error(await r.text())
-        await refetchTotals()
-        await refetchResults()
-      } catch (e:any) {
-        console.error(e)
-      }
-    }, 400)
-  }
-
-  // Ordinamento classifica (totale, miglior piazzamento, alfabetico)
-  const bestPlacementOf = (pid:string) => {
-    let best = Infinity
-    stages.forEach(st=>{
-      const v = placementsByStage[st.id]?.[pid]
-      const n = Number(v)
-      if (v && v !== '-' && Number.isFinite(n)) best = Math.min(best, n)
-    })
-    return best
-  }
-  const totalsSorted = [...totals].sort((a,b)=>{
-    const t = Number(b.total_points||0) - Number(a.total_points||0)
-    if (t) return t
-    const ba = bestPlacementOf(a.player_id)
-    const bb = bestPlacementOf(b.player_id)
-    if (ba !== bb) return ba - bb
-    return a.display_name.localeCompare(b.display_name)
+ // autosave debounced per singola tappa
+const _saveTimers = React.useRef<Record<string, any>>({})
+const setPlacement = (stageId: string, playerId: string, value: string) => {
+  setPlacementsByStage(prev => {
+    const map = { ...(prev[stageId] || {}), [playerId]: value }
+    return { ...prev, [stageId]: map }
   })
+
+  clearTimeout(_saveTimers.current[stageId])
+  _saveTimers.current[stageId] = setTimeout(async () => {
+    const stage = stages.find(s => s.id === stageId)
+    if (!stage) return
+
+    const maxPos = Math.max(1, Number(stage.total_teams || 0))
+    const map = placementsRef.current[stageId] || {}
+
+    // Costruisci array con la POSIZIONE scelta, non l’indice
+    const entries = Object.entries(map)
+      .filter(([, v]) => v && v !== '-')
+      .map(([pid, v]) => ({ player_id: pid, position: Number(v) }))
+      .filter(x => Number.isFinite(x.position) && x.position >= 1 && x.position <= maxPos)
+      .sort((a, b) => a.position - b.position)
+
+    try {
+      const r = await fetch('/api/ranking/stages/placements', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage_id: stageId, entries }) // <— QUI cambiamo il payload
+      })
+      if (!r.ok) throw new Error(await r.text())
+
+      await refetchTotals()
+      await refetchResults()
+    } catch (e:any) {
+      console.error(e)
+    }
+  }, 400)
+}
+
+
 
   /* ------------------------ RENDER ------------------------ */
   return (
