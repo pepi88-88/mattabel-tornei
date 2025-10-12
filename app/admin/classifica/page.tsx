@@ -312,36 +312,33 @@ const setPlacement = (stageId: string, playerId: string, value: string) => {
     return { ...prev, [stageId]: map }
   })
 
-  clearTimeout(_saveTimers.current[stageId])
-  _saveTimers.current[stageId] = setTimeout(async () => {
-    const stage = stages.find(s => s.id === stageId)
-    if (!stage) return
+clearTimeout(_saveTimers.current[stageId])
+_saveTimers.current[stageId] = setTimeout(async ()=>{
+  const stage = stages.find(s=>s.id===stageId)
+  if (!stage) return
 
-    const maxPos = Math.max(1, Number(stage.total_teams || 0))
-    const map = placementsRef.current[stageId] || {}
+  const maxPos = Math.max(1, Number(stage.total_teams || 0))
+  const map = placementsRef.current[stageId] || {}
 
-    // Costruisci array con la POSIZIONE scelta, non l’indice
-    const entries = Object.entries(map)
-      .filter(([, v]) => v && v !== '-')
-      .map(([pid, v]) => ({ player_id: pid, position: Number(v) }))
-      .filter(x => Number.isFinite(x.position) && x.position >= 1 && x.position <= maxPos)
-      .sort((a, b) => a.position - b.position)
+  // Costruisci la lista "items" con tutte le coppie player_id/position (consenti pari merito)
+  const items = Object.entries(map)
+    .map(([pid, v]) => ({ player_id: pid, position: Number(v) }))
+    .filter(x => Number.isFinite(x.position) && x.position >= 1 && x.position <= maxPos)
 
-    try {
-      const r = await fetch('/api/ranking/stages/placements', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage_id: stageId, entries }) // <— QUI cambiamo il payload
-      })
-      if (!r.ok) throw new Error(await r.text())
+  try {
+    const r = await fetch('/api/ranking/stages/placements', {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ stage_id: stageId, items }) // <-- NON più "placements", ma "items"
+    })
+    if (!r.ok) throw new Error(await r.text())
+    await refetchTotals()
+    await refetchResults()
+  } catch (e:any) {
+    console.error(e)
+  }
+}, 400)
 
-      await refetchTotals()
-      await refetchResults()
-    } catch (e:any) {
-      console.error(e)
-    }
-  }, 400)
-}
 
 // --- Calcolo punteggi & ordinamento (dopo aver caricato totals/stages/placements) ---
 const pointsForPlayer = React.useCallback((playerId: string) => {
