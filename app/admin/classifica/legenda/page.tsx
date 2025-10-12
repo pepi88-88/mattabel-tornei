@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 
-type Gender = 'M'|'F'
 type ScoreCfg = { base:number; minLast:number; curvePercent:number }
 type ScoreCfgSet = { S:ScoreCfg; M:ScoreCfg; L:ScoreCfg; XL:ScoreCfg }
 
@@ -13,7 +12,7 @@ const DEFAULT_SET: ScoreCfgSet = {
   XL:{ base:100, minLast:10, curvePercent:100 },
 }
 
-const pickBucket = (n:number): keyof ScoreCfgSet => n<=8?'S':n<=16?'M':n<=32?'L':'XL'
+const pickBucket = (n:number): keyof ScoreCfgSet => (n<=8?'S':n<=16?'M':n<=32?'L':'XL')
 const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) => {
   const cfg = set[pickBucket(total)]
   if (total<=1) return Math.round(cfg.base * mult)
@@ -23,7 +22,7 @@ const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) 
   return Math.round(raw * mult)
 }
 
-/* ===== API (nuove) ===== */
+/* ===== API (globali) ===== */
 async function apiListTours(): Promise<{id:string;name:string}[]> {
   const r = await fetch('/api/tours', { cache: 'no-store' })
   const j = await r.json().catch(()=>({}))
@@ -34,7 +33,6 @@ async function apiGetSettings() {
   if (!r.ok) return { settings: DEFAULT_SET }
   return r.json() as Promise<{ settings: ScoreCfgSet|null }>
 }
-
 async function apiSaveSettings(admin_key: string, settings: ScoreCfgSet) {
   const r = await fetch('/api/ranking/legend-curve', {
     method: 'PUT',
@@ -44,9 +42,8 @@ async function apiSaveSettings(admin_key: string, settings: ScoreCfgSet) {
   if (!r.ok) throw new Error(await r.text())
 }
 
-
-export default function LegendAdminPage(){
-  // tours
+export default function LegendAdminPage() {
+  // tours (non più usati per salvare, ma lasciati se ti servono altrove)
   const [tours, setTours] = React.useState<{id:string;name:string}[]>([])
   React.useEffect(()=>{ 
     let alive = true
@@ -54,42 +51,24 @@ export default function LegendAdminPage(){
     return ()=>{ alive = false }
   },[])
 
-  // stato base + persistenza
-  const [tourId, setTourId] = React.useState<string>(() =>
-    (typeof window !== 'undefined' && (localStorage.getItem('lb2:lastTourId') || '')) || ''
-  )
-  const [gender, setGender] = React.useState<Gender>(() =>
-    ((typeof window !== 'undefined' && (localStorage.getItem('lb2:lastGender') as Gender|null)) || 'M')
-  )
+  // admin key per sbloccare il salvataggio
+  const [adminKey, setAdminKey] = React.useState('')
 
-  // default al primo tour disponibile
+  // impostazioni globali S/M/L/XL
+  const [setCfg, setSetCfg] = React.useState<ScoreCfgSet>(DEFAULT_SET)
+
+  // preview locali
+  const [totalTeams, setTotalTeams] = React.useState<number>(8)
+  const [multiplier, setMultiplier] = React.useState<number>(1)
+
+  // carica settings globali all'apertura
   React.useEffect(()=>{
-    if (tourId) return
-    if (!tours.length) return
-    setTourId(tours[0].id)
-  },[tours, tourId])
-
-  // persisti
-  React.useEffect(()=>{ if (tourId) localStorage.setItem('lb2:lastTourId', tourId) },[tourId])
-  React.useEffect(()=>{ localStorage.setItem('lb2:lastGender', gender) },[gender])
-
- const [adminKey, setAdminKey] = React.useState('')
-const [setCfg, setSetCfg] = React.useState<ScoreCfgSet>(DEFAULT_SET)
-
-// preview locali
-const [totalTeams, setTotalTeams] = React.useState<number>(8)
-const [multiplier, setMultiplier] = React.useState<number>(1)
-
-
-  // carica settings quando cambiano tour/genere
-React.useEffect(()=>{
-  let alive = true
-  apiGetSettings()
-    .then(j => { if (alive) setSetCfg(j?.settings ?? DEFAULT_SET) })
-    .catch(()=>{ if (alive) setSetCfg(DEFAULT_SET) })
-  return ()=>{ alive = false }
-},[])
-
+    let alive = true
+    apiGetSettings()
+      .then(j => { if (alive) setSetCfg(j?.settings ?? DEFAULT_SET) })
+      .catch(()=>{ if (alive) setSetCfg(DEFAULT_SET) })
+    return ()=>{ alive = false }
+  },[])
 
   const legend = React.useMemo(()=>{
     if (!totalTeams || totalTeams < 1) return []
@@ -101,23 +80,22 @@ React.useEffect(()=>{
   return (
     <div className="p-6 space-y-6">
       {/* Tabs */}
-    <div className="flex items-center gap-2">
-  <a className="btn btn-outline btn-sm" href="/admin/classifica">Classifica</a>
-  <span className="btn btn-primary btn-sm border-2 border-primary ring-2 ring-primary/30">
-    Legenda punti
-  </span>
-  <div className="ml-auto flex items-center gap-2">
-    <span className="text-sm text-neutral-400">ADMIN_SUPER_KEY</span>
-    <input
-      className="input input-sm w-64"
-      type="password"
-      placeholder="inserisci chiave per salvare"
-      value={adminKey}
-      onChange={e=>setAdminKey(e.target.value)}
-    />
-  </div>
-</div>
-
+      <div className="flex items-center gap-2">
+        <a className="btn btn-outline btn-sm" href="/admin/classifica">Classifica</a>
+        <span className="btn btn-primary btn-sm border-2 border-primary ring-2 ring-primary/30">
+          Legenda punti
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-sm text-neutral-400">ADMIN_SUPER_KEY</span>
+          <input
+            className="input input-sm w-64"
+            type="password"
+            placeholder="inserisci chiave per salvare"
+            value={adminKey}
+            onChange={e=>setAdminKey(e.target.value)}
+          />
+        </div>
+      </div>
 
       {/* Parametri preview: totale squadre + moltiplicatore */}
       <div className="card p-4 space-y-3">
@@ -149,11 +127,17 @@ React.useEffect(()=>{
           <div className="overflow-x-auto">
             <table className="text-sm">
               <thead className="text-neutral-400">
-                <tr><th className="text-left pr-4">Pos</th><th className="text-left">Punti</th></tr>
+                <tr>
+                  <th className="text-left pr-4">Pos</th>
+                  <th className="text-left">Punti</th>
+                </tr>
               </thead>
               <tbody>
                 {legend.map(r => (
-                  <tr key={r.pos}><td className="py-1 pr-4">{r.pos}</td><td className="py-1">{r.pts}</td></tr>
+                  <tr key={r.pos}>
+                    <td className="py-1 pr-4">{r.pos}</td>
+                    <td className="py-1">{r.pts}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -195,18 +179,22 @@ React.useEffect(()=>{
         ))}
 
         <div>
-        <button
-  className="btn"
-  onClick={async ()=>{
-    try {
-      await apiSaveSettings(adminKey, setCfg)
-      alert('Impostazioni salvate.')
-    } catch (e:any) {
-      alert('Errore salvataggio: ' + (e?.message || ''))
-    }
-  }}
-  disabled={!adminKey}
->Salva impostazioni</button>
+          <button
+            className="btn"
+            onClick={async ()=>{
+              try {
+                await apiSaveSettings(adminKey, setCfg)
+                alert('Impostazioni salvate.')
+              } catch (e:any) {
+                alert('Errore salvataggio: ' + (e?.message || ''))
+              }
+            }}
+            disabled={!adminKey}
+          >
+            Salva impostazioni
+          </button>
+        </div>
+      </div>
 
       <div className="text-xs text-neutral-500">
         Formula: <code>punti = minLast + (base - minLast) * ((total - pos)/(total - 1))^(curvatura/100)</code>, poi × moltiplicatore.
