@@ -503,7 +503,7 @@ const totalsSorted = React.useMemo(() => {
         </div>
       </div>
 
-      {/* CLASSIFICA TOTALE */}
+         {/* CLASSIFICA TOTALE */}
       <div className="card p-0 overflow-hidden">
         <div className="px-3 py-2 border-b border-neutral-800 flex items-center justify-between">
           <div className="text-sm font-semibold">Classifica totale</div>
@@ -516,25 +516,29 @@ const totalsSorted = React.useMemo(() => {
               <tr>
                 <th className="text-left w-14">#</th>
                 <th className="text-left">Giocatore</th>
-               <th className="text-right w-24 pr-4">Totale</th>
+                <th className="text-right w-24 pr-4">Totale</th>
 
-
-                {stages.map((st, idx)=>(
+                {/* Colonne TAPPE dinamiche */}
+                {stages.map((st, idx) => (
                   <th
                     key={st.id}
-                    className={`min-w-[160px] align-bottom ${idx>=0 ? 'border-l border-neutral-800' : ''}`}
+                    className={`min-w-[160px] align-bottom ${idx >= 0 ? 'border-l border-neutral-800' : ''}`}
                   >
                     <div className="flex flex-col items-center gap-1 py-1">
                       <div className="font-medium">{st.name}</div>
                       <div className="text-xs text-neutral-400">
                         {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')}
                       </div>
-                      <div className="text-[11px] text-neutral-500">x{Number(st.multiplier).toFixed(2)} · {st.total_teams} sq</div>
+                      <div className="text-[11px] text-neutral-500">
+                        x{Number(st.multiplier).toFixed(2)} · {st.total_teams} sq
+                      </div>
                       <button
                         className="btn btn-xs mt-1"
-                        onClick={()=>deleteStage(st.id, st.name)}
+                        onClick={() => deleteStage(st.id, st.name)}
                         title="Elimina tappa"
-                      >Elimina</button>
+                      >
+                        Elimina
+                      </button>
                     </div>
                   </th>
                 ))}
@@ -542,13 +546,16 @@ const totalsSorted = React.useMemo(() => {
             </thead>
 
             <tbody>
-              {totalsSorted.map((r,i)=>(
+              {totalsSorted.map((r, i) => (
                 <tr
                   key={r.player_id}
-                  className={`border-t border-neutral-800 ${i===0 ? 'bg-yellow-500/10' : i>0 && i<8 ? 'bg-emerald-500/5' : ''}`}
+                  className={`border-t border-neutral-800 ${
+                    i === 0 ? 'bg-yellow-500/10' : i > 0 && i < 8 ? 'bg-emerald-500/5' : ''
+                  }`}
                 >
                   <td className="py-1">
-                    {i+1}{i===0 && <span className="ml-1">👑</span>}
+                    {i + 1}
+                    {i === 0 && <span className="ml-1">👑</span>}
                   </td>
 
                   <td className="py-1 truncate">
@@ -556,78 +563,89 @@ const totalsSorted = React.useMemo(() => {
                       <span className="truncate">{r.display_name}</span>
                       <button
                         className="btn btn-xs"
-                        onClick={async ()=>{
+                        onClick={async () => {
                           if (!editionId) return
-                          if (!confirm(`Eliminare “${r.display_name}” dal tour? Saranno rimossi anche i suoi risultati.`)) return
+                          if (
+                            !confirm(
+                              `Eliminare “${r.display_name}” dal tour? Saranno rimossi anche i suoi risultati.`
+                            )
+                          )
+                            return
                           try {
                             const del = await fetch('/api/ranking/players', {
-                              method:'DELETE',
-                              headers:{'Content-Type':'application/json'},
+                              method: 'DELETE',
+                              headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ edition_id: editionId, player_id: r.player_id })
                             })
                             if (!del.ok) throw new Error(await del.text())
                             await Promise.all([refetchPlayers(), refetchTotals()])
-                          } catch (e:any) {
+                          } catch (e: any) {
                             alert('Errore eliminazione: ' + (e?.message || ''))
                           }
                         }}
-                      >Elimina</button>
+                      >
+                        Elimina
+                      </button>
                     </div>
                   </td>
 
                   {/* Totale subito dopo il nome (senza decimali) */}
-              <td className="py-1 text-right font-semibold pl-3 pr-4">
-  {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 })
-    .format(Number(totalsSorted.find(x => x.player_id === r.player_id)?.client_total || 0))}
-</td>
+                  <td className="py-1 text-right font-semibold pl-3 pr-4">
+                    {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(
+                      Number(
+                        totalsSorted.find(x => x.player_id === r.player_id)?.client_total || 0
+                      )
+                    )}
+                  </td>
 
-
-                  {/* Celle per ogni TAPPA: punti a sinistra + select corta */}
-                  {stages.map((st, idx) => {
-                    const maxPos = Math.max(1, Number(st.total_teams||0))
+                  {/* Celle per ogni TAPPA: punti + select sulla stessa riga e centrati */}
+                  {stages.map((st, idx2) => {
+                    const maxPos = Math.max(1, Number(st.total_teams || 0))
                     const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
                     const posNum = Number(cur)
-                    const pts = (cur !== '-' && Number.isFinite(posNum))
-                      ? pointsOfBucket(posNum, maxPos, Number(st.multiplier||1), legendSet)
-                      : ''
+                    const pts =
+                      cur !== '-' && Number.isFinite(posNum)
+                        ? pointsOfBucket(
+                            posNum,
+                            maxPos,
+                            Number(st.multiplier || 1),
+                            legendSet
+                          )
+                        : ''
 
                     return (
-                    <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx>0 ? 'border-l border-neutral-800' : ''}`}>
-  <div className="flex items-center justify-center gap-3">
-    {/* punteggio a sinistra */}
-    <div className="w-10 text-right tabular-nums">
-      {(() => {
-        const maxPos = Math.max(1, Number(st.total_teams || 0))
-        const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
-        const posNum = Number(cur)
-        const pts = (cur !== '-' && Number.isFinite(posNum))
-          ? pointsOfBucket(posNum, maxPos, Number(st.multiplier || 1), legendSet)
-          : ''
-        return pts !== '' ? pts : '—'
-      })()}
-    </div>
+                      <td
+                        key={`${st.id}-${r.player_id}`}
+                        className={`py-1 ${idx2 > 0 ? 'border-l border-neutral-800' : ''}`}
+                      >
+                        <div className="flex items-center justify-center gap-3">
+                          {/* punteggio a sinistra */}
+                          <div className="w-10 text-right tabular-nums">
+                            {pts !== '' ? pts : '—'}
+                          </div>
 
-    {/* posizione (select) più larga, centrata */}
-    <select
-      className="input w-16 text-center px-0"
-      value={placementsByStage[st.id]?.[r.player_id] ?? '-'}
-      onChange={e => setPlacement(st.id, r.player_id, e.target.value)}
-      title="Posizione"
-    >
-      <option value="-">-</option>
-      {Array.from({ length: Math.max(1, Number(st.total_teams || 0)) }, (_, n) => n + 1).map(n => (
-        <option key={n} value={String(n)}>{n}</option>
-      ))}
-    </select>
-  </div>
-</td>
-
+                          {/* select posizione (larga per 2 cifre) */}
+                          <select
+                            className="input w-20 text-center px-0"
+                            value={cur}
+                            onChange={e => setPlacement(st.id, r.player_id, e.target.value)}
+                            title="Posizione"
+                          >
+                            <option value="-">-</option>
+                            {Array.from({ length: maxPos }, (_, n) => n + 1).map(n => (
+                              <option key={n} value={String(n)}>
+                                {n}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </td>
                     )
                   })}
                 </tr>
               ))}
 
-              {totalsSorted.length===0 && (
+              {totalsSorted.length === 0 && (
                 <tr>
                   <td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">
                     Nessun dato
