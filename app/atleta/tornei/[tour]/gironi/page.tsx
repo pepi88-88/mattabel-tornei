@@ -285,46 +285,51 @@ export default function AthleteGironiPage(){
             </div>
           </div>
 
-        {/* ===== DESKTOP: griglia classica (4 colonne) ===== */}
-<div className="hidden md:grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-4 grid-flow-row-dense auto-rows-auto">
-  {letters.map((L) => {
-    const m = data.meta?.[L] ?? { capacity: 0, format: 'pool' as const }
-    const cap = m.capacity ?? 0
-    const rows = scheduleRows(L, data)
-
-    return (
-      <React.Fragment key={L}>
-        {/* GIRONE: 1 colonna */}
-        <div className="col-span-1">
-          <div className="card p-0 overflow-hidden">
-            <div className="px-3 py-2 text-white" style={{ background: colorFor(L) }}>
-              <div className="flex items-center gap-3">
-                <div className="font-extrabold tracking-wide">GIRONE {L}</div>
-                <div className="text-xs opacity-90"># {cap}</div>
-                <div className="text-xs opacity-90 uppercase">{m.format}</div>
-              </div>
-            </div>
-            <div className="p-3 space-y-2">
-              {cap < 1 ? (
-                <div className="text-xs text-neutral-500">Nessuna squadra.</div>
-              ) : Array.from({ length: cap }, (_, k) => k + 1).map(slot => (
-                <div key={`${L}-${slot}`} className="flex items-center gap-2">
-                  <div className="w-5 text-xs text-neutral-500">{slot}.</div>
-                  <div className="input w-full bg-neutral-900/60">{labelBySlot(data, L, slot)}</div>
-                </div>
-              ))}
+      {/* ===== DESKTOP: prima tutti i GIRONI, poi sotto tutte le PARTITE ===== */}
+<div className="hidden md:block">
+  {/* --- ROW 1: GIRONI (4 per riga) --- */}
+  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-4">
+    {letters.map((L) => {
+      const m = data.meta?.[L] ?? { capacity: 0, format: 'pool' as const }
+      const cap = m.capacity ?? 0
+      return (
+        <div key={`g-${L}`} className="card p-0 overflow-hidden">
+          <div className="px-3 py-2 text-white" style={{ background: colorFor(L) }}>
+            <div className="flex items-center gap-3">
+              <div className="font-extrabold tracking-wide">GIRONE {L}</div>
+              <div className="text-xs opacity-90"># {cap}</div>
+              <div className="text-xs opacity-90 uppercase">{m.format}</div>
             </div>
           </div>
+          <div className="p-3 space-y-2">
+            {cap < 1 ? (
+              <div className="text-xs text-neutral-500">Nessuna squadra.</div>
+            ) : Array.from({ length: cap }, (_, k) => k + 1).map(slot => (
+              <div key={`${L}-${slot}`} className="flex items-center gap-2">
+                <div className="w-5 text-xs text-neutral-500">{slot}.</div>
+                <div className="input w-full bg-neutral-900/60">
+                  {labelBySlot(data, L, slot)}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      )
+    })}
+  </div>
 
-        {/* PARTITE: 2 colonne (quindi “doppia” larghezza) */}
-        <div className="col-span-1 xl:col-span-2 2xl:col-span-2">
+  {/* --- ROW 2: PARTITE (ogni card occupa 2 colonne → 2 per riga) --- */}
+  <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-4">
+    {letters.map((L) => {
+      const m = data.meta?.[L] ?? { capacity: 0, format: 'pool' as const }
+      const rows = scheduleRows(L, data)
+      return (
+        <div key={`p-${L}`} className="col-span-1 xl:col-span-2 2xl:col-span-2">
           <div className="card p-0 overflow-hidden">
             <div className="h-9 px-3 flex items-center justify-between text-white" style={{ background: colorFor(L) }}>
               <div className="text-sm font-semibold">Partite {L}</div>
               <div className="text-xs opacity-90">Campo {data.gField?.[L] ?? '—'}</div>
             </div>
-
             <div className="p-3 space-y-2">
               {rows.length === 0 ? (
                 <div className="text-xs text-neutral-500">Nessuna partita.</div>
@@ -358,10 +363,11 @@ export default function AthleteGironiPage(){
             </div>
           </div>
         </div>
-      </React.Fragment>
-    )
-  })}
+      )
+    })}
+  </div>
 </div>
+
 
         </>
       )}
