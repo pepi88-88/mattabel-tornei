@@ -138,7 +138,7 @@ export default function ClassificaInner() {
 
   const classForRow = (rank:number)=>
     rank===1 ? 'bg-yellow-500/15'
-    : (rank>=2 && rank<=7 ? 'bg-emerald-500/10' : '')
+    : (rank>=2 && rank<=8 ? 'bg-emerald-500/10' : '')
 
   // ------------------------ RENDER ------------------------
   return (
@@ -173,7 +173,7 @@ export default function ClassificaInner() {
         {/* ---- DESKTOP: tabella completa ---- */}
         <div className="hidden sm:block p-3 overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-xs uppercase opacity-70">
+            <thead className="text-xs uppercase opacity-0">
               <tr>
                 <th className="text-left w-12">#</th>
                 <th className="text-left">Giocatore</th>
