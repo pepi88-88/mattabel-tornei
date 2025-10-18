@@ -104,25 +104,30 @@ function makeSlotResolver(
       return token
     }
 
-    // === “3” → Avulsa ===
-    if (/^\d+$/.test(token) && tourId && tId) {
-      try {
-        const raw =
-          localStorage.getItem(`classifica_avulsa:${tourId}:${tId}`) ||
-          localStorage.getItem(`avulsa:${tourId}:${tId}`) ||
-          localStorage.getItem(`avulsa:${tId}`)
-        if (raw) {
-          const arr: string[] = JSON.parse(raw)
-          const idx = Math.max(1, Number(token)) - 1
-          const nm = arr[idx]
-          if (nm) return lastSurnames(nm)
-        }
-      } catch {}
-      return token
-    }
-
-    return token
+  // === “3” → Avulsa ===
+if (/^\d+$/.test(token) && tourId && tId) {
+  // 1) PRIMA prova la classifica avulsa LIVE ricavata dallo stato pubblico
+  const live = buildAvulsaPublic(publicGroups)
+  const idx = Math.max(1, Number(token)) - 1
+  if (Array.isArray(live) && live[idx]) {
+    return live[idx] // già "cognomi brevi" perché buildAvulsaPublic usa lastSurnames
   }
+
+  // 2) FALLBACK: valori salvati in LocalStorage
+  try {
+    const raw =
+      localStorage.getItem(`classifica_avulsa:${tourId}:${tId}`) ||
+      localStorage.getItem(`avulsa:${tourId}:${tId}`) ||
+      localStorage.getItem(`avulsa:${tId}`)
+    if (raw) {
+      const arr: string[] = JSON.parse(raw)
+      const nm = arr[idx]
+      if (nm) return lastSurnames(nm)
+    }
+  } catch {}
+  return token
+}
+
 
   // wrapper: prima Vincente/Perdente (external), poi normalizza
   return (token: string): string => {
@@ -241,6 +246,19 @@ function nameFromGroupRankPublic(letter: string, pos: number, pub?: PublicPersis
   const stats = computeGroupRankingPublic(L, pub)
   const row = stats[pos - 1]
   return row?.label ? lastSurnames(row.label) : undefined
+}
+// Crea la avulsa "live" dai dati pubblici
+function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
+  if (!pub?.meta) return []
+  const letters = Object.keys(pub.meta).sort()
+  type Row = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
+  const rows: Row[] = []
+  for (const L of letters) {
+    const stats = computeGroupRankingPublic(L, pub)
+    stats.forEach((s, i) => rows.push({ letter: L, pos: i+1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP }))
+  }
+  rows.sort((a,b) => (a.pos - b.pos) || (b.W - a.W) || (b.QP - a.QP) || a.letter.localeCompare(b.letter))
+  return rows.map(r => lastSurnames(r.label))
 }
 
 /* ============== External “Vincente/Perdente …” ============== */
