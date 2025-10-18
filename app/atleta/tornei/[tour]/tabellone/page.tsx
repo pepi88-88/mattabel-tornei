@@ -56,87 +56,89 @@ function makeSlotResolver(
   const gmStore = (() => {
     try { return tId ? JSON.parse(localStorage.getItem(`gm:${tId}`) || 'null') : null }
     catch { return null }
-  })()
+  })();
 
   const basic = (raw: string): string => {
-    const token = String(raw || '').trim()
-    if (!token || token === '-' || token === '—') return '—'
-    if (token.toUpperCase() === 'BYE') return 'BYE'
+    const token = String(raw || '').trim();
+    if (!token || token === '-' || token === '—') return '—';
+    if (token.toUpperCase() === 'BYE') return 'BYE';
 
     // normalizza: supporta A1 / A 1 / 1A / 1 A
-    const s = token.toUpperCase().replace(/\s+/g,'')
-    let m = s.match(/^([A-Z])(\d{1,2})$/) || s.match(/^(\d{1,2})([A-Z])$/)
+    const s = token.toUpperCase().replace(/\s+/g, '');
+    const mAB = s.match(/^([A-Z])(\d{1,2})$/) || s.match(/^(\d{1,2})([A-Z])$/);
 
     // === A1/B2/1A ===
-    if (m && tourId && tId) {
-      const isLetterFirst = /^[A-Z]/.test(m[1])
-      const L = isLetterFirst ? m[1] : m[2]
-      const pos = Number(isLetterFirst ? m[2] : m[1])
+    if (mAB && tourId && tId) {
+      const isLetterFirst = /^[A-Z]/.test(mAB[1]);
+      const L = isLetterFirst ? mAB[1] : mAB[2];
+      const pos = Number(isLetterFirst ? mAB[2] : mAB[1]);
 
-      // 1) **Classifica live dai punteggi pubblici** (PRIORITÀ)
-      const byRank = nameFromGroupRankPublic(L, pos, publicGroups)
-      if (byRank) return lastSurnames(byRank)
+      // 1) Classifica live dai punteggi pubblici (PRIORITÀ)
+      const byRank = nameFromGroupRankPublic(L, pos, publicGroups);
+      if (byRank) return lastSurnames(byRank);
 
       // 2) classifica salvata (admin) in LS
       try {
-        const raw = localStorage.getItem(`groups_rank:${tourId}:${tId}`) || localStorage.getItem(`gironi_rank_${tourId}_${tId}`)
+        const raw = localStorage.getItem(`groups_rank:${tourId}:${tId}`) || localStorage.getItem(`gironi_rank_${tourId}_${tId}`);
         if (raw) {
-          const rankByGroup: Record<string,string[]> = JSON.parse(raw)
-          const name = rankByGroup[L]?.[pos - 1]
-          if (name) return lastSurnames(name)
+          const rankByGroup: Record<string, string[]> = JSON.parse(raw);
+          const name = rankByGroup[L]?.[pos - 1];
+          if (name) return lastSurnames(name);
         }
       } catch {}
 
-      // 3) fallback: mapping slot (assign/labels) – NON classifica, ma meglio di niente
+      // 3) fallback: mapping slot pubblico (assign/labels)
       try {
-        const rid = publicGroups?.assign?.[`${L}-${pos}`]
-        const lab = rid ? publicGroups?.labels?.[rid] : undefined
-        if (lab) return lastSurnames(lab)
+        const rid = publicGroups?.assign?.[`${L}-${pos}`];
+        const lab = rid ? publicGroups?.labels?.[rid] : undefined;
+        if (lab) return lastSurnames(lab);
       } catch {}
 
       // 4) ultimo fallback: gm:<tId> dal client
       try {
-        const rid = gmStore?.assign?.[`${L}-${pos}`]
-        const lab = rid ? gmStore?.labels?.[rid] : undefined
-        if (lab) return lastSurnames(lab)
+        const rid = gmStore?.assign?.[`${L}-${pos}`];
+        const lab = rid ? gmStore?.labels?.[rid] : undefined;
+        if (lab) return lastSurnames(lab);
       } catch {}
 
-      return token
+      return token;
     }
 
-  // === “3” → Avulsa ===
-if (/^\d+$/.test(token) && tourId && tId) {
-  // 1) PRIMA prova la classifica avulsa LIVE ricavata dallo stato pubblico
-  const live = buildAvulsaPublic(publicGroups)
-  const idx = Math.max(1, Number(token)) - 1
-  if (Array.isArray(live) && live[idx]) {
-    return live[idx] // già "cognomi brevi" perché buildAvulsaPublic usa lastSurnames
-  }
+    // === “3” → Avulsa ===
+    if (/^\d+$/.test(token) && tourId && tId) {
+      // 1) PRIMA: avulsa LIVE dai dati pubblici
+      const live = buildAvulsaPublic(publicGroups);
+      const idx = Math.max(1, Number(token)) - 1;
+      if (Array.isArray(live) && live[idx]) {
+        return live[idx]; // già in forma "cognomi brevi"
+      }
 
-  // 2) FALLBACK: valori salvati in LocalStorage
-  try {
-    const raw =
-      localStorage.getItem(`classifica_avulsa:${tourId}:${tId}`) ||
-      localStorage.getItem(`avulsa:${tourId}:${tId}`) ||
-      localStorage.getItem(`avulsa:${tId}`)
-    if (raw) {
-      const arr: string[] = JSON.parse(raw)
-      const nm = arr[idx]
-      if (nm) return lastSurnames(nm)
+      // 2) FALLBACK: LocalStorage
+      try {
+        const raw =
+          localStorage.getItem(`classifica_avulsa:${tourId}:${tId}`) ||
+          localStorage.getItem(`avulsa:${tourId}:${tId}`) ||
+          localStorage.getItem(`avulsa:${tId}`);
+        if (raw) {
+          const arr: string[] = JSON.parse(raw);
+          const nm = arr[idx];
+          if (nm) return lastSurnames(nm);
+        }
+      } catch {}
+      return token;
     }
-  } catch {}
-  return token
-}
 
+    // default: nessuna regola speciale
+    return token;
+  }; // <-- CHIUDE basic ✅
 
   // wrapper: prima Vincente/Perdente (external), poi normalizza
   return (token: string): string => {
-    const ext = externalResolver?.(token)
-    if (ext) return basic(ext)
-    return basic(token)
-  }
-}
-
+    const ext = externalResolver?.(token);
+    if (ext) return basic(ext);
+    return basic(token);
+  };
+} // <-- CHIUDE makeSlotResolver ✅
 
 function seedFromBracket(b: BracketType, resolveToken: (t: string) => string): string[] {
   const set = new Set<string>()
