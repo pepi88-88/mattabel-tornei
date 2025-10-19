@@ -173,7 +173,7 @@ export default function ClassificaInner() {
         {/* ---- DESKTOP: tabella completa ---- */}
         <div className="hidden sm:block p-3 overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-xs uppercase opacity-0">
+           <thead className="text-xs uppercase">
               <tr>
                 <th className="text-left w-12">#</th>
                 <th className="text-left">Giocatore</th>
