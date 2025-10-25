@@ -73,9 +73,10 @@ function makeSlotResolver(
       const L = isLetterFirst ? mAB[1] : mAB[2];
       const pos = Number(isLetterFirst ? mAB[2] : mAB[1]);
 
-      // 1) Classifica live dai punteggi pubblici (PRIORITÀ)
-      const byRank = nameFromGroupRankPublic(L, pos, publicGroups);
-      if (byRank) return lastSurnames(byRank);
+      // 1) Classifica live dai punteggi pubblici (PRIORITÀ) — usa solo se NON è un placeholder
+const byRank = nameFromGroupRankPublic(L, pos, publicGroups);
+if (byRank && !/^slot\s*\d+$/i.test(byRank)) return lastSurnames(byRank);
+
 
       // 2) classifica salvata (admin) in LS
       try {
