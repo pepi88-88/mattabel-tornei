@@ -175,8 +175,15 @@ function rrPairs(n: number) {
 function labelBySlotPublic(L: string, slot: number, pub?: PublicPersist | null) {
   const rid = pub?.assign?.[`${L}-${slot}`]
   const raw = rid ? pub?.labels?.[rid] : undefined
-  return raw ? lastSurnames(raw) : `Slot ${slot}`
+  if (raw && raw.trim() !== '') return lastSurnames(raw)
+
+  // fallback: qualche stato pubblico non ha assign completo ma ha labels dirette
+  const alt = (pub?.labels as any)?.[`${L}-${slot}`]
+  if (alt && String(alt).trim() !== '') return lastSurnames(String(alt))
+
+  return `Slot ${slot}` // placeholder finale
 }
+
 
 type TeamStatPub = { slot:number; label:string; W:number; PF:number; PS:number; QP:number; finish?:number }
 
@@ -258,13 +265,11 @@ function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
 
   for (const L of letters) {
     const stats = computeGroupRankingPublic(L, pub)
-    stats.forEach((s, i) => {
-      rows.push({ letter: L, pos: i + 1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP })
-    })
+    stats.forEach((s, i) => rows.push({ letter: L, pos: i+1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP }))
   }
 
-  // Ordina correttamente l’avulsa globale: prima piazzamenti migliori, poi parametri tecnici
-  rows.sort((a, b) =>
+  // stesso sort dell’admin
+  rows.sort((a,b) =>
     (a.pos - b.pos) ||
     (b.W - a.W) ||
     (b.QP - a.QP) ||
@@ -272,11 +277,12 @@ function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
     a.label.localeCompare(b.label)
   )
 
-  // filtra nomi vuoti o “Slot n”
+  // mappa a cognomi e scarta placeholder
   return rows
     .map(r => lastSurnames(r.label))
     .filter(nm => nm && !/^Slot\s*\d+$/i.test(nm))
 }
+
 
 /* ============== External “Vincente/Perdente …” ============== */
 function makeExternalResolver(
