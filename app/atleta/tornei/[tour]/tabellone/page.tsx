@@ -104,18 +104,18 @@ function makeSlotResolver(
       return token;
     }
 
-  // === “3” → Avulsa ===
+// === “3” → Avulsa ===
 if (/^\d+$/.test(token) && tourId && tId) {
   const live = buildAvulsaPublic(publicGroups)
   const idx = Math.max(1, Number(token)) - 1
 
-  // usa il live SOLO se c'è un nome “vero”
   if (Array.isArray(live) && typeof live[idx] === 'string') {
     const nm = String(live[idx] || '').trim()
-    if (nm) return nm
+    // evita di usare "Slot n" come nome risolto
+    if (nm && !/^slot\s*\d+$/i.test(nm)) return nm
   }
 
-  // FALLBACK: LocalStorage
+  // FALLBACK: LocalStorage (stessa priorità dell’admin quando manca il nome live)
   try {
     const raw =
       localStorage.getItem(`classifica_avulsa:${tourId}:${tId}`) ||
@@ -127,6 +127,7 @@ if (/^\d+$/.test(token) && tourId && tId) {
       if (nm) return lastSurnames(nm)
     }
   } catch {}
+
   return token
 }
 
@@ -176,96 +177,87 @@ function rrPairs(n: number) {
 }
 
 function labelBySlotPublic(L: string, slot: number, pub?: PublicPersist | null) {
+  // 1) mapping A-1 -> rid -> label
   const rid = pub?.assign?.[`${L}-${slot}`]
-  const raw = rid ? pub?.labels?.[rid] : undefined
-  if (raw && raw.trim() !== '') return lastSurnames(raw)
+  const fromAssign = rid ? pub?.labels?.[rid] : undefined
+  if (fromAssign && String(fromAssign).trim() !== '') return lastSurnames(String(fromAssign))
 
-  // fallback: qualche stato pubblico non ha assign completo ma ha labels dirette
-  const alt = (pub?.labels as any)?.[`${L}-${slot}`]
-  if (alt && String(alt).trim() !== '') return lastSurnames(String(alt))
+  // 2) alcuni stati pubblici possono avere labels dirette tipo "A-1": usa anche quelle
+  const direct = (pub?.labels as any)?.[`${L}-${slot}`]
+  if (direct && String(direct).trim() !== '') return lastSurnames(String(direct))
 
-  return `Slot ${slot}` // placeholder finale
+  // 3) placeholder (lasciato così per la classifica/avulsa admin-like)
+  return `Slot ${slot}`
 }
-
 
 type TeamStatPub = { slot:number; label:string; W:number; PF:number; PS:number; QP:number; finish?:number }
 
 function computeGroupRankingPublic(L: string, pub?: PublicPersist | null): TeamStatPub[] {
   if (!pub) return []
   const cap = Number(pub?.meta?.[L]?.capacity ?? 0)
-  const fmt = (pub?.meta?.[L]?.format ?? 'pool').toLowerCase() as 'pool' | 'ita'
+  const fmt = (pub?.meta?.[L]?.format ?? 'pool').toLowerCase() as 'pool'|'ita'
   if (cap < 2) return []
 
   const sc = pub?.scores?.[L] ?? []
   const init: Record<number, TeamStatPub> = {}
-  for (let s = 1; s <= cap; s++)
-    init[s] = { slot: s, label: labelBySlotPublic(L, s, pub), W: 0, PF: 0, PS: 0, QP: 0 }
-
-  // Applica punteggi round robin o formato “pool”
-  const apply = (A?: number, B?: number, i?: number) => {
-    if (!A || !B) return
-    const a = Number(sc[i!]?.a),
-      b = Number(sc[i!]?.b)
-    if (!Number.isFinite(a) || !Number.isFinite(b)) return
-    init[A].PF += a
-    init[A].PS += b
-    init[B].PF += b
-    init[B].PS += a
-    if (a > b) init[A].W += 1
-    else if (b > a) init[B].W += 1
+  for (let s=1; s<=cap; s++) {
+    init[s] = { slot:s, label:labelBySlotPublic(L,s,pub), W:0, PF:0, PS:0, QP:0 }
   }
 
-  if (fmt === 'pool' && cap === 4) {
-    // S1, S2
-    apply(1, 4, 0)
-    apply(2, 3, 1)
-    const w1 = Number(sc[0]?.a) > Number(sc[0]?.b) ? 1 : 4
-    const w2 = Number(sc[1]?.a) > Number(sc[1]?.b) ? 2 : 3
-    const l1 = w1 === 1 ? 4 : 1
-    const l2 = w2 === 2 ? 3 : 2
-    // finali
+  // calendario: pool 4 con S1/S2 + finaline, altrimenti round-robin
+  const rows = (fmt==='pool' && cap===4)
+    ? [
+        { a:1, b:4 }, { a:2, b:3 }, // semifinali
+        { a:undefined as any, b:undefined as any }, // finale 1-2 (decisa da S1/S2)
+        { a:undefined as any, b:undefined as any }, // finale 3-4
+      ]
+    : rrPairs(cap).map(([a,b]) => ({ a, b }))
+
+  const apply = (A?:number, B?:number, i?:number) => {
+    if (!A || !B) return
+    const a = Number(sc[i!]?.a), b = Number(sc[i!]?.b)
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return
+    init[A].PF += a; init[A].PS += b
+    init[B].PF += b; init[B].PS += a
+    if (a>b) init[A].W += 1; else if (b>a) init[B].W += 1
+  }
+
+  if (fmt==='pool' && cap===4) {
+    // semifinali
+    apply(1,4,0); apply(2,3,1)
+    const w1 = (Number(sc[0]?.a) > Number(sc[0]?.b)) ? 1 : 4
+    const w2 = (Number(sc[1]?.a) > Number(sc[1]?.b)) ? 2 : 3
+    const l1 = w1===1 ? 4 : 1
+    const l2 = w2===2 ? 3 : 2
+
+    // finali (se presenti, impostano "finish")
     if (Number.isFinite(Number(sc[2]?.a)) && Number.isFinite(Number(sc[2]?.b))) {
-      const a = Number(sc[2].a),
-        b = Number(sc[2].b)
-      init[w1].finish = a > b ? 1 : 2
-      init[w2].finish = a > b ? 2 : 1
+      const a=Number(sc[2].a), b=Number(sc[2].b)
+      init[w1].finish = a>b ? 1 : 2
+      init[w2].finish = a>b ? 2 : 1
     }
     if (Number.isFinite(Number(sc[3]?.a)) && Number.isFinite(Number(sc[3]?.b))) {
-      const a = Number(sc[3].a),
-        b = Number(sc[3].b)
-      init[l1].finish = a > b ? 3 : 4
-      init[l2].finish = a > b ? 4 : 3
+      const a=Number(sc[3].a), b=Number(sc[3].b)
+      init[l1].finish = a>b ? 3 : 4
+      init[l2].finish = a>b ? 4 : 3
     }
   } else {
-    rrPairs(cap).forEach((r, i) => apply(r[0], r[1], i))
+    rows.forEach((r, i) => apply(r.a, r.b, i))
   }
 
   const arr = Object.values(init)
-  arr.forEach((s) => {
-    s.QP = s.PF / Math.max(1, s.PS)
-  })
+  arr.forEach(s => { s.QP = s.PF / Math.max(1, s.PS) })
 
-  // ⚖️ stesso ordinamento dell’admin
-  arr.sort((A, B) => {
-    const fA = A.finish ?? 999
-    const fB = B.finish ?? 999
+  // stesso sort usato in admin
+  arr.sort((A,B) => {
+    const fA = A.finish ?? 999, fB = B.finish ?? 999
     if (fA !== fB) return fA - fB
-    if (B.W !== A.W) return B.W - A.W
-    if (B.QP !== A.QP) return B.QP - A.QP
-    if (B.PF !== A.PF) return B.PF - A.PF
-    return A.label.localeCompare(B.label)
+    return (B.W - A.W) || (B.QP - A.QP) || (B.PF - A.PF) || A.label.localeCompare(B.label)
   })
-
   return arr
 }
 
-function nameFromGroupRankPublic(letter: string, pos: number, pub?: PublicPersist | null): string | undefined {
-  const L = String(letter || '').toUpperCase()
-  if (!/^[A-Z]$/.test(L) || !Number.isFinite(pos) || pos < 1) return
-  const stats = computeGroupRankingPublic(L, pub)
-  const row = stats[pos - 1]
-  return row?.label ? lastSurnames(row.label) : undefined
-}
+/** Avulsa identica all’admin: stessa cardinalità/ordine; nessun filter */
 function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
   if (!pub?.meta) return []
   const letters = Object.keys(pub.meta).sort()
@@ -274,11 +266,11 @@ function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
 
   for (const L of letters) {
     const stats = computeGroupRankingPublic(L, pub)
-    stats.forEach((s, i) => rows.push({ letter: L, pos: i + 1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP }))
+    stats.forEach((s, i) => rows.push({ letter: L, pos: i+1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP }))
   }
 
-  // stesso ordinamento dell’admin (NON cambiare)
-  rows.sort((a, b) =>
+  // stesso ordinamento dell’admin (NON cambiare l’ordine dei criteri)
+  rows.sort((a,b) =>
     (a.pos - b.pos) ||
     (b.W - a.W) ||
     (b.QP - a.QP) ||
@@ -286,13 +278,12 @@ function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
     a.label.localeCompare(b.label)
   )
 
-  // IMPORTANTISSIMO: NON filtrare nulla.
-  // Mantieni gli indici 1:1 col sorting; per gli slot "vuoti" metti ''.
-  return rows.map(r => {
-    const nm = lastSurnames(r.label)
-    return /^Slot\s*\d+$/i.test(nm) ? '' : nm
-  })
+  // IMPORTANTISSIMO: non rimuovere placeholder ("Slot n").
+  // Ritorniamo la stringa (formattata in cognomi) anche se è "Slot n":
+  // sarà il resolver a decidere se usarla o fare fallback.
+  return rows.map(r => lastSurnames(r.label))
 }
+
 
 /* ============== External “Vincente/Perdente …” ============== */
 function makeExternalResolver(
