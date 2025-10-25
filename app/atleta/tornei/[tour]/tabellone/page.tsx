@@ -113,12 +113,15 @@ if (byRank && !/^slot\s*\d+$/i.test(byRank)) return lastSurnames(byRank);
 if (/^\d+$/.test(token) && tourId && tId) {
   const idx = Math.max(1, Number(token)) - 1
 
-  // 1) PRIORITÀ: avulsa “server-first”
-  const fromServer = readAvulsaArray(publicGroups)
-  if (fromServer && fromServer[idx]) {
-    const nm = fromServer[idx]
-    if (nm && !/^slot\s*\d+$/i.test(nm)) return nm
+ // 1) PRIORITÀ: avulsa “server-first” (nomi reali)
+const fromServer = readAvulsaArray(publicGroups)
+if (fromServer && fromServer[idx]) {
+  const nm = String(fromServer[idx] || '').trim()
+  // se è un nome valido (non placeholder, non numero puro) lo formatta in cognomi
+  if (nm && !/^slot\s*\d+$/i.test(nm) && !/^\d+$/.test(nm)) {
+    return lastSurnames(nm)
   }
+}
 
   // 2) FALLBACK: LocalStorage (retrocompat)
   try {
