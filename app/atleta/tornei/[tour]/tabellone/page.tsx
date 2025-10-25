@@ -104,29 +104,32 @@ function makeSlotResolver(
       return token;
     }
 
-    // === “3” → Avulsa ===
-    if (/^\d+$/.test(token) && tourId && tId) {
-      // 1) PRIMA: avulsa LIVE dai dati pubblici
-      const live = buildAvulsaPublic(publicGroups);
-      const idx = Math.max(1, Number(token)) - 1;
-      if (Array.isArray(live) && live[idx]) {
-        return live[idx]; // già in forma "cognomi brevi"
-      }
+  // === “3” → Avulsa ===
+if (/^\d+$/.test(token) && tourId && tId) {
+  const live = buildAvulsaPublic(publicGroups)
+  const idx = Math.max(1, Number(token)) - 1
 
-      // 2) FALLBACK: LocalStorage
-      try {
-        const raw =
-          localStorage.getItem(`classifica_avulsa:${tourId}:${tId}`) ||
-          localStorage.getItem(`avulsa:${tourId}:${tId}`) ||
-          localStorage.getItem(`avulsa:${tId}`);
-        if (raw) {
-          const arr: string[] = JSON.parse(raw);
-          const nm = arr[idx];
-          if (nm) return lastSurnames(nm);
-        }
-      } catch {}
-      return token;
+  // usa il live SOLO se c'è un nome “vero”
+  if (Array.isArray(live) && typeof live[idx] === 'string') {
+    const nm = String(live[idx] || '').trim()
+    if (nm) return nm
+  }
+
+  // FALLBACK: LocalStorage
+  try {
+    const raw =
+      localStorage.getItem(`classifica_avulsa:${tourId}:${tId}`) ||
+      localStorage.getItem(`avulsa:${tourId}:${tId}`) ||
+      localStorage.getItem(`avulsa:${tId}`)
+    if (raw) {
+      const arr: string[] = JSON.parse(raw)
+      const nm = arr[idx]
+      if (nm) return lastSurnames(nm)
     }
+  } catch {}
+  return token
+}
+
 
     // default: nessuna regola speciale
     return token;
@@ -266,45 +269,29 @@ function nameFromGroupRankPublic(letter: string, pos: number, pub?: PublicPersis
 function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
   if (!pub?.meta) return []
   const letters = Object.keys(pub.meta).sort()
-  type Row = {
-    letter: string
-    pos: number
-    label: string
-    W: number
-    PF: number
-    PS: number
-    QP: number
-  }
+  type Row = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
   const rows: Row[] = []
 
   for (const L of letters) {
     const stats = computeGroupRankingPublic(L, pub)
-    stats.forEach((s, i) => {
-      rows.push({
-        letter: L,
-        pos: i + 1,
-        label: s.label,
-        W: s.W,
-        PF: s.PF,
-        PS: s.PS,
-        QP: s.QP,
-      })
-    })
+    stats.forEach((s, i) => rows.push({ letter: L, pos: i + 1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP }))
   }
 
-  // ⚖️ ordine identico all’admin
-  rows.sort((a, b) => {
-    if (a.pos !== b.pos) return a.pos - b.pos
-    if (b.W !== a.W) return b.W - a.W
-    if (b.QP !== a.QP) return b.QP - a.QP
-    if (b.PF !== a.PF) return b.PF - a.PF
-    return a.label.localeCompare(b.label)
-  })
+  // stesso ordinamento dell’admin (NON cambiare)
+  rows.sort((a, b) =>
+    (a.pos - b.pos) ||
+    (b.W - a.W) ||
+    (b.QP - a.QP) ||
+    (b.PF - a.PF) ||
+    a.label.localeCompare(b.label)
+  )
 
-  // restituisce cognomi brevi (filtrando placeholder)
-  return rows
-    .map((r) => lastSurnames(r.label))
-    .filter((nm) => nm && !/^Slot\s*\d+$/i.test(nm))
+  // IMPORTANTISSIMO: NON filtrare nulla.
+  // Mantieni gli indici 1:1 col sorting; per gli slot "vuoti" metti ''.
+  return rows.map(r => {
+    const nm = lastSurnames(r.label)
+    return /^Slot\s*\d+$/i.test(nm) ? '' : nm
+  })
 }
 
 /* ============== External “Vincente/Perdente …” ============== */
