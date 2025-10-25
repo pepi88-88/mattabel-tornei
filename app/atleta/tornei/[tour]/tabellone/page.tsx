@@ -39,11 +39,15 @@ function lastSurnames(label: string) {
 
 /* ===== stato pubblico gironi (esteso) ===== */
 type PublicPersist = {
-  assign?: Record<string, string>   // "A-1" -> "ridXYZ"
-  labels?: Record<string, string>   // "ridXYZ" -> "Mario / Luca"
+  assign?: Record<string, string>
+  labels?: Record<string, string>
   meta?:   Record<string, { capacity: number; format?: 'pool'|'ita' }>
   scores?: Record<string, { a: string; b: string }[]>
   times?:  Record<string, string[]>
+
+  // 👇 NEW: avulsa lato server (ordine già definitivo)
+  classifica_avulsa?: Array<string | { label: string }>
+  avulsa?:            Array<string | { label: string }>
 }
 
 /** risolutore token → nome: A1/B2, “1A”, “A 1”, “3”, Vincente/Perdente … */
@@ -107,16 +111,16 @@ if (byRank && !/^slot\s*\d+$/i.test(byRank)) return lastSurnames(byRank);
 
 // === “3” → Avulsa ===
 if (/^\d+$/.test(token) && tourId && tId) {
-  const live = buildAvulsaPublic(publicGroups)
   const idx = Math.max(1, Number(token)) - 1
 
-  if (Array.isArray(live) && typeof live[idx] === 'string') {
-    const nm = String(live[idx] || '').trim()
-    // evita di usare "Slot n" come nome risolto
+  // 1) PRIORITÀ: avulsa “server-first”
+  const fromServer = readAvulsaArray(publicGroups)
+  if (fromServer && fromServer[idx]) {
+    const nm = fromServer[idx]
     if (nm && !/^slot\s*\d+$/i.test(nm)) return nm
   }
 
-  // FALLBACK: LocalStorage (stessa priorità dell’admin quando manca il nome live)
+  // 2) FALLBACK: LocalStorage (retrocompat)
   try {
     const raw =
       localStorage.getItem(`classifica_avulsa:${tourId}:${tId}`) ||
@@ -131,6 +135,7 @@ if (/^\d+$/.test(token) && tourId && tId) {
 
   return token
 }
+
 
 
     // default: nessuna regola speciale
@@ -271,9 +276,23 @@ function nameFromGroupRankPublic(
   return row?.label ? lastSurnames(row.label) : undefined
 }
 
+function readAvulsaArray(pub?: PublicPersist | null): string[] | null {
+  if (!pub) return null
+  const raw = (pub.classifica_avulsa ?? pub.avulsa) as Array<string | { label: string }> | undefined
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return null
+  return raw.map((x) => {
+    const s = typeof x === 'string' ? x : (x?.label ?? '')
+    return lastSurnames(String(s || '').trim())
+  })
+}
 
-/** Avulsa identica all’admin: stessa cardinalità/ordine; nessun filter */
+/** Avulsa identica all’admin: usa prima l’array server, poi fallback da meta/scores */
 function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
+  // ✅ PRIORITÀ: usa l’avulsa già calcolata dal server (stesso ordine e cardinalità dell’admin)
+  const fromServer = readAvulsaArray(pub)
+  if (fromServer) return fromServer
+
+  // --- Fallback: calcola dai meta/scores pubblici (come avevi già) ---
   if (!pub?.meta) return []
   const letters = Object.keys(pub.meta).sort()
   type Row = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
@@ -281,11 +300,13 @@ function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
 
   for (const L of letters) {
     const stats = computeGroupRankingPublic(L, pub)
-    stats.forEach((s, i) => rows.push({ letter: L, pos: i+1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP }))
+    stats.forEach((s, i) =>
+      rows.push({ letter: L, pos: i + 1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP })
+    )
   }
 
   // stesso ordinamento dell’admin (NON cambiare l’ordine dei criteri)
-  rows.sort((a,b) =>
+  rows.sort((a, b) =>
     (a.pos - b.pos) ||
     (b.W - a.W) ||
     (b.QP - a.QP) ||
@@ -293,11 +314,10 @@ function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
     a.label.localeCompare(b.label)
   )
 
-  // IMPORTANTISSIMO: non rimuovere placeholder ("Slot n").
-  // Ritorniamo la stringa (formattata in cognomi) anche se è "Slot n":
-  // sarà il resolver a decidere se usarla o fare fallback.
+  // non rimuovere eventuali placeholder ("Slot n"): decide il resolver se usarli o fare fallback.
   return rows.map(r => lastSurnames(r.label))
 }
+
 
 
 /* ============== External “Vincente/Perdente …” ============== */
