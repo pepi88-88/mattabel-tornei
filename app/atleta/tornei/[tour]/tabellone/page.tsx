@@ -203,23 +203,12 @@ function computeGroupRankingPublic(L: string, pub?: PublicPersist | null): TeamS
   for (let s=1; s<=cap; s++) {
     init[s] = { slot:s, label:labelBySlotPublic(L,s,pub), W:0, PF:0, PS:0, QP:0 }
   }
-function nameFromGroupRankPublic(
-  letter: string,
-  pos: number,
-  pub?: PublicPersist | null
-): string | undefined {
-  const L = String(letter || '').toUpperCase()
-  if (!/^[A-Z]$/.test(L) || !Number.isFinite(pos) || pos < 1) return
-  const stats = computeGroupRankingPublic(L, pub)
-  const row = stats[pos - 1]
-  return row?.label ? lastSurnames(row.label) : undefined
-}
 
-  // calendario: pool 4 con S1/S2 + finaline, altrimenti round-robin
+  // calendario: pool 4 con semifinali+finaline, altrimenti round-robin
   const rows = (fmt==='pool' && cap===4)
     ? [
         { a:1, b:4 }, { a:2, b:3 }, // semifinali
-        { a:undefined as any, b:undefined as any }, // finale 1-2 (decisa da S1/S2)
+        { a:undefined as any, b:undefined as any }, // finale 1-2
         { a:undefined as any, b:undefined as any }, // finale 3-4
       ]
     : rrPairs(cap).map(([a,b]) => ({ a, b }))
@@ -241,7 +230,7 @@ function nameFromGroupRankPublic(
     const l1 = w1===1 ? 4 : 1
     const l2 = w2===2 ? 3 : 2
 
-    // finali (se presenti, impostano "finish")
+    // finali -> finish
     if (Number.isFinite(Number(sc[2]?.a)) && Number.isFinite(Number(sc[2]?.b))) {
       const a=Number(sc[2].a), b=Number(sc[2].b)
       init[w1].finish = a>b ? 1 : 2
@@ -259,7 +248,7 @@ function nameFromGroupRankPublic(
   const arr = Object.values(init)
   arr.forEach(s => { s.QP = s.PF / Math.max(1, s.PS) })
 
-  // stesso sort usato in admin
+  // stesso sort dell’admin
   arr.sort((A,B) => {
     const fA = A.finish ?? 999, fB = B.finish ?? 999
     if (fA !== fB) return fA - fB
@@ -267,6 +256,20 @@ function nameFromGroupRankPublic(
   })
   return arr
 }
+
+// 👇 deve stare FUORI dalla funzione sopra
+function nameFromGroupRankPublic(
+  letter: string,
+  pos: number,
+  pub?: PublicPersist | null
+): string | undefined {
+  const L = String(letter || '').toUpperCase()
+  if (!/^[A-Z]$/.test(L) || !Number.isFinite(pos) || pos < 1) return
+  const stats = computeGroupRankingPublic(L, pub)
+  const row = stats[pos - 1]
+  return row?.label ? lastSurnames(row.label) : undefined
+}
+
 
 /** Avulsa identica all’admin: stessa cardinalità/ordine; nessun filter */
 function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
