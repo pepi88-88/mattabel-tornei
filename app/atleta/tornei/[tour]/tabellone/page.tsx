@@ -255,12 +255,27 @@ function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
   const letters = Object.keys(pub.meta).sort()
   type Row = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
   const rows: Row[] = []
+
   for (const L of letters) {
     const stats = computeGroupRankingPublic(L, pub)
-    stats.forEach((s, i) => rows.push({ letter: L, pos: i+1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP }))
+    stats.forEach((s, i) => {
+      rows.push({ letter: L, pos: i + 1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP })
+    })
   }
-  rows.sort((a,b) => (a.pos - b.pos) || (b.W - a.W) || (b.QP - a.QP) || a.letter.localeCompare(b.letter))
-  return rows.map(r => lastSurnames(r.label))
+
+  // Ordina correttamente l’avulsa globale: prima piazzamenti migliori, poi parametri tecnici
+  rows.sort((a, b) =>
+    (a.pos - b.pos) ||
+    (b.W - a.W) ||
+    (b.QP - a.QP) ||
+    (b.PF - a.PF) ||
+    a.label.localeCompare(b.label)
+  )
+
+  // filtra nomi vuoti o “Slot n”
+  return rows
+    .map(r => lastSurnames(r.label))
+    .filter(nm => nm && !/^Slot\s*\d+$/i.test(nm))
 }
 
 /* ============== External “Vincente/Perdente …” ============== */
