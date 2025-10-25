@@ -203,6 +203,17 @@ function computeGroupRankingPublic(L: string, pub?: PublicPersist | null): TeamS
   for (let s=1; s<=cap; s++) {
     init[s] = { slot:s, label:labelBySlotPublic(L,s,pub), W:0, PF:0, PS:0, QP:0 }
   }
+function nameFromGroupRankPublic(
+  letter: string,
+  pos: number,
+  pub?: PublicPersist | null
+): string | undefined {
+  const L = String(letter || '').toUpperCase()
+  if (!/^[A-Z]$/.test(L) || !Number.isFinite(pos) || pos < 1) return
+  const stats = computeGroupRankingPublic(L, pub)
+  const row = stats[pos - 1]
+  return row?.label ? lastSurnames(row.label) : undefined
+}
 
   // calendario: pool 4 con S1/S2 + finaline, altrimenti round-robin
   const rows = (fmt==='pool' && cap===4)
