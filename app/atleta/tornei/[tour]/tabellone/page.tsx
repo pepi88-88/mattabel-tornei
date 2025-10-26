@@ -119,12 +119,13 @@ function makeSlotResolver(
           localStorage.getItem(`classifica_avulsa:${tourId}:${tId}`) ||
           localStorage.getItem(`avulsa:${tourId}:${tId}`) ||
           localStorage.getItem(`avulsa:${tId}`);
-        if (raw) {
-          const arr: string[] = JSON.parse(raw);
-          const nm = arr[idx];
-          if (nm) return lastSurnames(nm);
-        }
-      } catch {}
+       if (raw) {
+    const arr: string[] = JSON.parse(raw);
+    const nm = arr[idx];
+    // 🔴 guard aggiunto
+    if (nm && !/^slot\s*\d+$/i.test(nm)) return lastSurnames(nm);
+  }
+} catch {}
       return token;
     }
 
@@ -154,8 +155,7 @@ function seedFromBracket(b: BracketType, resolveToken: (t: string) => string): s
   }
   return Array.from(set)
 }
-/* === Helpers per classifica dai dati pubblici === */
-const poolPairs = { semi1: [1,4] as [number,number], semi2: [2,3] as [number,number] }
+
 
 function rrPairs(n: number) {
   const t = Array.from({length:n}, (_,i)=>i+1)
@@ -250,18 +250,45 @@ function nameFromGroupRankPublic(letter: string, pos: number, pub?: PublicPersis
   return row?.label ? lastSurnames(row.label) : undefined
 }
 // Crea la avulsa "live" dai dati pubblici
+// ❗️SOSTITUISCI interamente la funzione esistente
 function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
   if (!pub?.meta) return []
+
   const letters = Object.keys(pub.meta).sort()
   type Row = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
   const rows: Row[] = []
+
   for (const L of letters) {
     const stats = computeGroupRankingPublic(L, pub)
-    stats.forEach((s, i) => rows.push({ letter: L, pos: i+1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP }))
+    stats.forEach((s, i) =>
+      rows.push({
+        letter: L,
+        pos: i + 1,
+        label: s.label,
+        W: s.W,
+        PF: s.PF,
+        PS: s.PS,
+        QP: s.QP,
+      })
+    )
   }
-  rows.sort((a,b) => (a.pos - b.pos) || (b.W - a.W) || (b.QP - a.QP) || a.letter.localeCompare(b.letter))
-  return rows.map(r => lastSurnames(r.label))
+
+  // stesso ordinamento dell’admin
+  rows.sort((a, b) =>
+    (a.pos - b.pos) ||
+    (b.W - a.W) ||
+    (b.QP - a.QP) ||
+    (b.PF - a.PF) ||
+    a.label.localeCompare(b.label)
+  )
+
+  // 🔴 filtro: niente placeholder "Slot n" o etichette vuote
+  const rowsClean = rows.filter(r => r.label && !/^slot\s*\d+$/i.test(r.label))
+
+  // ritorna già in formato “cognomi brevi”
+  return rowsClean.map(r => lastSurnames(r.label))
 }
+
 
 /* ============== External “Vincente/Perdente …” ============== */
 function makeExternalResolver(
