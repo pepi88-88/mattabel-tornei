@@ -56,6 +56,7 @@ function makeSlotResolver(
   tId?: string,
   externalResolver?: (token: string) => string | undefined,
   publicGroups?: PublicPersist | null,
+   avulsaNames?: string[],
 ) {
   const gmStore = (() => {
     try { return tId ? JSON.parse(localStorage.getItem(`gm:${tId}`) || 'null') : null }
@@ -109,20 +110,20 @@ if (byRank && !/^slot\s*\d+$/i.test(byRank)) return lastSurnames(byRank);
       return token;
     }
 
-// === “3” → Avulsa ===
-if (/^\d+$/.test(token) && tourId && tId) {
-  const idx = Math.max(1, Number(token)) - 1
+// === “3” (o qualsiasi token numerico) → Avulsa ===
+const numStr = token.replace(/[^\d]/g, '')  // accetta 1, 1°, 1., (1), ecc.
+if (numStr && tourId && tId) {
+  const idx = Math.max(1, Number(numStr)) - 1
 
-  // 1) PRIORITÀ: avulsa “server-first” (nomi reali)
-  let fromServer = readAvulsaArray(publicGroups)
+  // 1) PRIORITÀ: avulsa calcolata "invisibile" (server-first + fallback locale)
+  const arrFromMemo =
+    (Array.isArray(avulsaNames) && avulsaNames.length) ? avulsaNames : undefined
+  let fromServerOrLocal = arrFromMemo
+    ?? readAvulsaArray(publicGroups)
+    ?? buildAvulsaPublic(publicGroups)
 
-  // 👇 NEW: se manca sul server, ricalcolala localmente (fallback automatico)
-  if (!fromServer) {
-    fromServer = buildAvulsaPublic(publicGroups)
-  }
-
-  if (fromServer && fromServer[idx]) {
-    const nm = String(fromServer[idx] || '').trim()
+  if (fromServerOrLocal && fromServerOrLocal[idx]) {
+    const nm = String(fromServerOrLocal[idx] || '').trim()
     if (nm && !/^slot\s*\d+$/i.test(nm) && !/^\d+$/.test(nm)) {
       return lastSurnames(nm)
     }
@@ -604,10 +605,15 @@ export default function AthleteTabellonePage() {
     })()
     return () => { cancelled = true }
   }, [tId])
+// avulsa "invisibile" calcolata localmente (server-first + fallback da meta/scores)
+const avulsaNames = useMemo(() => buildAvulsaPublic(publicGroups), [publicGroups])
 
   // resolver per Vincente/Perdente e nomi
   const external = useMemo(() => makeExternalResolver(brackets, winnersById), [brackets, winnersById])
-  const resolve  = useMemo(() => makeSlotResolver(tourId, tId, external, publicGroups), [tourId, tId, external, publicGroups])
+  const resolve  = useMemo(
+  () => makeSlotResolver(tourId, tId, external, publicGroups, avulsaNames),
+  [tourId, tId, external, publicGroups, avulsaNames]
+)
 
   const active = useMemo(
     () => brackets.find((b) => b.id === activeId) || null,
