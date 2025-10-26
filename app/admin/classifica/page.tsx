@@ -68,6 +68,9 @@ const { data: plRes, mutate: refetchPlayers } = useSWR(
   { revalidateOnFocus:false }
 )
 const players: Player[] = plRes?.items ?? []
+// set per controlli O(1)
+const existingIds   = React.useMemo(() => new Set(players.map(p => p.player_id)), [players])
+const existingNames = React.useMemo(() => new Set(players.map(p => normalizeName(p.display_name))), [players])
 
 const { data: stRes, mutate: refetchStages } = useSWR(
   editionId ? `/api/ranking/stages?edition_id=${editionId}` : null,
@@ -177,9 +180,15 @@ const createEdition = async () => {
         setIsSearching(true)
         const r = await fetch(`/api/players?search=${encodeURIComponent(q)}`, { cache:'no-store' })
         const j = await r.json().catch(()=>({}))
-        const items: GlobalPlayer[] = j?.items ?? []
-        setSuggestions(items.slice(0, 12))
-        setSuggestOpen(true)
+      setSuggestions(
+  items
+    .filter(gp =>
+      !existingIds.has(gp.id) &&
+      !existingNames.has(normalizeName(gp.display_name))
+    )
+    .slice(0, 12)
+)
+
       } catch {
         setSuggestions([]); setSuggestOpen(false)
       } finally {
@@ -200,43 +209,45 @@ function normalizeName(s: string) {
 const addPlayerById = async (p: GlobalPlayer) => {
   if (!editionId) { alert('Seleziona un tour'); return }
 
-  // ---- check duplicati: per id o per nome normalizzato
-  const alreadyById   = players.find(pl => pl.player_id === p.id);
-  const alreadyByName = players.find(pl => normalizeName(pl.display_name) === normalizeName(p.display_name));
+  // blocca doppi click sullo stesso ID
+  if (addingIdsRef.current.has(p.id)) return
 
-  if (alreadyById || alreadyByName) {
-    const existing = alreadyById || alreadyByName!;
-    // prova a recuperare la posizione attuale in classifica (se disponibile)
-    let posMsg = '';
+  // check duplicati su set O(1)
+  if (existingIds.has(p.id) || existingNames.has(normalizeName(p.display_name))) {
+    const existing = players.find(pl => pl.player_id === p.id)
+                  || players.find(pl => normalizeName(pl.display_name) === normalizeName(p.display_name))!
+    let posMsg = ''
     try {
-      const idx = totalsSorted.findIndex(t => t.player_id === existing.player_id);
-      if (idx >= 0) posMsg = ` alla posizione ${idx + 1}`;
+      const idx = totalsSorted.findIndex(t => t.player_id === existing.player_id)
+      if (idx >= 0) posMsg = ` alla posizione ${idx + 1}`
     } catch {}
-    alert(`"${p.display_name}" è già presente${posMsg}.`);
-    setPlayerInput('');
-    setSuggestions([]);
-    setSuggestOpen(false);
-    return;
+    alert(`"${p.display_name}" è già presente${posMsg}.`)
+    setPlayerInput(''); setSuggestions([]); setSuggestOpen(false)
+    return
   }
 
+  addingIdsRef.current.add(p.id)
   try {
     const r = await fetch('/api/ranking/players', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        edition_id: editionId,
-        player_id: p.id,
-        display_name: p.display_name,
-      }),
-    });
-    if (!r.ok) throw new Error(await r.text());
-    setPlayerInput(''); setSuggestions([]); setSuggestOpen(false);
-    await Promise.all([refetchPlayers(), refetchTotals()]);
-  } catch (e: any) {
-    // opzionale: se il server ha constraint UNIQUE e risponde 409/duplicate, messaggio più chiaro
-    alert('Errore aggiunta giocatore: ' + (e?.message || ''));
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ edition_id: editionId, player_id: p.id, display_name: p.display_name })
+    })
+    if (!r.ok) {
+      const msg = await r.text()
+      throw new Error(msg || 'Errore salvataggio')
+    }
+
+    // pulizia UI + refresh
+    setPlayerInput(''); setSuggestions([]); setSuggestOpen(false)
+    await Promise.all([refetchPlayers(), refetchTotals()])
+  } catch (e:any) {
+    // se lato server hai UNIQUE, qui intercetti 409 e mostri messaggio chiaro
+    alert('Errore aggiunta giocatore: ' + (e?.message || ''))
+  } finally {
+    addingIdsRef.current.delete(p.id)
   }
-};
+}
 
   /* ------------------------ TAPPE inline + placements ------------------------ */
   const [stageForm, setStageForm] = React.useState({
