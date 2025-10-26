@@ -634,3 +634,84 @@ export default function AthleteTabellonePage() {
     </div>
   )
 }
+{/* CLASSIFICA AVULSA (visibile per test) */}
+{publicGroups && (
+  <div className="card p-4 mt-6">
+    <div className="text-lg font-semibold mb-3">Classifica avulsa (TEST VISIBILE)</div>
+
+    {(() => {
+      const avulsaRows = (() => {
+        const fromServer = readAvulsaArray(publicGroups)
+        if (fromServer) {
+          // se il server la fornisce già pronta, mostriamola così
+          return fromServer.map((label, i) => ({
+            pos: i + 1,
+            label,
+            W: undefined,
+            PF: undefined,
+            PS: undefined,
+            QP: undefined,
+          }))
+        }
+
+        // fallback → calcola avulsa locale come in admin
+        const letters = Object.keys(publicGroups.meta || {}).sort()
+        type Row = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
+        const rows: Row[] = []
+        for (const L of letters) {
+          const stats = computeGroupRankingPublic(L, publicGroups)
+          stats.forEach((s, i) => rows.push({
+            letter: L,
+            pos: i + 1,
+            label: s.label,
+            W: s.W,
+            PF: s.PF,
+            PS: s.PS,
+            QP: s.QP,
+          }))
+        }
+
+        rows.sort((a, b) =>
+          (a.pos - b.pos) ||
+          (b.W - a.W) ||
+          (b.QP - a.QP) ||
+          (b.PF - a.PF) ||
+          a.label.localeCompare(b.label)
+        )
+
+        return rows
+      })()
+
+      return (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs uppercase opacity-70 border-b border-neutral-800">
+              <tr>
+                <th className="py-1 text-left w-12">#</th>
+                <th className="text-left">Squadra</th>
+                <th className="text-right">W</th>
+                <th className="text-right">PF</th>
+                <th className="text-right">PS</th>
+                <th className="text-right">QP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {avulsaRows.map((r, i) => (
+                <tr key={`av-${i}`} className="border-t border-neutral-800">
+                  <td className="py-1">{i + 1}</td>
+                  <td className="truncate">{r.label}</td>
+                  <td className="text-right">{r.W ?? '-'}</td>
+                  <td className="text-right">{r.PF ?? '-'}</td>
+                  <td className="text-right">{r.PS ?? '-'}</td>
+                  <td className="text-right">
+                    {r.QP ? r.QP.toFixed(3).replace(/\.?0+$/, '') : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    })()}
+  </div>
+)}
