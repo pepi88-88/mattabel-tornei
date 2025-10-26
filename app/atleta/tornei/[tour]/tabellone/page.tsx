@@ -663,7 +663,7 @@ export default function AthleteTabellonePage() {
     <div className="text-lg font-semibold mb-3">Classifica avulsa (TEST VISIBILE)</div>
 
     {(() => {
-      const lettersAv = Object.keys(publicGroups.meta || {}).sort()
+     const lettersAv = Object.keys(publicGroups?.meta ?? {}).sort()
       type RowAv = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
       const rowsAv: RowAv[] = []
 
