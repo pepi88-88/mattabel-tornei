@@ -206,6 +206,8 @@ function normalizeName(s: string) {
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // rimuovi accenti
     .toLowerCase();
 }
+// blocco di sicurezza per evitare doppi click o inserimenti concorrenti
+const addingIdsRef = React.useRef<Set<string>>(new Set())
 
 const addPlayerById = async (p: GlobalPlayer) => {
   if (!editionId) { alert('Seleziona un tour'); return }
