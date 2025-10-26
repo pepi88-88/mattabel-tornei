@@ -630,11 +630,7 @@ export default function AthleteTabellonePage() {
             </div>
           </div>
         )}
-      </div>
-    </div>
-  )
-}
-{/* CLASSIFICA AVULSA (visibile per test) */}
+        {/* CLASSIFICA AVULSA (visibile per test) */}
 {publicGroups && (
   <div className="card p-4 mt-6">
     <div className="text-lg font-semibold mb-3">Classifica avulsa (TEST VISIBILE)</div>
@@ -715,3 +711,8 @@ export default function AthleteTabellonePage() {
     })()}
   </div>
 )}
+      </div>
+    </div>
+  )
+}
+
