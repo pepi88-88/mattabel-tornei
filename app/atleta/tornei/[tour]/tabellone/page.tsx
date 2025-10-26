@@ -630,48 +630,21 @@ export default function AthleteTabellonePage() {
             </div>
           </div>
         )}
-        {/* CLASSIFICA AVULSA (visibile per test) */}
+    {/* CLASSIFICA AVULSA (visibile per test) */}
 {publicGroups && (
   <div className="card p-4 mt-6">
     <div className="text-lg font-semibold mb-3">Classifica avulsa (TEST VISIBILE)</div>
 
     {(() => {
-      const avulsaRows = (() => {
-       // calcola sempre localmente (non serve readAvulsaArray)
-const letters = Object.keys(publicGroups.meta || {}).sort()
-type Row = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
-const rows: Row[] = []
-for (const L of letters) {
-  const stats = computeGroupRankingPublic(L, publicGroups)
-  stats.forEach((s, i) => rows.push({
-    letter: L,
-    pos: i + 1,
-    label: s.label,
-    W: s.W,
-    PF: s.PF,
-    PS: s.PS,
-    QP: s.QP,
-  }))
-}
+      // 🔹 Calcola la classifica avulsa live, uguale all’admin
+      const lettersAv = Object.keys(publicGroups.meta || {}).sort()
+      type RowAv = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
+      const rowsAv: RowAv[] = []
 
-rows.sort((a, b) =>
-  (a.pos - b.pos) ||
-  (b.W - a.W) ||
-  (b.QP - a.QP) ||
-  (b.PF - a.PF) ||
-  a.label.localeCompare(b.label)
-)
-
-const avulsaRows = rows
-
-
-        // fallback → calcola avulsa locale come in admin
-        const letters = Object.keys(publicGroups.meta || {}).sort()
-        type Row = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
-        const rows: Row[] = []
-        for (const L of letters) {
-          const stats = computeGroupRankingPublic(L, publicGroups)
-          stats.forEach((s, i) => rows.push({
+      for (const L of lettersAv) {
+        const stats = computeGroupRankingPublic(L, publicGroups)
+        stats.forEach((s, i) =>
+          rowsAv.push({
             letter: L,
             pos: i + 1,
             label: s.label,
@@ -679,19 +652,18 @@ const avulsaRows = rows
             PF: s.PF,
             PS: s.PS,
             QP: s.QP,
-          }))
-        }
-
-        rows.sort((a, b) =>
-          (a.pos - b.pos) ||
-          (b.W - a.W) ||
-          (b.QP - a.QP) ||
-          (b.PF - a.PF) ||
-          a.label.localeCompare(b.label)
+          })
         )
+      }
 
-        return rows
-      })()
+      // 🔹 Stesso ordinamento usato in admin
+      rowsAv.sort((a, b) =>
+        (a.pos - b.pos) ||
+        (b.W - a.W) ||
+        (b.QP - a.QP) ||
+        (b.PF - a.PF) ||
+        a.label.localeCompare(b.label)
+      )
 
       return (
         <div className="overflow-x-auto">
@@ -707,16 +679,14 @@ const avulsaRows = rows
               </tr>
             </thead>
             <tbody>
-              {avulsaRows.map((r, i) => (
+              {rowsAv.map((r, i) => (
                 <tr key={`av-${i}`} className="border-t border-neutral-800">
                   <td className="py-1">{i + 1}</td>
                   <td className="truncate">{r.label}</td>
-                  <td className="text-right">{r.W ?? '-'}</td>
-                  <td className="text-right">{r.PF ?? '-'}</td>
-                  <td className="text-right">{r.PS ?? '-'}</td>
-                  <td className="text-right">
-                    {r.QP ? r.QP.toFixed(3).replace(/\.?0+$/, '') : '-'}
-                  </td>
+                  <td className="text-right">{r.W}</td>
+                  <td className="text-right">{r.PF}</td>
+                  <td className="text-right">{r.PS}</td>
+                  <td className="text-right">{r.QP.toFixed(3).replace(/\.?0+$/, '')}</td>
                 </tr>
               ))}
             </tbody>
@@ -726,6 +696,7 @@ const avulsaRows = rows
     })()}
   </div>
 )}
+
       </div>
     </div>
   )
