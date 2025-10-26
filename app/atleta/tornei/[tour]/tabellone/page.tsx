@@ -274,12 +274,12 @@ function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
   }
 
   // stesso ordinamento dell’admin
-  rows.sort((a, b) =>
+ rows.sort((a, b) =>
     (a.pos - b.pos) ||
     (b.W - a.W) ||
     (b.QP - a.QP) ||
-    (b.PF - a.PF) ||
-    a.label.localeCompare(b.label)
+    a.letter.localeCompare(b.letter) ||   // <— 4° criterio: lettera, non PF
+    a.label.localeCompare(b.label)        // (facoltativo ma utile per stabilità)
   )
 
   // 🔴 filtro: niente placeholder "Slot n" o etichette vuote
@@ -683,13 +683,13 @@ export default function AthleteTabellonePage() {
       }
 
       // stesso ordinamento dell’admin
-      rowsAv.sort((a, b) =>
-        (a.pos - b.pos) ||
-        (b.W - a.W) ||
-        (b.QP - a.QP) ||
-        (b.PF - a.PF) ||
-        a.label.localeCompare(b.label)
-      )
+     rowsAv.sort((a, b) =>
+  (a.pos - b.pos) ||
+  (b.W - a.W) ||
+  (b.QP - a.QP) ||
+  a.letter.localeCompare(b.letter) ||   // <— 4° criterio: lettera
+  a.label.localeCompare(b.label)
+)
 
       // 🔴 FIX: elimina i placeholder "Slot n" dalla vista pubblica
       const rowsClean = rowsAv.filter(r => r.label && !/^slot\s*\d+$/i.test(r.label))
