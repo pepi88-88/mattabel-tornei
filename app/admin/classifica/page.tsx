@@ -180,7 +180,8 @@ const createEdition = async () => {
         setIsSearching(true)
         const r = await fetch(`/api/players?search=${encodeURIComponent(q)}`, { cache:'no-store' })
         const j = await r.json().catch(()=>({}))
-      setSuggestions(
+     const items: GlobalPlayer[] = j?.items ?? []
+setSuggestions(
   items
     .filter(gp =>
       !existingIds.has(gp.id) &&
@@ -188,6 +189,8 @@ const createEdition = async () => {
     )
     .slice(0, 12)
 )
+setSuggestOpen(true)
+
 
       } catch {
         setSuggestions([]); setSuggestOpen(false)
