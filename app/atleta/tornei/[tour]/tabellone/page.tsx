@@ -636,7 +636,6 @@ export default function AthleteTabellonePage() {
     <div className="text-lg font-semibold mb-3">Classifica avulsa (TEST VISIBILE)</div>
 
     {(() => {
-      // 🔹 Calcola la classifica avulsa live, uguale all’admin
       const lettersAv = Object.keys(publicGroups.meta || {}).sort()
       type RowAv = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
       const rowsAv: RowAv[] = []
@@ -656,7 +655,7 @@ export default function AthleteTabellonePage() {
         )
       }
 
-      // 🔹 Stesso ordinamento usato in admin
+      // stesso ordinamento dell’admin
       rowsAv.sort((a, b) =>
         (a.pos - b.pos) ||
         (b.W - a.W) ||
@@ -664,6 +663,9 @@ export default function AthleteTabellonePage() {
         (b.PF - a.PF) ||
         a.label.localeCompare(b.label)
       )
+
+      // 🔴 FIX: elimina i placeholder "Slot n" dalla vista pubblica
+      const rowsClean = rowsAv.filter(r => r.label && !/^slot\s*\d+$/i.test(r.label))
 
       return (
         <div className="overflow-x-auto">
@@ -679,7 +681,7 @@ export default function AthleteTabellonePage() {
               </tr>
             </thead>
             <tbody>
-              {rowsAv.map((r, i) => (
+              {rowsClean.map((r, i) => (
                 <tr key={`av-${i}`} className="border-t border-neutral-800">
                   <td className="py-1">{i + 1}</td>
                   <td className="truncate">{r.label}</td>
@@ -696,6 +698,7 @@ export default function AthleteTabellonePage() {
     })()}
   </div>
 )}
+
 
       </div>
     </div>
