@@ -172,35 +172,33 @@ const createEdition = async () => {
   const [suggestOpen, setSuggestOpen] = React.useState(false)
   const [isSearching, setIsSearching] = React.useState(false)
 
-  React.useEffect(() => {
-    const q = playerInput.trim()
-    if (!q) { setSuggestions([]); setSuggestOpen(false); return }
-    const t = setTimeout(async () => {
-      try {
-        setIsSearching(true)
-        const r = await fetch(`/api/players?search=${encodeURIComponent(q)}`, { cache:'no-store' })
-        const j = await r.json().catch(()=>({}))
-     const items: GlobalPlayer[] = j?.items ?? []
-setSuggestions(
-  items
-    .filter(gp =>
-      !existingIds.has(gp.id) &&
-      !existingNames.has(normalizeName(gp.display_name))
-    )
-    .slice(0, 12)
-)
-setSuggestOpen(true)
+React.useEffect(() => {
+  const q = playerInput.trim()
+  if (!q) { setSuggestions([]); setSuggestOpen(false); return }
+  const t = setTimeout(async () => {
+    try {
+      setIsSearching(true)
+      const r = await fetch(`/api/players?search=${encodeURIComponent(q)}`, { cache:'no-store' })
+      const j = await r.json().catch(()=>({}))
+      const items: GlobalPlayer[] = j?.items ?? []
+      setSuggestions(
+        items
+          .filter(gp =>
+            !existingIds.has(gp.id) &&
+            !existingNames.has(normalizeName(gp.display_name))
+          )
+          .slice(0, 12)
+      )
+      setSuggestOpen(true)
+    } catch {
+      setSuggestions([]); setSuggestOpen(false)
+    } finally {
+      setIsSearching(false)
+    }
+  }, 220)
+  return () => clearTimeout(t)
+}, [playerInput])
 
-
-      } catch {
-        setSuggestions([]); setSuggestOpen(false)
-      } finally {
-        setIsSearching(false)
-      }
-    }, 220)
-    return () => clearTimeout(t)
-  }, [playerInput])
-  
 function normalizeName(s: string) {
   return String(s || '')
     .trim()
