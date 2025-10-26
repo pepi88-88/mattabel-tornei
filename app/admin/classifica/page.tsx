@@ -188,26 +188,55 @@ const createEdition = async () => {
     }, 220)
     return () => clearTimeout(t)
   }, [playerInput])
+  
+function normalizeName(s: string) {
+  return String(s || '')
+    .trim()
+    .replace(/\s+/g, ' ')                               // spazi multipli → singolo
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // rimuovi accenti
+    .toLowerCase();
+}
 
-  const addPlayerById = async (p: GlobalPlayer) => {
-    if (!editionId) { alert('Seleziona un tour'); return }
+const addPlayerById = async (p: GlobalPlayer) => {
+  if (!editionId) { alert('Seleziona un tour'); return }
+
+  // ---- check duplicati: per id o per nome normalizzato
+  const alreadyById   = players.find(pl => pl.player_id === p.id);
+  const alreadyByName = players.find(pl => normalizeName(pl.display_name) === normalizeName(p.display_name));
+
+  if (alreadyById || alreadyByName) {
+    const existing = alreadyById || alreadyByName!;
+    // prova a recuperare la posizione attuale in classifica (se disponibile)
+    let posMsg = '';
     try {
-      const r = await fetch('/api/ranking/players', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({
-          edition_id: editionId,
-          player_id: p.id,
-          display_name: p.display_name,
-        })
-      })
-      if (!r.ok) throw new Error(await r.text())
-      setPlayerInput(''); setSuggestions([]); setSuggestOpen(false)
-      await Promise.all([refetchPlayers(), refetchTotals()])
-    } catch (e:any) {
-      alert('Errore aggiunta giocatore: ' + (e?.message || ''))
-    }
+      const idx = totalsSorted.findIndex(t => t.player_id === existing.player_id);
+      if (idx >= 0) posMsg = ` alla posizione ${idx + 1}`;
+    } catch {}
+    alert(`"${p.display_name}" è già presente${posMsg}.`);
+    setPlayerInput('');
+    setSuggestions([]);
+    setSuggestOpen(false);
+    return;
   }
+
+  try {
+    const r = await fetch('/api/ranking/players', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        edition_id: editionId,
+        player_id: p.id,
+        display_name: p.display_name,
+      }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    setPlayerInput(''); setSuggestions([]); setSuggestOpen(false);
+    await Promise.all([refetchPlayers(), refetchTotals()]);
+  } catch (e: any) {
+    // opzionale: se il server ha constraint UNIQUE e risponde 409/duplicate, messaggio più chiaro
+    alert('Errore aggiunta giocatore: ' + (e?.message || ''));
+  }
+};
 
   /* ------------------------ TAPPE inline + placements ------------------------ */
   const [stageForm, setStageForm] = React.useState({
