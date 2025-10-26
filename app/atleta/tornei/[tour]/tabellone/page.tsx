@@ -637,18 +637,33 @@ export default function AthleteTabellonePage() {
 
     {(() => {
       const avulsaRows = (() => {
-        const fromServer = readAvulsaArray(publicGroups)
-        if (fromServer) {
-          // se il server la fornisce già pronta, mostriamola così
-          return fromServer.map((label, i) => ({
-            pos: i + 1,
-            label,
-            W: undefined,
-            PF: undefined,
-            PS: undefined,
-            QP: undefined,
-          }))
-        }
+       // calcola sempre localmente (non serve readAvulsaArray)
+const letters = Object.keys(publicGroups.meta || {}).sort()
+type Row = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
+const rows: Row[] = []
+for (const L of letters) {
+  const stats = computeGroupRankingPublic(L, publicGroups)
+  stats.forEach((s, i) => rows.push({
+    letter: L,
+    pos: i + 1,
+    label: s.label,
+    W: s.W,
+    PF: s.PF,
+    PS: s.PS,
+    QP: s.QP,
+  }))
+}
+
+rows.sort((a, b) =>
+  (a.pos - b.pos) ||
+  (b.W - a.W) ||
+  (b.QP - a.QP) ||
+  (b.PF - a.PF) ||
+  a.label.localeCompare(b.label)
+)
+
+const avulsaRows = rows
+
 
         // fallback → calcola avulsa locale come in admin
         const letters = Object.keys(publicGroups.meta || {}).sort()
