@@ -39,15 +39,11 @@ function lastSurnames(label: string) {
 
 /* ===== stato pubblico gironi (esteso) ===== */
 type PublicPersist = {
-  assign?: Record<string, string>
-  labels?: Record<string, string>
+  assign?: Record<string, string>   // "A-1" -> "ridXYZ"
+  labels?: Record<string, string>   // "ridXYZ" -> "Mario / Luca"
   meta?:   Record<string, { capacity: number; format?: 'pool'|'ita' }>
   scores?: Record<string, { a: string; b: string }[]>
   times?:  Record<string, string[]>
-
-  // 👇 NEW: avulsa lato server (ordine già definitivo)
-  classifica_avulsa?: Array<string | { label: string }>
-  avulsa?:            Array<string | { label: string }>
 }
 
 /** risolutore token → nome: A1/B2, “1A”, “A 1”, “3”, Vincente/Perdente … */
@@ -56,7 +52,6 @@ function makeSlotResolver(
   tId?: string,
   externalResolver?: (token: string) => string | undefined,
   publicGroups?: PublicPersist | null,
-   avulsaNames?: string[],
 ) {
   const gmStore = (() => {
     try { return tId ? JSON.parse(localStorage.getItem(`gm:${tId}`) || 'null') : null }
@@ -78,10 +73,9 @@ function makeSlotResolver(
       const L = isLetterFirst ? mAB[1] : mAB[2];
       const pos = Number(isLetterFirst ? mAB[2] : mAB[1]);
 
-      // 1) Classifica live dai punteggi pubblici (PRIORITÀ) — usa solo se NON è un placeholder
-const byRank = nameFromGroupRankPublic(L, pos, publicGroups);
-if (byRank && !/^slot\s*\d+$/i.test(byRank)) return lastSurnames(byRank);
-
+      // 1) Classifica live dai punteggi pubblici (PRIORITÀ)
+      const byRank = nameFromGroupRankPublic(L, pos, publicGroups);
+      if (byRank) return lastSurnames(byRank);
 
       // 2) classifica salvata (admin) in LS
       try {
@@ -110,40 +104,29 @@ if (byRank && !/^slot\s*\d+$/i.test(byRank)) return lastSurnames(byRank);
       return token;
     }
 
-// === “3” (o qualsiasi token numerico) → Avulsa ===
-const numStr = token.replace(/[^\d]/g, '')  // accetta 1, 1°, 1., (1), ecc.
-if (numStr && tourId && tId) {
-  const idx = Math.max(1, Number(numStr)) - 1
+    // === “3” → Avulsa ===
+    if (/^\d+$/.test(token) && tourId && tId) {
+      // 1) PRIMA: avulsa LIVE dai dati pubblici
+      const live = buildAvulsaPublic(publicGroups);
+      const idx = Math.max(1, Number(token)) - 1;
+      if (Array.isArray(live) && live[idx]) {
+        return live[idx]; // già in forma "cognomi brevi"
+      }
 
-  // 1) PRIORITÀ: avulsa calcolata "invisibile" (server-first + fallback locale)
-  const arrFromMemo =
-    (Array.isArray(avulsaNames) && avulsaNames.length) ? avulsaNames : undefined
-  let fromServerOrLocal = arrFromMemo
-    ?? readAvulsaArray(publicGroups)
-    ?? buildAvulsaPublic(publicGroups)
-
-  if (fromServerOrLocal && fromServerOrLocal[idx]) {
-    const nm = String(fromServerOrLocal[idx] || '').trim()
-    if (nm && !/^slot\s*\d+$/i.test(nm) && !/^\d+$/.test(nm)) {
-      return lastSurnames(nm)
+      // 2) FALLBACK: LocalStorage
+      try {
+        const raw =
+          localStorage.getItem(`classifica_avulsa:${tourId}:${tId}`) ||
+          localStorage.getItem(`avulsa:${tourId}:${tId}`) ||
+          localStorage.getItem(`avulsa:${tId}`);
+        if (raw) {
+          const arr: string[] = JSON.parse(raw);
+          const nm = arr[idx];
+          if (nm) return lastSurnames(nm);
+        }
+      } catch {}
+      return token;
     }
-  }
-
-  // 2) FALLBACK: LocalStorage (retrocompat)
-  try {
-    const raw =
-      localStorage.getItem(`classifica_avulsa:${tourId}:${tId}`) ||
-      localStorage.getItem(`avulsa:${tourId}:${tId}`) ||
-      localStorage.getItem(`avulsa:${tId}`)
-    if (raw) {
-      const arr: string[] = JSON.parse(raw)
-      const nm = arr[idx]
-      if (nm) return lastSurnames(nm)
-    }
-  } catch {}
-
-  return token
-}
 
     // default: nessuna regola speciale
     return token;
@@ -190,17 +173,9 @@ function rrPairs(n: number) {
 }
 
 function labelBySlotPublic(L: string, slot: number, pub?: PublicPersist | null) {
-  // 1) mapping A-1 -> rid -> label
   const rid = pub?.assign?.[`${L}-${slot}`]
-  const fromAssign = rid ? pub?.labels?.[rid] : undefined
-  if (fromAssign && String(fromAssign).trim() !== '') return lastSurnames(String(fromAssign))
-
-  // 2) alcuni stati pubblici possono avere labels dirette tipo "A-1": usa anche quelle
-  const direct = (pub?.labels as any)?.[`${L}-${slot}`]
-  if (direct && String(direct).trim() !== '') return lastSurnames(String(direct))
-
-  // 3) placeholder (lasciato così per la classifica/avulsa admin-like)
-  return `Slot ${slot}`
+  const raw = rid ? pub?.labels?.[rid] : undefined
+  return raw ? lastSurnames(raw) : `Slot ${slot}`
 }
 
 type TeamStatPub = { slot:number; label:string; W:number; PF:number; PS:number; QP:number; finish?:number }
@@ -213,19 +188,18 @@ function computeGroupRankingPublic(L: string, pub?: PublicPersist | null): TeamS
 
   const sc = pub?.scores?.[L] ?? []
   const init: Record<number, TeamStatPub> = {}
-  for (let s=1; s<=cap; s++) {
-    init[s] = { slot:s, label:labelBySlotPublic(L,s,pub), W:0, PF:0, PS:0, QP:0 }
-  }
+  for (let s=1; s<=cap; s++) init[s] = { slot:s, label:labelBySlotPublic(L,s,pub), W:0, PF:0, PS:0, QP:0 }
 
-  // calendario: pool 4 con semifinali+finaline, altrimenti round-robin
+  // calendario base
   const rows = (fmt==='pool' && cap===4)
     ? [
         { a:1, b:4 }, { a:2, b:3 }, // semifinali
-        { a:undefined as any, b:undefined as any }, // finale 1-2
-        { a:undefined as any, b:undefined as any }, // finale 3-4
+        { a:undefined as any, b:undefined as any }, // finale 1-2 (placeholder)
+        { a:undefined as any, b:undefined as any }, // finale 3-4 (placeholder)
       ]
     : rrPairs(cap).map(([a,b]) => ({ a, b }))
 
+  // applica semifinali
   const apply = (A?:number, B?:number, i?:number) => {
     if (!A || !B) return
     const a = Number(sc[i!]?.a), b = Number(sc[i!]?.b)
@@ -236,14 +210,13 @@ function computeGroupRankingPublic(L: string, pub?: PublicPersist | null): TeamS
   }
 
   if (fmt==='pool' && cap===4) {
-    // semifinali
+    // S1, S2
     apply(1,4,0); apply(2,3,1)
     const w1 = (Number(sc[0]?.a) > Number(sc[0]?.b)) ? 1 : 4
     const w2 = (Number(sc[1]?.a) > Number(sc[1]?.b)) ? 2 : 3
     const l1 = w1===1 ? 4 : 1
     const l2 = w2===2 ? 3 : 2
-
-    // finali -> finish
+    // finali
     if (Number.isFinite(Number(sc[2]?.a)) && Number.isFinite(Number(sc[2]?.b))) {
       const a=Number(sc[2].a), b=Number(sc[2].b)
       init[w1].finish = a>b ? 1 : 2
@@ -255,13 +228,12 @@ function computeGroupRankingPublic(L: string, pub?: PublicPersist | null): TeamS
       init[l2].finish = a>b ? 4 : 3
     }
   } else {
+    // round robin classico
     rows.forEach((r, i) => apply(r.a, r.b, i))
   }
 
   const arr = Object.values(init)
   arr.forEach(s => { s.QP = s.PF / Math.max(1, s.PS) })
-
-  // stesso sort dell’admin
   arr.sort((A,B) => {
     const fA = A.finish ?? 999, fB = B.finish ?? 999
     if (fA !== fB) return fA - fB
@@ -270,62 +242,26 @@ function computeGroupRankingPublic(L: string, pub?: PublicPersist | null): TeamS
   return arr
 }
 
-// 👇 deve stare FUORI dalla funzione sopra
-function nameFromGroupRankPublic(
-  letter: string,
-  pos: number,
-  pub?: PublicPersist | null
-): string | undefined {
+function nameFromGroupRankPublic(letter: string, pos: number, pub?: PublicPersist | null): string | undefined {
   const L = String(letter || '').toUpperCase()
   if (!/^[A-Z]$/.test(L) || !Number.isFinite(pos) || pos < 1) return
   const stats = computeGroupRankingPublic(L, pub)
   const row = stats[pos - 1]
   return row?.label ? lastSurnames(row.label) : undefined
 }
-
-function readAvulsaArray(pub?: PublicPersist | null): string[] | null {
-  if (!pub) return null
-  const raw = (pub.classifica_avulsa ?? pub.avulsa) as Array<string | { label: string }> | undefined
-  if (!raw || !Array.isArray(raw) || raw.length === 0) return null
-  return raw.map((x) => {
-    const s = typeof x === 'string' ? x : (x?.label ?? '')
-    return lastSurnames(String(s || '').trim())
-  })
-}
-
-/** Avulsa identica all’admin: usa prima l’array server, poi fallback da meta/scores */
+// Crea la avulsa "live" dai dati pubblici
 function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
-  // ✅ PRIORITÀ: usa l’avulsa già calcolata dal server (stesso ordine e cardinalità dell’admin)
-  const fromServer = readAvulsaArray(pub)
-  if (fromServer) return fromServer
-
-  // --- Fallback: calcola dai meta/scores pubblici (come avevi già) ---
   if (!pub?.meta) return []
   const letters = Object.keys(pub.meta).sort()
   type Row = { letter: string; pos: number; label: string; W: number; PF: number; PS: number; QP: number }
   const rows: Row[] = []
-
   for (const L of letters) {
     const stats = computeGroupRankingPublic(L, pub)
-    stats.forEach((s, i) =>
-      rows.push({ letter: L, pos: i + 1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP })
-    )
+    stats.forEach((s, i) => rows.push({ letter: L, pos: i+1, label: s.label, W: s.W, PF: s.PF, PS: s.PS, QP: s.QP }))
   }
-
-  // stesso ordinamento dell’admin (NON cambiare l’ordine dei criteri)
-  rows.sort((a, b) =>
-    (a.pos - b.pos) ||
-    (b.W - a.W) ||
-    (b.QP - a.QP) ||
-    (b.PF - a.PF) ||
-    a.label.localeCompare(b.label)
-  )
-
-  // non rimuovere eventuali placeholder ("Slot n"): decide il resolver se usarli o fare fallback.
+  rows.sort((a,b) => (a.pos - b.pos) || (b.W - a.W) || (b.QP - a.QP) || a.letter.localeCompare(b.letter))
   return rows.map(r => lastSurnames(r.label))
 }
-
-
 
 /* ============== External “Vincente/Perdente …” ============== */
 function makeExternalResolver(
@@ -605,15 +541,10 @@ export default function AthleteTabellonePage() {
     })()
     return () => { cancelled = true }
   }, [tId])
-// avulsa "invisibile" calcolata localmente (server-first + fallback da meta/scores)
-const avulsaNames = useMemo(() => buildAvulsaPublic(publicGroups), [publicGroups])
 
   // resolver per Vincente/Perdente e nomi
   const external = useMemo(() => makeExternalResolver(brackets, winnersById), [brackets, winnersById])
-  const resolve  = useMemo(
-  () => makeSlotResolver(tourId, tId, external, publicGroups, avulsaNames),
-  [tourId, tId, external, publicGroups, avulsaNames]
-)
+  const resolve  = useMemo(() => makeSlotResolver(tourId, tId, external, publicGroups), [tourId, tId, external, publicGroups])
 
   const active = useMemo(
     () => brackets.find((b) => b.id === activeId) || null,
