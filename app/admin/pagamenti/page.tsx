@@ -230,39 +230,36 @@ export default function PagamentiPage() {
           // 📦 griglia a DUE COLONNE (1 colonna su mobile)
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {visibleItems.map((r: any, i: number) => (
-              <div
-                key={r.id}
-                className={`py-2 px-3 flex items-center justify-between rounded-lg border border-neutral-800 ${
-                  r.paid_a && r.paid_b ? 'opacity-70' : ''
-                }`}
-              >
-                <div className="flex flex-col">
-                  <span className="text-xs text-neutral-500">
-                    #{i + 1}
-                  </span>
-                  <span className="whitespace-pre">
-                    {r.a} — {r.b}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1 items-end">
-                  <label className="flex items-center gap-2 text-xs sm:text-sm">
-                    <input
-                      type="checkbox"
-                      checked={!!r.paid_a}
-                      onChange={e => togglePaid(r.id, 'A', e.target.checked)}
-                    />
-                    <span>Pagato A</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-xs sm:text-sm">
-                    <input
-                      type="checkbox"
-                      checked={!!r.paid_b}
-                      onChange={e => togglePaid(r.id, 'B', e.target.checked)}
-                    />
-                    <span>Pagato B</span>
-                  </label>
-                </div>
-              </div>
+             <div key={r.id}
+     className={`py-2 px-3 flex items-center rounded-lg border border-neutral-800 ${
+       r.paid_a && r.paid_b ? 'opacity-70' : ''
+     }`}>
+  {/* checkbox A a sinistra */}
+  <label className="flex items-center gap-1 text-xs sm:text-sm">
+    <input
+      type="checkbox"
+      checked={!!r.paid_a}
+      onChange={e => togglePaid(r.id, 'A', e.target.checked)}
+    />
+    <span className="min-w-[4ch]">A</span>
+  </label>
+
+  {/* nome centrale */}
+  <div className="flex-1 text-center whitespace-pre">
+     #{i + 1} — {r.a} — {r.b}
+  </div>
+
+  {/* checkbox B a destra */}
+  <label className="flex items-center gap-1 text-xs sm:text-sm">
+    <span className="min-w-[4ch]">B</span>
+    <input
+      type="checkbox"
+      checked={!!r.paid_b}
+      onChange={e => togglePaid(r.id, 'B', e.target.checked)}
+    />
+  </label>
+</div>
+
             ))}
           </div>
         )}
