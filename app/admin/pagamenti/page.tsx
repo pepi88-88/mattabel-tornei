@@ -1,5 +1,4 @@
 'use client'
-
 import useSWR from 'swr'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -9,31 +8,28 @@ export default function PagamentiPage() {
   // TOUR
   const { data: tours } = useSWR('/api/tours', fetcher)
   const [tourId, setTourId] = useState('')
-
   useEffect(() => {
     const s = localStorage.getItem('selectedTourId')
     if (s) setTourId(s)
   }, [])
-
   function onPickTour(id: string) {
     setTourId(id)
     localStorage.setItem('selectedTourId', id)
     setTId('')
   }
 
-  // TAPPE (raw)
+  // TAPPA (raw)
   const { data: taps } = useSWR(
     tourId ? `/api/tournaments?tour_id=${tourId}` : null,
     fetcher
   )
   const [tId, setTId] = useState('')
-
   useEffect(() => {
     const s = localStorage.getItem('selectedTournamentId')
     if (s) setTId(s)
   }, [])
 
-  // elenco tappe visibili (no chiuse) + ordine per data desc
+  // ---- TAPPE VISIBILI: esclude CHIUSE + ordina per data desc
   const parseDate = (s?: string | null) => (s ? new Date(s).getTime() : 0)
   const tappeVisibili = useMemo(() => {
     const arr = (taps?.items ?? []) as any[]
@@ -49,7 +45,7 @@ export default function PagamentiPage() {
     }
   }, [tappeVisibili, tId])
 
-  // se la tappa salvata non è più visibile → reset
+  // se la tappa salvata è chiusa/non più visibile → reset
   useEffect(() => {
     if (!tId) return
     const stillVisible = tappeVisibili.some(t => t.id === tId)
@@ -72,18 +68,20 @@ export default function PagamentiPage() {
   )
   const items = data?.items ?? []
 
-  // SOLO pagamenti: escludi waiting list in base a max_teams
+  // --- SOLO PAGAMENTI: escludi la waiting list
   const maxTeamsRaw = tId
     ? tappeVisibili.find((t: any) => t.id === tId)?.max_teams
     : undefined
-  const maxTeams = Number.isFinite(+maxTeamsRaw)
-    ? Math.max(0, +maxTeamsRaw)
-    : 0
+  const maxTeams = Number.isFinite(+maxTeamsRaw) ? Math.max(0, +maxTeamsRaw) : 0
 
+  // mostra in Pagamenti solo i primi "maxTeams" (se > 0). Se maxTeams non impostato → mostra tutto
   const payableItems =
     maxTeams > 0 ? items.slice(0, Math.min(maxTeams, items.length)) : items
 
-  // totali (su tutte le squadre "payable")
+  // 🔍 RICERCA TESTUALE
+  const [search, setSearch] = useState('')
+
+  // TOT GENERALI (NON filtrati dalla ricerca)
   const stats = useMemo(() => {
     let a = 0,
       b = 0,
@@ -96,45 +94,34 @@ export default function PagamentiPage() {
     return { a, b, both, teams: payableItems.length }
   }, [payableItems])
 
-  // 🔍 ricerca
-  const [search, setSearch] = useState('')
+  // 📌 LISTA VISIBILE: applica ricerca + manda in fondo le squadre COMPLETAMENTE pagate
+  const visibleItems = useMemo(() => {
+    // 1) filtro per ricerca
+    const q = search.trim().toLowerCase()
+    let filtered = payableItems
+    if (q) {
+      filtered = payableItems.filter((r: any) => {
+        const a = String(r.a || '').toLowerCase()
+        const b = String(r.b || '').toLowerCase()
+        return a.includes(q) || b.includes(q)
+      })
+    }
 
-  const normalize = (s: string) =>
-    String(s || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .trim()
-
-  // 1) filtro per ricerca su A o B
-  const visibleFiltered = useMemo(() => {
-    const q = normalize(search)
-    if (!q) return payableItems
-    return payableItems.filter((r: any) => {
-      const a = normalize(r.a)
-      const b = normalize(r.b)
-      return a.includes(q) || b.includes(q)
-    })
+    // 2) metti in fondo quelle completamente pagate (paid_a && paid_b)
+    const notFull: any[] = []
+    const full: any[] = []
+    for (const r of filtered) {
+      if (r.paid_a && r.paid_b) full.push(r)
+      else notFull.push(r)
+    }
+    return [...notFull, ...full]
   }, [payableItems, search])
 
-  // 2) ordina: prima squadre NON complete, poi quelle complete (pagato A+B) in fondo
-  const visibleSorted = useMemo(() => {
-    return visibleFiltered
-      .map((r: any, idx: number) => ({ r, idx }))
-      .sort((x, y) => {
-        const doneX = x.r.paid_a && x.r.paid_b ? 1 : 0
-        const doneY = y.r.paid_a && y.r.paid_b ? 1 : 0
-        if (doneX !== doneY) return doneX - doneY // incomplete prima, complete dopo
-        return x.idx - y.idx // mantieni ordine originale dentro ai gruppi
-      })
-      .map(x => x.r)
-  }, [visibleFiltered])
-
-  // toggle con conferma quando togli una spunta
-  async function togglePaid(id: string, side: 'A' | 'B', value: boolean) {
+   async function togglePaid(id: string, side: 'A' | 'B', value: boolean) {
+    // trova la riga per messaggio più chiaro
     const reg = items.find((r: any) => r.id === id)
 
-    // se sto togliendo la spunta → chiedi conferma
+    // se stiamo TOGLIENDO una spunta → chiedi conferma
     if (!value) {
       const name = reg ? `${reg.a} — ${reg.b}` : ''
       const label = side === 'A' ? 'Pagato A' : 'Pagato B'
@@ -144,6 +131,7 @@ export default function PagamentiPage() {
 
       const ok = confirm(msg)
       if (!ok) {
+        // ripristina lo stato locale (nel dubbio, ricarichiamo i dati correnti)
         mutate(data, false)
         return
       }
@@ -153,8 +141,8 @@ export default function PagamentiPage() {
     if (side === 'A') body.paid_a = value
     else body.paid_b = value
 
+    // ottimistico
     const prev = data
-    // update ottimistico
     mutate(
       {
         items: items.map((r: any) =>
@@ -175,6 +163,7 @@ export default function PagamentiPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
+
     if (!res.ok) {
       mutate(prev, false)
       const js = await res.json().catch(() => ({}))
@@ -184,9 +173,10 @@ export default function PagamentiPage() {
     }
   }
 
+
   return (
     <div className="space-y-6 p-6">
-      {/* intestazione: tour, tappa, ricerca, stats */}
+      {/* intestazione: stessi selettori di Iscrizioni */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
           <span className="text-sm text-neutral-400">Tour</span>
@@ -222,24 +212,26 @@ export default function PagamentiPage() {
           </select>
         </div>
 
-        <div className="ml-auto flex flex-col gap-1">
-          <span className="text-sm text-neutral-400">Cerca</span>
-          <input
-            className="input w-56"
-            placeholder="Nome giocatore…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-
-        <div className="text-sm text-neutral-400">
+        <div className="ml-auto text-sm text-neutral-400">
           Squadre: {stats.teams} · Pagate A: {stats.a} · Pagate B: {stats.b} ·
           Squadre pagate: {stats.both}
         </div>
       </div>
 
       {/* elenco pagamenti */}
-      <div className="card p-4">
+      <div className="card p-4 space-y-3">
+        {/* 🔍 barra di ricerca (solo se c'è tappa selezionata) */}
+        {tId && payableItems.length > 0 && (
+          <div className="mb-2">
+            <input
+              className="input w-full max-w-sm"
+              placeholder="Cerca per nome (A o B)…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+        )}
+
         {!tId ? (
           <div className="text-neutral-400">Seleziona una tappa visibile.</div>
         ) : payableItems.length === 0 ? (
@@ -252,59 +244,45 @@ export default function PagamentiPage() {
               Nessuna iscrizione per questa tappa.
             </div>
           )
-        ) : visibleSorted.length === 0 ? (
+        ) : visibleItems.length === 0 ? (
           <div className="text-neutral-400">
             Nessun risultato per la ricerca corrente.
           </div>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {visibleSorted.map((r: any, i: number) => {
-              const isComplete = !!r.paid_a && !!r.paid_b
-              return (
-                <div
-                  key={r.id}
-                  className={`flex items-center gap-3 rounded-lg border border-neutral-800 px-3 py-2 ${
-                    isComplete ? 'bg-neutral-900/70 opacity-75' : ''
-                  }`}
-                >
-                  {/* numero progressivo */}
-                  <span className="text-xs text-neutral-400 w-8 shrink-0">
-                    #{i + 1}
-                  </span>
+          // 📦 griglia a DUE COLONNE (1 colonna su mobile)
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {visibleItems.map((r: any, i: number) => (
+             <div key={r.id}
+     className={`py-2 px-3 flex items-center rounded-lg border border-neutral-800 ${
+       r.paid_a && r.paid_b ? 'opacity-70' : ''
+     }`}>
+  {/* checkbox A a sinistra */}
+  <label className="flex items-center gap-1 text-xs sm:text-sm">
+    <input
+      type="checkbox"
+      checked={!!r.paid_a}
+      onChange={e => togglePaid(r.id, 'A', e.target.checked)}
+    />
+    <span className="min-w-[4ch]">A</span>
+  </label>
 
-                  {/* nomi + checkbox allineate */}
-                  <div className="flex items-center gap-2 min-w-0">
-                    <label className="flex items-center gap-1 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={!!r.paid_a}
-                        onChange={e =>
-                          togglePaid(r.id, 'A', e.target.checked)
-                        }
-                      />
-                      <span className="text-sm truncate" title={r.a}>
-                        {r.a}
-                      </span>
-                    </label>
+  {/* nome centrale */}
+  <div className="flex-1 text-center whitespace-pre">
+     #{i + 1} — {r.a} — {r.b}
+  </div>
 
-                    <span className="text-neutral-500">—</span>
+  {/* checkbox B a destra */}
+  <label className="flex items-center gap-1 text-xs sm:text-sm">
+    <span className="min-w-[4ch]">B</span>
+    <input
+      type="checkbox"
+      checked={!!r.paid_b}
+      onChange={e => togglePaid(r.id, 'B', e.target.checked)}
+    />
+  </label>
+</div>
 
-                    <label className="flex items-center gap-1 min-w-0">
-                      <span className="text-sm truncate" title={r.b}>
-                        {r.b}
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={!!r.paid_b}
-                        onChange={e =>
-                          togglePaid(r.id, 'B', e.target.checked)
-                        }
-                      />
-                    </label>
-                  </div>
-                </div>
-              )
-            })}
+            ))}
           </div>
         )}
       </div>
