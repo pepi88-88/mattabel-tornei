@@ -117,7 +117,26 @@ export default function PagamentiPage() {
     return [...notFull, ...full]
   }, [payableItems, search])
 
-  async function togglePaid(id: string, side: 'A' | 'B', value: boolean) {
+   async function togglePaid(id: string, side: 'A' | 'B', value: boolean) {
+    // trova la riga per messaggio più chiaro
+    const reg = items.find((r: any) => r.id === id)
+
+    // se stiamo TOGLIENDO una spunta → chiedi conferma
+    if (!value) {
+      const name = reg ? `${reg.a} — ${reg.b}` : ''
+      const label = side === 'A' ? 'Pagato A' : 'Pagato B'
+      const msg = name
+        ? `Vuoi davvero togliere la spunta "${label}" per ${name}?`
+        : `Vuoi davvero togliere la spunta "${label}"?`
+
+      const ok = confirm(msg)
+      if (!ok) {
+        // ripristina lo stato locale (nel dubbio, ricarichiamo i dati correnti)
+        mutate(data, false)
+        return
+      }
+    }
+
     const body: any = { id }
     if (side === 'A') body.paid_a = value
     else body.paid_b = value
@@ -138,11 +157,13 @@ export default function PagamentiPage() {
       },
       false
     )
+
     const res = await fetch('/api/registrations/pay', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
+
     if (!res.ok) {
       mutate(prev, false)
       const js = await res.json().catch(() => ({}))
@@ -151,6 +172,7 @@ export default function PagamentiPage() {
       mutate()
     }
   }
+
 
   return (
     <div className="space-y-6 p-6">
