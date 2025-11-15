@@ -658,7 +658,7 @@ export default function AthleteTabellonePage() {
           </div>
         )}
     {/* CLASSIFICA AVULSA (visibile per test) */}
-{false && publicGroups && (
+{publicGroups && (
   <div className="card p-4 mt-6">
     <div className="text-lg font-semibold mb-3">Classifica avulsa (TEST VISIBILE)</div>
 
