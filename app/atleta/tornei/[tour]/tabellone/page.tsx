@@ -209,28 +209,40 @@ function computeGroupRankingPublic(L: string, pub?: PublicPersist | null): TeamS
     if (a>b) init[A].W += 1; else if (b>a) init[B].W += 1
   }
 
-  if (fmt==='pool' && cap===4) {
-    // S1, S2
-    apply(1,4,0); apply(2,3,1)
-    const w1 = (Number(sc[0]?.a) > Number(sc[0]?.b)) ? 1 : 4
-    const w2 = (Number(sc[1]?.a) > Number(sc[1]?.b)) ? 2 : 3
-    const l1 = w1===1 ? 4 : 1
-    const l2 = w2===2 ? 3 : 2
-    // finali
+  if (fmt === 'pool' && cap === 4) {
+    // 1) Semifinali
+    apply(1, 4, 0) // S1 vs S4
+    apply(2, 3, 1) // S2 vs S3
+
+    const s0a = Number(sc[0]?.a), s0b = Number(sc[0]?.b)
+    const s1a = Number(sc[1]?.a), s1b = Number(sc[1]?.b)
+
+    const w1 = (s0a > s0b) ? 1 : 4
+    const w2 = (s1a > s1b) ? 2 : 3
+    const l1 = (w1 === 1) ? 4 : 1
+    const l2 = (w2 === 2) ? 3 : 2
+
+    // 2) Finali: contano sia per PF/PS/W che per la posizione finale
+    // finale 1°-2°
     if (Number.isFinite(Number(sc[2]?.a)) && Number.isFinite(Number(sc[2]?.b))) {
-      const a=Number(sc[2].a), b=Number(sc[2].b)
-      init[w1].finish = a>b ? 1 : 2
-      init[w2].finish = a>b ? 2 : 1
+      apply(w1, w2, 2) // aggiunge PF/PS/W anche da questa partita
+      const a = Number(sc[2].a), b = Number(sc[2].b)
+      init[w1].finish = a > b ? 1 : 2
+      init[w2].finish = a > b ? 2 : 1
     }
+
+    // finale 3°-4°
     if (Number.isFinite(Number(sc[3]?.a)) && Number.isFinite(Number(sc[3]?.b))) {
-      const a=Number(sc[3].a), b=Number(sc[3].b)
-      init[l1].finish = a>b ? 3 : 4
-      init[l2].finish = a>b ? 4 : 3
+      apply(l1, l2, 3) // idem per la finale 3/4 posto
+      const a = Number(sc[3].a), b = Number(sc[3].b)
+      init[l1].finish = a > b ? 3 : 4
+      init[l2].finish = a > b ? 4 : 3
     }
   } else {
-    // round robin classico
+    // round robin classico (già ok)
     rows.forEach((r, i) => apply(r.a, r.b, i))
   }
+
 
   const arr = Object.values(init)
   arr.forEach(s => { s.QP = s.PF / Math.max(1, s.PS) })
