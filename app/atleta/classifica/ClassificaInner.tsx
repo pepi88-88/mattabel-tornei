@@ -180,7 +180,7 @@ export default function ClassificaInner() {
                 <th className="text-right w-28 pr-4">Totale</th>
 
                 {stages.map((st, idx)=>(
-                  <th key={st.id} className={`min-w-[160px] align-bottom ${idx>=0 ? 'border-l border-neutral-800' : ''}`}>
+                 <th key={st.id} className={`min-w-[120px] align-bottom border-l border-neutral-800`}>
                     <div className="flex flex-col items-center gap-1 py-1">
                       <div className="font-medium">{st.name}</div>
                       <div className="text-xs text-neutral-400">
@@ -196,7 +196,7 @@ export default function ClassificaInner() {
                   <th /><th /><th />
                   {stages.map(st=>(
                     <th key={st.id} className="py-1 border-l border-neutral-800">
-                      <div className="grid grid-cols-2 w-32 mx-auto">
+                      <div className="grid grid-cols-2 w-24 mx-auto">
                         <span className="text-left">POS</span>
                         <span className="text-right">PTS</span>
                       </div>
@@ -210,7 +210,9 @@ export default function ClassificaInner() {
               {rows.map((r, i)=>(
                 <tr key={r.player_id} className={`border-t border-neutral-800 ${classForRow(i+1)}`}>
                   <td className="py-1">{i+1}</td>
-                  <td className="py-1">{r.name}</td>
+                 <td className="py-1 whitespace-nowrap max-w-[240px] truncate" title={r.name}>
+  {r.name}
+</td>
                   <td className="py-1 text-right font-semibold pr-4">
                     {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(r.total)}
                   </td>
@@ -220,10 +222,10 @@ export default function ClassificaInner() {
                     const pts = pos ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet) : 0
                     return (
                       <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx2>0 ? 'border-l border-neutral-800' : ''}`}>
-                        <div className="grid grid-cols-2 items-center w-32 mx-auto">
-                          <div className="w-16 tabular-nums text-left">{pos || '—'}</div>
-                          <div className="w-16 tabular-nums text-right">{pts ? pts : '—'}</div>
-                        </div>
+                        <div className="grid grid-cols-2 items-center w-24 mx-auto">
+  <div className="w-12 tabular-nums text-left">{pos || '—'}</div>
+  <div className="w-12 tabular-nums text-right">{pts ? pts : '—'}</div>
+</div>
                       </td>
                     )
                   })}
