@@ -83,15 +83,26 @@ export default function PagamentiPage() {
 
   // TOT GENERALI (NON filtrati dalla ricerca)
   const stats = useMemo(() => {
-    let a = 0,
-      b = 0,
-      both = 0
-    for (const r of payableItems) {
-      if (r.paid_a) a++
-      if (r.paid_b) b++
-      if (r.paid_a && r.paid_b) both++
-    }
-    return { a, b, both, teams: payableItems.length }
+    let a = 0, b = 0, c = 0, d = 0, full = 0
+
+for (const r of payableItems) {
+  if (r.paid_a) a++
+  if (r.paid_b) b++
+  if (r.paid_c) c++
+  if (r.paid_d) d++
+
+  const isTeam = !!r.team_name && Number(r.team_format) >= 3
+  const is4 = Number(r.team_format) === 4
+
+  const fullyPaid = isTeam
+    ? (r.paid_a && r.paid_b && r.paid_c && (is4 ? r.paid_d : true))
+    : (r.paid_a && r.paid_b)
+
+  if (fullyPaid) full++
+}
+
+return { a, b, c, d, full, teams: payableItems.length }
+
   }, [payableItems])
 
   // 📌 LISTA VISIBILE: applica ricerca + manda in fondo le squadre COMPLETAMENTE pagate
@@ -101,9 +112,13 @@ export default function PagamentiPage() {
     let filtered = payableItems
     if (q) {
       filtered = payableItems.filter((r: any) => {
-        const a = String(r.a || '').toLowerCase()
-        const b = String(r.b || '').toLowerCase()
-        return a.includes(q) || b.includes(q)
+       const a = String(r.a || '').toLowerCase()
+const b = String(r.b || '').toLowerCase()
+const c = String(r.c || '').toLowerCase()
+const d = String(r.d || '').toLowerCase()
+const tn = String(r.team_name || '').toLowerCase()
+return a.includes(q) || b.includes(q) || c.includes(q) || d.includes(q) || tn.includes(q)
+
       })
     }
 
@@ -111,20 +126,34 @@ export default function PagamentiPage() {
     const notFull: any[] = []
     const full: any[] = []
     for (const r of filtered) {
-      if (r.paid_a && r.paid_b) full.push(r)
-      else notFull.push(r)
+     const isTeam = !!r.team_name && Number(r.team_format) >= 3
+const is4 = Number(r.team_format) === 4
+const fullyPaid = isTeam
+  ? (r.paid_a && r.paid_b && r.paid_c && (is4 ? r.paid_d : true))
+  : (r.paid_a && r.paid_b)
+
+if (fullyPaid) full.push(r)
+else notFull.push(r)
+
     }
     return [...notFull, ...full]
   }, [payableItems, search])
 
-   async function togglePaid(id: string, side: 'A' | 'B', value: boolean) {
+  async function togglePaid(id: string, side: 'A' | 'B' | 'C' | 'D', value: boolean) {
     // trova la riga per messaggio più chiaro
     const reg = items.find((r: any) => r.id === id)
 
     // se stiamo TOGLIENDO una spunta → chiedi conferma
     if (!value) {
-      const name = reg ? `${reg.a} — ${reg.b}` : ''
-      const label = side === 'A' ? 'Pagato A' : 'Pagato B'
+     const name = reg
+  ? (reg.team_name ? `${reg.team_name} — ${reg.a} / ${reg.b} / ${reg.c || ''} / ${reg.d || ''}` : `${reg.a} — ${reg.b}`)
+  : ''
+const label =
+  side === 'A' ? 'Pagato A'
+  : side === 'B' ? 'Pagato B'
+  : side === 'C' ? 'Pagato C'
+  : 'Pagato D'
+
       const msg = name
         ? `Vuoi davvero togliere la spunta "${label}" per ${name}?`
         : `Vuoi davvero togliere la spunta "${label}"?`
@@ -138,8 +167,11 @@ export default function PagamentiPage() {
     }
 
     const body: any = { id }
-    if (side === 'A') body.paid_a = value
-    else body.paid_b = value
+if (side === 'A') body.paid_a = value
+else if (side === 'B') body.paid_b = value
+else if (side === 'C') body.paid_c = value
+else body.paid_d = value
+
 
     // ottimistico
     const prev = data
@@ -150,7 +182,10 @@ export default function PagamentiPage() {
             ? {
                 ...r,
                 paid_a: side === 'A' ? value : r.paid_a,
-                paid_b: side === 'B' ? value : r.paid_b,
+paid_b: side === 'B' ? value : r.paid_b,
+paid_c: side === 'C' ? value : r.paid_c,
+paid_d: side === 'D' ? value : r.paid_d,
+
               }
             : r
         ),
@@ -213,8 +248,8 @@ export default function PagamentiPage() {
         </div>
 
         <div className="ml-auto text-sm text-neutral-400">
-          Squadre: {stats.teams} · Pagate A: {stats.a} · Pagate B: {stats.b} ·
-          Squadre pagate: {stats.both}
+         Squadre: {stats.teams} · Pagate A: {stats.a} · Pagate B: {stats.b} · Pagate C: {stats.c} · Pagate D: {stats.d} · Squadre pagate: {stats.full}
+
         </div>
       </div>
 
@@ -225,7 +260,7 @@ export default function PagamentiPage() {
           <div className="mb-2">
             <input
               className="input w-full max-w-sm"
-              placeholder="Cerca per nome (A o B)…"
+              placeholder="Cerca per nome o squadra…"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -249,41 +284,100 @@ export default function PagamentiPage() {
             Nessun risultato per la ricerca corrente.
           </div>
         ) : (
-          // 📦 griglia a DUE COLONNE (1 colonna su mobile)
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {visibleItems.map((r: any, i: number) => (
-             <div key={r.id}
-     className={`py-2 px-3 flex items-center rounded-lg border border-neutral-800 ${
-       r.paid_a && r.paid_b ? 'opacity-70' : ''
-     }`}>
-  {/* checkbox A a sinistra */}
-  <label className="flex items-center gap-1 text-xs sm:text-sm">
-    <input
-      type="checkbox"
-      checked={!!r.paid_a}
-      onChange={e => togglePaid(r.id, 'A', e.target.checked)}
-    />
-    <span className="min-w-[4ch]">A</span>
-  </label>
+  {visibleItems.map((r: any, i: number) => {
+    const isTeam = !!r.team_name && Number(r.team_format) >= 3
+    const is4 = Number(r.team_format) === 4
 
-  {/* nome centrale */}
-  <div className="flex-1 text-center whitespace-pre">
-     #{i + 1} — {r.a} — {r.b}
+    const fullyPaid = isTeam
+      ? (r.paid_a && r.paid_b && r.paid_c && (is4 ? r.paid_d : true))
+      : (r.paid_a && r.paid_b)
+
+   return (
+  <div
+    key={r.id}
+    className={[
+      'py-2 px-3 rounded-lg border border-neutral-800',
+      'grid gap-x-2 gap-y-2',
+      'grid-cols-[72px_1fr_72px]',  // sx / centro / dx
+      fullyPaid ? 'opacity-70' : '',
+    ].join(' ')}
+  >
+    {/* TEAM NAME (span 3) */}
+    {isTeam && (
+      <div className="col-span-3 text-center font-semibold text-blue-400 leading-tight">
+        {r.team_name}
+      </div>
+    )}
+
+    {/* ROW 1: A / (A-B names) / B */}
+    <label className="flex items-center gap-2 text-xs sm:text-sm justify-start">
+      <input
+        type="checkbox"
+        checked={!!r.paid_a}
+        onChange={e => togglePaid(r.id, 'A', e.target.checked)}
+      />
+      <span>A</span>
+    </label>
+
+    <div className="text-center text-sm text-white leading-tight">
+      {r.a} — {r.b}
+    </div>
+
+    <label className="flex items-center gap-2 text-xs sm:text-sm justify-end">
+      <span>B</span>
+      <input
+        type="checkbox"
+        checked={!!r.paid_b}
+        onChange={e => togglePaid(r.id, 'B', e.target.checked)}
+      />
+    </label>
+
+    {/* ROW 2: C / (C-D names) / D */}
+    {isTeam ? (
+      <>
+        <label className="flex items-center gap-2 text-xs sm:text-sm justify-start">
+          <input
+            type="checkbox"
+            checked={!!r.paid_c}
+            onChange={e => togglePaid(r.id, 'C', e.target.checked)}
+          />
+          <span>C</span>
+        </label>
+
+        <div className="text-center text-sm text-white/90 leading-tight">
+          {r.c || '—'}
+          {is4 ? ` — ${r.d || '—'}` : ''}
+        </div>
+
+        {is4 ? (
+          <label className="flex items-center gap-2 text-xs sm:text-sm justify-end">
+            <span>D</span>
+            <input
+              type="checkbox"
+              checked={!!r.paid_d}
+              onChange={e => togglePaid(r.id, 'D', e.target.checked)}
+            />
+          </label>
+        ) : (
+          <div /> // placeholder per 3x3
+        )}
+      </>
+    ) : (
+      // 2x2: seconda riga vuota
+      <>
+        <div />
+        <div />
+        <div />
+      </>
+    )}
   </div>
+)
 
-  {/* checkbox B a destra */}
-  <label className="flex items-center gap-1 text-xs sm:text-sm">
-    <span className="min-w-[4ch]">B</span>
-    <input
-      type="checkbox"
-      checked={!!r.paid_b}
-      onChange={e => togglePaid(r.id, 'B', e.target.checked)}
-    />
-  </label>
+
+  })}
 </div>
 
-            ))}
-          </div>
         )}
       </div>
     </div>
