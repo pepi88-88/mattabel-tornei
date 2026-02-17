@@ -130,30 +130,118 @@ const items = useMemo(() => {
     mutate()
   }
 
-  // form SOLO ricerca
- const [playerA, setPlayerA] = useState<PickerPlayer | null>(null)
-  const [bMode, setBMode] = useState<'player'|'looking'|'cdc'>('player')
-  const [playerB, setPlayerB] = useState<PickerPlayer | null>(null)
+// form: 2x2 / 3x3 / 4x4
+const [teamFormat, setTeamFormat] = useState<2 | 3 | 4>(2)
+const [teamName, setTeamName] = useState<string>('')
+
+// A/B/C/D
+const [playerA, setPlayerA] = useState<PickerPlayer | null>(null)
+const [playerB, setPlayerB] = useState<PickerPlayer | null>(null)
+const [playerC, setPlayerC] = useState<PickerPlayer | null>(null)
+const [playerD, setPlayerD] = useState<PickerPlayer | null>(null)
+
+// solo per 2x2 (come prima)
+const [bMode, setBMode] = useState<'player'|'looking'|'cdc'>('player')
+const [cMode, setCMode] = useState<'player'|'looking'|'cdc'>('player')
+const [dMode, setDMode] = useState<'player'|'looking'|'cdc'>('player')
+
+// reset totale quando cambi formato (evita residui)
+function onChangeFormat(next: 2 | 3 | 4) {
+  setTeamFormat(next)
+  setTeamName('')
+  setPlayerA(null)
+  setPlayerB(null)
+  setPlayerC(null)
+  setPlayerD(null)
+  setBMode('player')
+  setCMode('player')
+  setDMode('player')
+
+}
+
 
   async function createTeam() {
-    if (!tId) return
-    if (!playerA) return alert('Seleziona il Giocatore A')
-    const payload:any = { tournament_id: tId, a: { id: playerA.id } }
+  if (!tId) return
+
+  // A sempre obbligatorio
+  if (!playerA) return alert('Seleziona il Giocatore A')
+
+  // ===== 2x2 (vecchio comportamento) =====
+  if (teamFormat === 2) {
+    const payload: any = { tournament_id: tId, a: { id: playerA.id } }
+
     if (bMode === 'player') {
       if (!playerB) return alert('Seleziona il Giocatore B')
       payload.b = { existingId: playerB.id }
     } else if (bMode === 'looking') payload.b = { mode: 'looking' }
     else payload.b = { mode: 'cdc' }
 
-   const res = await fetch('/api/registrations', {
+    const res = await fetch('/api/registrations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
+      body: JSON.stringify(payload),
+    })
+
+    if (!res.ok) { const js = await res.json().catch(()=>({})); alert(js?.error || 'Errore creazione squadra'); return }
+
+    // reset
+    setPlayerA(null); setPlayerB(null); setBMode('player')
+    mutate()
+    return
+  }
+
+// ===== 3x3 / 4x4 (squadra anche incompleta su B/C/D) =====
+if (!teamName.trim()) return alert('Inserisci il Nome squadra')
+
+// obbligatori solo se il tipo è "player"
+if (bMode === 'player' && !playerB) return alert('Seleziona il Giocatore B')
+if (cMode === 'player' && !playerC) return alert('Seleziona il Giocatore C')
+if (teamFormat === 4 && dMode === 'player' && !playerD) return alert('Seleziona il Giocatore D')
+
+// duplicati solo tra i player scelti davvero
+const ids = [
+  playerA.id,
+  bMode === 'player' ? playerB?.id : null,
+  cMode === 'player' ? playerC?.id : null,
+  teamFormat === 4 && dMode === 'player' ? playerD?.id : null,
+].filter(Boolean) as string[]
+
+if (new Set(ids).size !== ids.length) return alert('Hai selezionato lo stesso giocatore più volte')
+
+const payload: any = {
+  tournament_id: tId,
+  team_name: teamName.trim(),
+  team_format: teamFormat,
+  a: { id: playerA.id },
+
+  b: bMode === 'player' ? { existingId: playerB!.id } : { mode: bMode },
+  c: cMode === 'player' ? { existingId: playerC!.id } : { mode: cMode },
+  d: teamFormat === 4
+    ? (dMode === 'player' ? { existingId: playerD!.id } : { mode: dMode })
+    : null,
+}
+
+const res = await fetch('/api/registrations', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
   body: JSON.stringify(payload),
 })
 
-    if (!res.ok) { const js = await res.json().catch(()=>({})); alert(js?.error || 'Errore creazione squadra'); return }
-    setPlayerA(null); setPlayerB(null); setBMode('player'); mutate()
-  }
+if (!res.ok) {
+  const js = await res.json().catch(()=>({}))
+  alert(js?.error || 'Errore creazione squadra')
+  return
+}
+
+// reset
+setTeamName('')
+setTeamFormat(2)
+setPlayerA(null); setPlayerB(null); setPlayerC(null); setPlayerD(null)
+setBMode('player'); setCMode('player'); setDMode('player')
+mutate()
+return
+}  // ✅ CHIUDE createTeam()
+
 
   return (
     <div className="space-y-6 p-6">
@@ -192,6 +280,35 @@ const items = useMemo(() => {
       {/* NUOVA SQUADRA: A in alto (larga) + bottone a destra / B sotto con select a destra */}
       <div className="card p-4 space-y-4">
         <h3 className="font-semibold">Nuova squadra</h3>
+    {/* Formato + Nome squadra (Nome squadra solo 3x3/4x4) */}
+<div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+  <div className="md:col-span-3">
+    <div className="text-base text-neutral-400 mb-1">Formato</div>
+    <select
+      className="input w-full"
+      value={teamFormat}
+      onChange={(e) => onChangeFormat(Number(e.target.value) as 2 | 3 | 4)}
+    >
+      <option value={2}>2x2</option>
+      <option value={3}>3x3</option>
+      <option value={4}>4x4</option>
+    </select>
+  </div>
+
+  {teamFormat !== 2 && (
+    <div className="md:col-span-9">
+      <div className="text-base text-neutral-400 mb-1">Nome squadra</div>
+      <input
+        className="input w-full"
+        value={teamName}
+        onChange={(e) => setTeamName(e.target.value)}
+        placeholder="Es. BVI Wolves"
+      />
+    </div>
+  )}
+</div>
+
+
 
         {/* Riga A */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
@@ -204,30 +321,86 @@ const items = useMemo(() => {
           </div>
         </div>
 
-        {/* Riga B */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-          <div className="md:col-span-9">
-            <div className="text-base text-neutral-400 mb-1">Giocatore B</div>
-            {bMode === 'player' ? (
-              <PlayerPicker value={playerB} onChange={setPlayerB} placeholder="Cerca Giocatore B…" />
-            ) : (
-              <div className="text-neutral-400 text-sm border border-neutral-800 rounded-xl px-3 py-2">
-                Nessun giocatore da cercare (placeholder)
-              </div>
-            )}
-          </div>
-          <div className="md:col-span-3">
-            <div className="text-base text-neutral-400 mb-1">Tipo B</div>
-            <select className="input w-full" value={bMode} onChange={(e)=>setBMode(e.target.value as any)}>
-              <option value="player">Giocatore</option>
-              <option value="looking">In cerca compagno</option>
-              <option value="cdc">CDC</option>
-            </select>
-          </div>
-        </div>
-      </div>
+     {/* Riga B */}
+<div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+  <div className="md:col-span-9">
+    <div className="text-base text-neutral-400 mb-1">Giocatore B</div>
 
-      {/* lista iscritti */}
+    {bMode === 'player' ? (
+      <PlayerPicker value={playerB} onChange={setPlayerB} placeholder="Cerca Giocatore B…" />
+    ) : (
+      <div className="text-neutral-400 text-sm border border-neutral-800 rounded-xl px-3 py-2">
+        Nessun giocatore da cercare ({bMode === 'looking' ? 'IN CERCA' : 'CDC'})
+      </div>
+    )}
+  </div>
+
+  <div className="md:col-span-3">
+    <div className="text-base text-neutral-400 mb-1">Tipo B</div>
+    <select className="input w-full" value={bMode} onChange={(e)=>setBMode(e.target.value as any)}>
+      <option value="player">Giocatore</option>
+      <option value="looking">In cerca</option>
+      <option value="cdc">CDC</option>
+    </select>
+  </div>
+</div>
+
+
+ 
+{/* Riga C (solo 3x3/4x4) */}
+{teamFormat !== 2 && (
+  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+    <div className="md:col-span-9">
+      <div className="text-base text-neutral-400 mb-1">Giocatore C</div>
+
+      {cMode === 'player' ? (
+        <PlayerPicker value={playerC} onChange={setPlayerC} placeholder="Cerca Giocatore C…" />
+      ) : (
+        <div className="text-neutral-400 text-sm border border-neutral-800 rounded-xl px-3 py-2">
+          Nessun giocatore da cercare ({cMode === 'looking' ? 'IN CERCA' : 'CDC'})
+        </div>
+      )}
+    </div>
+
+    <div className="md:col-span-3">
+      <div className="text-base text-neutral-400 mb-1">Tipo C</div>
+      <select className="input w-full" value={cMode} onChange={(e)=>setCMode(e.target.value as any)}>
+        <option value="player">Giocatore</option>
+        <option value="looking">In cerca</option>
+        <option value="cdc">CDC</option>
+      </select>
+    </div>
+  </div>
+)}
+
+
+{/* Riga D (solo 4x4) */}
+{teamFormat === 4 && (
+  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+    <div className="md:col-span-9">
+      <div className="text-base text-neutral-400 mb-1">Giocatore D</div>
+
+      {dMode === 'player' ? (
+        <PlayerPicker value={playerD} onChange={setPlayerD} placeholder="Cerca Giocatore D…" />
+      ) : (
+        <div className="text-neutral-400 text-sm border border-neutral-800 rounded-xl px-3 py-2">
+          Nessun giocatore da cercare ({dMode === 'looking' ? 'IN CERCA' : 'CDC'})
+        </div>
+      )}
+    </div>
+
+    <div className="md:col-span-3">
+      <div className="text-base text-neutral-400 mb-1">Tipo D</div>
+      <select className="input w-full" value={dMode} onChange={(e)=>setDMode(e.target.value as any)}>
+        <option value="player">Giocatore</option>
+        <option value="looking">In cerca</option>
+        <option value="cdc">CDC</option>
+      </select>
+    </div>
+  </div>
+)}
+</div> 
+           {/* lista iscritti */}
       <div className="card p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-lg">Iscritti</h3>
@@ -235,6 +408,7 @@ const items = useMemo(() => {
         </div>
         <RegistrationList items={items} onReorder={onReorder} onDelete={deleteTeam} />
       </div>
+
     </div>
   )
 }
