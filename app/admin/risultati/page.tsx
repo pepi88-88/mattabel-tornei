@@ -80,10 +80,18 @@ function shortSurname(full: string) {
 
 
 function lastSurnames(label: string) {
-  const parts = String(label).replace(/—/g,'/').split('/').map(p=>p.trim()).filter(Boolean)
+  const s = String(label || '').trim()
+  if (!s) return ''
+
+  // ✅ Se NON c'è separatore (2x2 usa "/" o "—"), allora è un nome squadra → non toccare
+  if (!s.includes('—') && !s.includes('/')) return s
+
+  // altrimenti applica la logica cognomi
+  const parts = s.replace(/—/g, '/').split('/').map(p => p.trim()).filter(Boolean)
   if (parts.length >= 2) return `${shortSurname(parts[0])} / ${shortSurname(parts[1])}`
-  return shortSurname(String(label))
+  return shortSurname(s)
 }
+
 
 
 function makeSlotResolver(
