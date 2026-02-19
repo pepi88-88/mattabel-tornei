@@ -8,7 +8,7 @@ const fetcher = (u: string) => fetch(u).then(r => r.json()).catch(() => null)
 
 type Tour = { id: string; name: string }
 type Tournament = { id: string; name: string; date?: string }
-type RegRow = { id: string; label: string }
+type RegRow = { id: string; label: string; label_short?: string }
 
 const LETTERS = 'ABCDEFGHIJKLMNOP'.split('') // fino a 16 gironi
 
@@ -122,7 +122,10 @@ useEffect(() => {
 // Se maxTeams > 0, prendi solo i primi maxTeams (esclude "in attesa")
 const regAll: RegRow[] = ((regsRes?.items ?? []) as any[])
   .filter((_, idx) => (maxTeams > 0 ? idx < maxTeams : true))
-  .map(x => ({ id: x.id, label: compact(x.label) }))
+  .map(x => ({
+    id: x.id,
+    label: (x.label_short ?? x.label ?? '').trim(),
+  }))
 
   const regMap = useMemo(() => Object.fromEntries(regAll.map(r => [r.id, r.label])), [regAll])
 
