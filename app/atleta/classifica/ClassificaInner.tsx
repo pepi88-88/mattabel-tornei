@@ -37,7 +37,41 @@ const pointsOfBucket = (pos:number, total:number, mult:number, set:ScoreCfgSet) 
 
 // NB: il backend usa tour_id fisso "GLOBAL"
 const TOUR_ID = 'GLOBAL'
+function rowPremiumClass(rank: number) {
+  if (rank === 1) {
+    return [
+      'bg-[linear-gradient(90deg,rgba(255,145,0,0.38)_0%,rgba(255,145,0,0.20)_22%,rgba(255,145,0,0.08)_55%,rgba(0,0,0,0)_100%)]',
+      'border-t border-orange-400/60',
+      'shadow-[inset_0_1px_0_rgba(255,190,92,0.35)]',
+    ].join(' ')
+  }
 
+  if (rank >= 2 && rank <= 8) {
+    return [
+      'bg-[linear-gradient(90deg,rgba(0,122,255,0.30)_0%,rgba(0,122,255,0.16)_24%,rgba(0,122,255,0.06)_55%,rgba(0,0,0,0)_100%)]',
+      'border-t border-sky-500/30',
+      'shadow-[inset_0_1px_0_rgba(125,190,255,0.10)]',
+    ].join(' ')
+  }
+
+  return 'border-t border-neutral-800'
+}
+
+function totalCellClass(rank: number) {
+  if (rank === 1) return 'text-orange-300'
+  if (rank >= 2 && rank <= 8) return 'text-sky-300'
+  return 'text-white'
+}
+
+function rankBadgeClass(rank: number) {
+  if (rank === 1) {
+    return 'bg-orange-500/20 text-orange-200 border border-orange-400/40'
+  }
+  if (rank >= 2 && rank <= 8) {
+    return 'bg-sky-500/20 text-sky-200 border border-sky-400/30'
+  }
+  return 'bg-neutral-800 text-neutral-200 border border-neutral-700'
+}
 export default function ClassificaInner() {
   const [gender, setGender] = React.useState<Gender>(() =>
     ((typeof window !== 'undefined' && (localStorage.getItem('ath:lastGender') as Gender|null)) || 'M')
@@ -136,9 +170,7 @@ export default function ClassificaInner() {
     return out
   }, [players, stages, placementsByStage, pointsForPlayer])
 
-  const classForRow = (rank:number)=>
-    rank===1 ? 'bg-yellow-500/15'
-    : (rank>=2 && rank<=8 ? 'bg-emerald-500/10' : '')
+  
 
   // ------------------------ RENDER ------------------------
   return (
@@ -166,12 +198,10 @@ export default function ClassificaInner() {
 
       {/* Card classifica */}
       <div className="card p-0 overflow-hidden">
-        <div className="px-3 py-2 border-b border-neutral-800 flex items-center justify-between">
-          <div className="text-sm font-semibold">Classifica</div>
-        </div>
+       <div className="px-3 py-2 border-b 
 
         {/* ---- DESKTOP: tabella completa ---- */}
-        <div className="hidden sm:block p-3 overflow-x-auto">
+      <div className="hidden sm:block p-4 overflow-x-auto">
           <table className="w-full text-sm">
            <thead className="text-xs uppercase">
               <tr>
@@ -207,26 +237,37 @@ export default function ClassificaInner() {
             </thead>
 
             <tbody>
-              {rows.map((r, i)=>(
-                <tr key={r.player_id} className={`border-t border-neutral-800 ${classForRow(i+1)}`}>
-                  <td className="py-1">{i+1}</td>
-                 <td className="py-1 whitespace-nowrap max-w-[240px] truncate" title={r.name}>
-  {r.name}
-</td>
-                  <td className="py-1 text-right font-semibold pr-4">
-                    {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(r.total)}
-                  </td>
+             {rows.map((r, i)=>(
+  <tr key={r.player_id} className={rowPremiumClass(i + 1)}>
+    <td className="py-2">
+      <span
+        className={`inline-flex min-w-[28px] h-7 items-center justify-center rounded-md text-sm font-semibold tabular-nums ${rankBadgeClass(i + 1)}`}
+      >
+        {i + 1}
+      </span>
+    </td>
+
+    <td className="py-2 whitespace-nowrap max-w-[240px] truncate font-medium" title={r.name}>
+      {r.name}
+    </td>
+
+    <td className={`py-2 text-right font-extrabold pr-4 tabular-nums ${totalCellClass(i + 1)}`}>
+      {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(r.total)}
+    </td>
 
                   {stages.map((st, idx2)=>{
                     const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
                     const pts = pos ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet) : 0
                     return (
-                      <td key={`${st.id}-${r.player_id}`} className={`py-1 ${idx2>0 ? 'border-l border-neutral-800' : ''}`}>
-                        <div className="grid grid-cols-2 items-center w-24 mx-auto">
-  <div className="w-12 tabular-nums text-left">{pos || '—'}</div>
-  <div className="w-12 tabular-nums text-right">{pts ? pts : '—'}</div>
-</div>
-                      </td>
+                     <td
+  key={`${st.id}-${r.player_id}`}
+  className={`py-2 ${idx2 > 0 ? 'border-l border-neutral-800/80' : ''}`}
+>
+  <div className="grid grid-cols-2 items-center w-24 mx-auto">
+    <div className="w-12 tabular-nums text-left text-neutral-200">{pos || '—'}</div>
+    <div className="w-12 tabular-nums text-right text-neutral-100">{pts ? pts : '—'}</div>
+  </div>
+</td>
                     )
                   })}
                 </tr>
@@ -250,15 +291,15 @@ export default function ClassificaInner() {
           ) : rows.map((r, i) => (
             <div key={r.player_id} className="overflow-x-auto">
               <div
-                className={
-                  `inline-flex items-center gap-1.5 border border-neutral-800 rounded-lg px-2.5 py-1.5 whitespace-nowrap min-w-max ` +
-                  `${classForRow(i+1)}`
-                }
-              >
+  className={
+    `inline-flex items-center gap-1.5 border border-neutral-800 rounded-lg px-2.5 py-1.5 whitespace-nowrap min-w-max ` +
+    `${rowPremiumClass(i + 1)}`
+  }
+>
                 {/* posizione compatta */}
-                <span className="text-[11px] px-1.5 py-0.5 rounded bg-neutral-800 tabular-nums shrink-0">
-                  {i+1}
-                </span>
+              <span className={`text-[11px] px-2 py-0.5 rounded tabular-nums shrink-0 font-semibold ${rankBadgeClass(i + 1)}`}>
+  {i + 1}
+</span>
 
                 {/* nome senza truncate, leggermente più piccolo */}
                 <span className="text-sm font-medium">
@@ -266,7 +307,7 @@ export default function ClassificaInner() {
                 </span>
 
                 {/* totale subito dopo il nome */}
-                <span className="ml-2 text-sm tabular-nums font-semibold shrink-0">
+               <span className={`ml-2 text-sm tabular-nums font-extrabold shrink-0 ${totalCellClass(i + 1)}`}>
                   {new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(r.total)}
                 </span>
 
