@@ -63,10 +63,10 @@ const pool4 = () => ({
   r2: ['Vincente G1 vs Vincente G2', 'Perdente G1 vs Perdente G2']
 })
 
-type Meta = { capacity: number; format: 'pool' | 'ita' }
+type Meta = { capacity: number; format: 'pool' | 'ita'; bestOf?: 1 | 3 }
 type PersistServer = {
   groupsCount: number;
-  meta: Record<string, { capacity: number; format: 'pool'|'ita' }>;
+  meta: Record<string, { capacity: number; format: 'pool'|'ita'; bestOf?: 1 | 3 }>;
   assign: Record<string, string>;
   times: Record<string, string[]>;
   gField: Record<string, string>;
@@ -255,20 +255,261 @@ useEffect(() => {
 
   function labelBySlot(L: string, slot: number) { const rid = assign[`${L}-${slot}`]; return rid ? (regMap[rid] ?? `Slot ${slot}`) : `Slot ${slot}` }
 
-  function scheduleRows(L: string) {
-    const m = meta[L] ?? { capacity: 0, format: 'pool' }; const cap = m.capacity ?? 0; if (cap < 2) return [] as { t1: string, t2: string }[]
-    if (m.format === 'pool' && cap === 4) {
-      const p = pool4(); return [
-        { t1: labelBySlot(L, p.r1[0][0]), t2: labelBySlot(L, p.r1[0][1]) },
-        { t1: labelBySlot(L, p.r1[1][0]), t2: labelBySlot(L, p.r1[1][1]) },
-        { t1: 'Vincente G1', t2: 'Vincente G2' },
-        { t1: 'Perdente G1', t2: 'Perdente G2' },
-      ]
+ function scheduleRows(L: string) {
+  const m = meta[L] ?? { capacity: 0, format: 'pool', bestOf: 1 as 1|3 }
+  const cap = m.capacity ?? 0
+  if (cap < 2) return [] as { t1: string; t2: string; scoreIdx: number; matchIdx: number; setNo: 1|2|3; sep?: boolean }[]
+
+  const bestOf = (m.bestOf ?? 1) as 1 | 3
+
+  // base matches (1 riga per match)
+  const base =
+    (m.format === 'pool' && cap === 4)
+      ? (() => {
+          const p = pool4()
+          return [
+            { t1: labelBySlot(L, p.r1[0][0]), t2: labelBySlot(L, p.r1[0][1]) },
+            { t1: labelBySlot(L, p.r1[1][0]), t2: labelBySlot(L, p.r1[1][1]) },
+            { t1: 'Vincente G1', t2: 'Vincente G2' },
+            { t1: 'Perdente G1', t2: 'Perdente G2' },
+          ]
+        })()
+      : rr(Math.min(cap, 6)).map(([a, b]) => ({ t1: labelBySlot(L, a), t2: labelBySlot(L, b) }))
+
+  // explode: 1->1 riga, 3->3 righe per match (con separatore sopra al match)
+  const out: { t1: string; t2: string; scoreIdx: number; matchIdx: number; setNo: 1|2|3; sep?: boolean }[] = []
+  base.forEach((match, matchIdx) => {
+    for (let s = 0; s < bestOf; s++) {
+      out.push({
+  ...match,
+  scoreIdx: matchIdx * bestOf + s,
+  matchIdx,
+  setNo: (s + 1) as 1 | 2 | 3,
+  sep: bestOf === 3 && s === 0 && matchIdx > 0,
+})
     }
-    return rr(Math.min(cap, 6)).map(([a, b]) => ({ t1: labelBySlot(L, a), t2: labelBySlot(L, b) }))
+  })
+  return out
+}
+
+function computeGroupRankingCorrect(L: string) {
+  const rows = scheduleRows(L)
+  const bestOf = (meta[L]?.bestOf ?? 1) as 1 | 3
+
+  const isRealTeam = (name: string) => {
+    const s = String(name || '').trim().toLowerCase()
+    if (!s) return false
+    if (s.startsWith('vincente')) return false
+    if (s.startsWith('perdente')) return false
+    return true
   }
 
- 
+  type TeamStat = {
+    team: string
+    matchWon: number
+    matchLost: number
+    setWon: number
+    setLost: number
+    pointsWon: number
+    pointsLost: number
+  }
+
+  const ensure = (map: Record<string, TeamStat>, team: string) => {
+    if (!map[team]) {
+      map[team] = {
+        team,
+        matchWon: 0,
+        matchLost: 0,
+        setWon: 0,
+        setLost: 0,
+        pointsWon: 0,
+        pointsLost: 0,
+      }
+    }
+  }
+
+  const ratio = (a: number, b: number) => {
+    if (b <= 0) return a > 0 ? 999999 : 0
+    return a / b
+  }
+
+  // 1) raggruppo righe per matchIdx
+  const matchMap: Record<number, typeof rows> = {}
+  for (const r of rows) {
+    if (!matchMap[r.matchIdx]) matchMap[r.matchIdx] = []
+    matchMap[r.matchIdx].push(r)
+  }
+
+  type MatchResult = {
+    A: string
+    B: string
+    Aw: number
+    Bw: number
+    Aset: number
+    Bset: number
+    Ap: number
+    Bp: number
+    played: boolean
+  }
+
+  const matches: MatchResult[] = []
+
+  Object.values(matchMap).forEach((sets) => {
+    const A = sets[0]?.t1 ?? ''
+    const B = sets[0]?.t2 ?? ''
+    if (!isRealTeam(A) || !isRealTeam(B)) return
+
+    let Aset = 0
+    let Bset = 0
+    let Ap = 0
+    let Bp = 0
+    let anySetPlayed = false
+
+    for (const s of sets) {
+      const aRaw = scores[L]?.[s.scoreIdx]?.a
+      const bRaw = scores[L]?.[s.scoreIdx]?.b
+      const a = Number(aRaw)
+      const b = Number(bRaw)
+
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue
+      if (a === 0 && b === 0) continue
+
+      anySetPlayed = true
+      Ap += a
+      Bp += b
+
+      if (a > b) Aset++
+      else if (b > a) Bset++
+    }
+
+    if (!anySetPlayed) return
+
+    let Aw = 0
+    let Bw = 0
+
+    if (bestOf === 1) {
+      if (Ap > Bp) Aw = 1
+      else if (Bp > Ap) Bw = 1
+    } else {
+      if (Aset > Bset) Aw = 1
+      else if (Bset > Aset) Bw = 1
+    }
+
+    matches.push({ A, B, Aw, Bw, Aset, Bset, Ap, Bp, played: true })
+  })
+
+  // 2) stats globali
+  const global: Record<string, TeamStat> = {}
+
+  for (const m of matches) {
+    ensure(global, m.A)
+    ensure(global, m.B)
+
+    global[m.A].pointsWon += m.Ap
+    global[m.A].pointsLost += m.Bp
+    global[m.B].pointsWon += m.Bp
+    global[m.B].pointsLost += m.Ap
+
+    global[m.A].setWon += m.Aset
+    global[m.A].setLost += m.Bset
+    global[m.B].setWon += m.Bset
+    global[m.B].setLost += m.Aset
+
+    if (m.Aw === 1) {
+      global[m.A].matchWon += 1
+      global[m.B].matchLost += 1
+    } else if (m.Bw === 1) {
+      global[m.B].matchWon += 1
+      global[m.A].matchLost += 1
+    }
+  }
+
+  const teamsAll = Object.values(global)
+  if (!teamsAll.length) return []
+
+  // 3) mini-classifica per scontro diretto
+  const miniTable = (teamNames: string[]) => {
+    const setTeams = new Set(teamNames)
+    const mini: Record<string, TeamStat> = {}
+    for (const t of teamNames) ensure(mini, t)
+
+    for (const m of matches) {
+      if (!setTeams.has(m.A) || !setTeams.has(m.B)) continue
+
+      mini[m.A].pointsWon += m.Ap
+      mini[m.A].pointsLost += m.Bp
+      mini[m.B].pointsWon += m.Bp
+      mini[m.B].pointsLost += m.Ap
+
+      mini[m.A].setWon += m.Aset
+      mini[m.A].setLost += m.Bset
+      mini[m.B].setWon += m.Bset
+      mini[m.B].setLost += m.Aset
+
+      if (m.Aw === 1) {
+        mini[m.A].matchWon += 1
+        mini[m.B].matchLost += 1
+      } else if (m.Bw === 1) {
+        mini[m.B].matchWon += 1
+        mini[m.A].matchLost += 1
+      }
+    }
+
+    return Object.values(mini)
+  }
+
+  // 4) raggruppo per vittorie e ordino con scontro diretto
+  const groupsByWins: Record<number, TeamStat[]> = {}
+  for (const t of teamsAll) {
+    const w = t.matchWon
+    if (!groupsByWins[w]) groupsByWins[w] = []
+    groupsByWins[w].push(t)
+  }
+
+  const winsSorted = Object.keys(groupsByWins).map(Number).sort((a, b) => b - a)
+  const finalList: TeamStat[] = []
+
+  for (const w of winsSorted) {
+    const group = groupsByWins[w]
+    if (group.length === 1) {
+      finalList.push(group[0])
+      continue
+    }
+
+    const names = group.map(x => x.team)
+    const mini = miniTable(names)
+    const miniMap = Object.fromEntries(mini.map(x => [x.team, x]))
+
+    group.sort((a, b) => {
+      const ma = miniMap[a.team]
+      const mb = miniMap[b.team]
+
+      if (mb.matchWon !== ma.matchWon) return mb.matchWon - ma.matchWon
+
+      const srA = ratio(ma.setWon, ma.setLost)
+      const srB = ratio(mb.setWon, mb.setLost)
+      if (srB !== srA) return srB - srA
+
+      const prA = ratio(ma.pointsWon, ma.pointsLost)
+      const prB = ratio(mb.pointsWon, mb.pointsLost)
+      if (prB !== prA) return prB - prA
+
+      const gsrA = ratio(a.setWon, a.setLost)
+      const gsrB = ratio(b.setWon, b.setLost)
+      if (gsrB !== gsrA) return gsrB - gsrA
+
+      const gprA = ratio(a.pointsWon, a.pointsLost)
+      const gprB = ratio(b.pointsWon, b.pointsLost)
+      if (gprB !== gprA) return gprB - gprA
+
+      return a.team.localeCompare(b.team)
+    })
+
+    finalList.push(...group)
+  }
+
+  return finalList
+} 
 
 function normalizeTime(raw: string) {
   let v = String(raw || '').trim()
@@ -310,7 +551,7 @@ function commitTimeUncontrolled(
   // ---- UI: cards gironi
   function GroupCard({ L }: { L: string }) {
     const color = colorFor(L)
-    const m = meta[L] ?? { capacity: 0, format: 'pool' }
+     const m = meta[L] ?? { capacity: 0, format: 'pool', bestOf: 1 }
     const cap = m.capacity ?? 0
     return (
       <div className="card p-0 overflow-hidden" key={L}>
@@ -337,6 +578,23 @@ function commitTimeUncontrolled(
               <option value="ita">ITA</option>
               <option value="pool">Pool</option>
             </select>
+            <select
+  className="input w-20 bg-white/90 text-black"
+  value={String(m.bestOf ?? 1)}
+  onChange={e =>
+    setMeta(mm => ({
+      ...mm,
+      [L]: {
+        ...(mm[L] ?? { capacity: 0, format: 'pool', bestOf: 1 }),
+        bestOf: (Number(e.target.value) === 3 ? 3 : 1) as 1 | 3,
+      },
+    }))
+  }
+  title="Numero set"
+>
+  <option value="1">1 set</option>
+  <option value="3">3 set</option>
+</select>
             <div className="ml-auto text-xs opacity-80 text-white/90">#</div>
           </div>
         </div>
@@ -369,19 +627,22 @@ function commitTimeUncontrolled(
     )
   }
 
-  // ---- UI: partite (due colonne)
+   // ---- UI: partite (due colonne)
   function SchedulesRow({ pair }: { pair: string[] }) {
     return (
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(2,minmax(0,1fr))' }}>
         {pair.map(L => {
           const color = colorFor(L)
           const rows = scheduleRows(L)
+
           return (
             <div key={`${tId}-sch-${L}`} className="card p-0 overflow-hidden">
-
               {/* Barra colore full + CAMPO */}
               <div className="h-9 px-3 flex items-center justify-between text-white" style={{ background: color }}>
-                <div className="text-sm font-semibold">Partite {L} — {(meta[L]?.format ?? 'pool').toString().toUpperCase()}</div>
+                <div className="text-sm font-semibold">
+                  Partite {L} — {(meta[L]?.format ?? 'pool').toString().toUpperCase()}
+                </div>
+
                 <div className="flex items-center gap-2">
                   <span className="text-xs tracking-wide uppercase text-white/90">Campo</span>
                   <input
@@ -395,67 +656,141 @@ function commitTimeUncontrolled(
                 </div>
               </div>
 
-              {/* Elenco partite */}
-              <div className="p-3 space-y-2">
+                         {/* Elenco partite */}
+              <div className="p-3 space-y-0">
                 {rows.length === 0 ? (
                   <div className="text-xs text-neutral-500">Imposta # squadre e formato.</div>
-                ) : rows.map((r, idx) => (
-                  <div
-                    key={idx}
-                    className="grid items-center"
-                    style={{ gridTemplateColumns: '72px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)', columnGap: '.35rem' }}
-                  >
-                   {/* Ora (uncontrolled + normalizzazione) */}
-<input
-  type="text"
-  inputMode="numeric"
-  placeholder="hh:mm"
-  className="input h-8 pl-1 pr-0 text-sm text-white tabular-nums shrink-0 w-[78px]"
-  defaultValue={(times[L] ?? [])[idx] ?? ''}
-  onBlur={(e) => commitTimeUncontrolled(L, idx, e.currentTarget, setTime)}
-  onKeyDown={(e) => {
-    if (e.key === 'Enter') {
-      if (typeof (e as any)?.preventDefault === 'function') (e as any).preventDefault();
-    (e.currentTarget as HTMLInputElement).blur();
-  }
-}}
-  title="Ora"
-/>
+                ) : (
+                  rows.map((r, idx) => {
+                    const isFirstSet = r.setNo === 1
+                    const isLastSetOfMatch = r.setNo === (meta[L]?.bestOf ?? 1)
 
-                    {/* Squadra 1 */}
-                    <div className="min-w-0 truncate whitespace-nowrap text-sm text-right pr-0.1">{r.t1}</div>
-                    {/* Punteggio A */}
-                    <input
-                      type="text" inputMode="numeric" pattern="\d*" maxLength={2}
-                      defaultValue={(scores[L]?.[idx]?.a ?? '')}
-                      onBlur={(e) => { const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2); setScore(L, idx, 'a', v); e.currentTarget.value = v }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.currentTarget as HTMLInputElement).blur() } }}
-                      className="input h-8 w-12 px-1 text-sm text-center tabular-nums shrink-0"
-                      title="Punteggio squadra 1"
-                    />
-                    {/* VS */}
-                    <div className="shrink-0 w-6 -mx-0.5 text-center text-[13px] text-neutral-400">vs</div>
-                    {/* Punteggio B */}
-                    <input
-                      type="text" inputMode="numeric" pattern="\d*" maxLength={2}
-                      defaultValue={(scores[L]?.[idx]?.b ?? '')}
-                      onBlur={(e) => { const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2); setScore(L, idx, 'b', v); e.currentTarget.value = v }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.currentTarget as HTMLInputElement).blur() } }}
-                      className="input h-8 w-12 px-1 text-sm text-center tabular-nums shrink-0"
-                      title="Punteggio squadra 2"
-                    />
-                    {/* Squadra 2 */}
-                    <div className="min-w-0 truncate whitespace-nowrap text-sm pl-1">{r.t2}</div>
-                  </div>
-                ))}
+                    return (
+                      <div key={idx}>
+                        {r.sep && <div className="h-px bg-neutral-800 my-3" />}
+
+                        <div
+                          className="grid items-center min-h-[38px]"
+                          style={{
+                            gridTemplateColumns: '86px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
+                            columnGap: '.35rem',
+                          }}
+                        >
+                          {/* Ora */}
+                          {isFirstSet ? (
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="hh:mm"
+                              className="input h-8 pl-1 pr-0 text-sm text-white tabular-nums w-[82px]"
+                              defaultValue={(times[L] ?? [])[r.matchIdx] ?? ''}
+                              onBlur={(e) => commitTimeUncontrolled(L, r.matchIdx, e.currentTarget, setTime)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  ;(e.currentTarget as HTMLInputElement).blur()
+                                }
+                              }}
+                              title="Ora"
+                            />
+                          ) : (
+                            <div className="w-[82px] h-8" />
+                          )}
+
+                          {/* Team / Set */}
+                          <div className="min-w-0 truncate text-sm text-right pr-0.5">
+                            {isFirstSet ? r.t1 : (
+                              <span className="text-neutral-400 font-medium">SET {r.setNo}</span>
+                            )}
+                          </div>
+
+                          {/* Score A */}
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="\d*"
+                            maxLength={2}
+                            defaultValue={scores[L]?.[r.scoreIdx]?.a ?? ''}
+                            onBlur={(e) => {
+                              const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2)
+                              setScore(L, r.scoreIdx, 'a', v)
+                              e.currentTarget.value = v
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                ;(e.currentTarget as HTMLInputElement).blur()
+                              }
+                            }}
+                            className="input h-8 w-12 px-1 text-sm text-center tabular-nums"
+                            title="Punteggio squadra 1"
+                          />
+
+                          {/* VS */}
+                          <div className="w-6 text-center text-[13px] text-neutral-400">
+                            {isFirstSet ? 'vs' : ''}
+                          </div>
+
+                          {/* Score B */}
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="\d*"
+                            maxLength={2}
+                            defaultValue={scores[L]?.[r.scoreIdx]?.b ?? ''}
+                            onBlur={(e) => {
+                              const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2)
+                              setScore(L, r.scoreIdx, 'b', v)
+                              e.currentTarget.value = v
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                ;(e.currentTarget as HTMLInputElement).blur()
+                              }
+                            }}
+                            className="input h-8 w-12 px-1 text-sm text-center tabular-nums"
+                            title="Punteggio squadra 2"
+                          />
+
+                          {/* Team B */}
+                          <div className="min-w-0 truncate text-sm pl-1">
+                            {isFirstSet ? r.t2 : ''}
+                          </div>
+                        </div>
+
+                        {!isLastSetOfMatch && <div className="h-1" />}
+                      </div>
+                    )
+                  })
+                )}
               </div>
+              {/* Classifica */}
+{(() => {
+  const ranking = computeGroupRankingCorrect(L)
+  if (!ranking.length) return null
+  return (
+    <div className="px-3 pb-3">
+      <div className="mt-2 border-t border-neutral-800 pt-2">
+        <div className="text-xs text-neutral-400 mb-1">Classifica {L}</div>
+        <div className="space-y-1 text-sm">
+          {ranking.map((r, i) => (
+            <div key={r.team} className="flex justify-between gap-2">
+              <div className="min-w-0 truncate">{i + 1}. {r.team}</div>
+              <div className="text-neutral-400 tabular-nums shrink-0">{r.matchWon}W</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+})()}
             </div>
           )
         })}
       </div>
     )
   }
-
   return (
     <div className="p-6">
       <div className="card p-3 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
