@@ -989,22 +989,26 @@ const lettersReal = useMemo(() => {
 
 // size di un girone (preferisci meta.capacity; fallback assign)
 const sizeOfReal = (L: string) => {
-  const s = gmSE?.meta?.[L]?.capacity
-  if (typeof s === 'number' && s > 0) return s
-  if (gmSE?.assign) {
-    let max = 0
-    for (const k of Object.keys(gmSE.assign)) {
-      const m = k.match(/^([A-Za-z]+)-(\d+)$/)
-      if (m && m[1].toUpperCase() === L.toUpperCase()) {
-        const slot = Number(m[2] || 0)
-        if (slot > max) max = slot
-      }
-    }
-    if (max > 0) return max
-  }
-  return 0
-}
+  const cap = gmSE?.meta?.[L]?.capacity
+  if (cap && cap > 0) return cap
 
+  if (!gmSE?.assign) return 0
+
+  let max = 0
+  for (const k of Object.keys(gmSE.assign)) {
+    const m = k.match(/^([A-Za-z]+)-(\d+)$/)
+    if (!m) continue
+
+    const letter = m[1].toUpperCase()
+    const slot = Number(m[2] || 0)
+
+    if (letter === L.toUpperCase() && slot > max) {
+      max = slot
+    }
+  }
+
+  return max
+}
 // codici reali (A1..An…) limitati al groupsCount
 const realGironiCodes = useMemo(() => {
   const metaArr = lettersReal.map(L => ({ key: L, size: sizeOfReal(L) })).filter(g => g.size > 0)
@@ -1019,11 +1023,18 @@ const realGironiCodes = useMemo(() => {
   const gironiOps = realGironiCodes
 
    // Avulsa: preferisci quanti sono realmente assegnati; poi snapshot; poi tappaSize
-const gmAssignedCount = gmSE ? new Set(Object.values(gmSE.assign || {})).size : 0
-const snapAvulsaCount = loadAvulsaFromSnapshot(tourId, tId).length
-const avCount = gmAssignedCount || snapAvulsaCount || tappaSize
-const avulsaOps = Array.from({ length: Math.max(0, avCount) }, (_, i) => String(i + 1))
+const realGironiCount = realGironiCodes.length
 
+// priorità:
+// 1) snapshot avulsa se esiste
+// 2) squadre realmente assegnate nei gironi
+// 3) codici gironi reali derivati da meta/groupsCount
+const avCount = realGironiCount
+
+const avulsaOps = Array.from(
+  { length: Math.max(0, avCount) },
+  (_, i) => String(i + 1)
+)
   // Eliminati
   const loser = active?.fromTableId ? brackets.find(b => b.id === active.fromTableId) : null
   const mCount = loser ? nextPow2(loser.nTeams) / 2 : 0
@@ -1183,7 +1194,8 @@ return (
       }
     }
 
-    const av = Array.from({ length: Math.max(0, tappaSize) }, (_, i) => `${i + 1}`)
+   const avCount = groupsMeta.reduce((sum, g) => sum + g.size, 0)
+const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
 
     saveSources(tourId, tId, {
       gironi: groupsMeta,
