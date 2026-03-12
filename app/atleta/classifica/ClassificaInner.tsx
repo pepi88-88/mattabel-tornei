@@ -196,12 +196,14 @@ export default function ClassificaInner() {
         </select>
       </div>
 
-      {/* Card classifica */}
+           {/* Card classifica */}
       <div className="card p-0 overflow-hidden">
-       <div className="px-3 py-2 border-b 
+        <div className="px-4 py-3 border-b border-neutral-800 flex items-center justify-between bg-neutral-950/60">
+          <div className="text-base font-semibold tracking-wide">Classifica</div>
+        </div>
 
         {/* ---- DESKTOP: tabella completa ---- */}
-      <div className="hidden sm:block p-4 overflow-x-auto">
+        <div className="hidden sm:block p-4 overflow-x-auto">
           <table className="w-full text-sm">
            <thead className="text-xs uppercase">
               <tr>
