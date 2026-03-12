@@ -30,18 +30,17 @@ function rrPairs(n: number) {
   }
   return out
 }
-type Meta = { capacity: number; format: 'pool' | 'ita' }
-
+type Meta = { capacity: number; format: 'pool' | 'ita'; bestOf?: 1 | 3 }
 function normalizeMeta(
   meta: Record<string, { capacity: number; format?: 'pool' | 'ita' }> | undefined
 ): Record<string, Meta> {
   const out: Record<string, Meta> = {}
   for (const [k, v] of Object.entries(meta || {})) {
-    out[k] = {
-      capacity: Number(v?.capacity ?? 0),
-      // default sicuro: se manca o è invalido, usa 'pool'
-      format: v?.format === 'ita' ? 'ita' : 'pool',
-    }
+   out[k] = {
+  capacity: Number(v?.capacity ?? 0),
+  format: v?.format === 'ita' ? 'ita' : 'pool',
+  bestOf: (Number((v as any)?.bestOf) === 3 ? 3 : 1) as 1 | 3,
+}
   }
   return out
 }
@@ -522,7 +521,16 @@ type Persist = {
   labels?: Record<string, string>
 }
 type Score = { a: string; b: string }
-
+type ScheduleRow = {
+  key: string
+  a?: number
+  b?: number
+  labelA: string
+  labelB: string
+  setNo: number        // 1..bestOf
+  matchIdx: number     // indice match “logico”
+  scoreIdx: number     // indice riga nel vettore scores[L]
+}
 const chunk = <T,>(arr: T[], size: number) => {
   const out: T[][] = []
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
@@ -788,7 +796,7 @@ function MobileGroupsCarousel({
 }: {
   letters: string[]
   tId: string
-  scheduleRows: (L: string) => { key: string; a?: number; b?: number; labelA: string; labelB: string }[]
+  scheduleRows: (L: string) => ScheduleRow[]
   setTime: (L: string, idx: number, val: string) => void
   setScore: (L: string, idx: number, side: 'a' | 'b', val: string) => void
   fmtOf: (L: string) => string
@@ -821,54 +829,71 @@ function MobileGroupsCarousel({
                   {rows.length === 0 ? (
                     <div className="text-sm text-neutral-500">Imposta i gironi in /admin/gironi.</div>
                   ) : (
-                    rows.map((r, ridx) => (
-                      <div
-                        key={`${tId}-${L}-${r.key}`}
-                        className="grid items-center rounded-xl border border-neutral-800 bg-neutral-900/60 p-3"
-                        style={{
-                          // colonne più larghe: input punteggi “tap friendly”
-                          gridTemplateColumns: '110px minmax(0,1fr) 64px 18px 64px minmax(0,1fr)',
-                          columnGap: '.5rem',
-                        }}
-                      >
-                        <input
-                          type="time"
-                          className="input h-11 pl-2 pr-1 text-base text-white w-[110px] tabular-nums"
-                          value={(times[L] ?? [])[ridx] ?? ''}
-                          onChange={(e) => setTime(L, ridx, e.target.value)}
-                        />
+                rows.map((r, ridx) => {
+  const firstSet = r.setNo === 1
+  const lastOfMatch =
+    ridx === rows.length - 1 || rows[ridx + 1]?.matchIdx !== r.matchIdx
 
-                        <div className="min-w-0 truncate text-[15px] text-right pr-1 font-medium">
-                          {r.labelA}
-                        </div>
+  return (
+    <div
+      key={`${tId}-${L}-${r.key}`}
+      className={[
+        'grid items-center rounded-xl bg-neutral-900/60 p-3',
+        firstSet ? 'border border-neutral-800' : 'border-x border-b border-neutral-800 rounded-t-none',
+      ].join(' ')}
+      style={{
+        gridTemplateColumns: '110px minmax(0,1fr) 64px 18px 64px minmax(0,1fr)',
+        columnGap: '.5rem',
+        marginTop: firstSet ? 0 : -1,
+      }}
+    >
+      {firstSet ? (
+        <input
+          type="time"
+          className="input h-8 pl-1 pr-0 text-sm text-white w-[92px] tabular-nums"
+          value={(times[L] ?? [])[r.matchIdx] ?? ''}
+          onChange={(e) => setTime(L, r.matchIdx, e.target.value)}
+        />
+      ) : (
+        <div className="w-[92px] h-8 flex items-center text-xs text-neutral-500">
+          Set {r.setNo}
+        </div>
+      )}
 
-                        <input
-                          className="input h-11 w-16 px-2 text-base text-center"
-                          inputMode="numeric"
-                          value={scores[L]?.[ridx]?.a ?? ''}
-                          onChange={(e) => {
-                            const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2)
-                            setScore(L, ridx, 'a', v)
-                          }}
-                        />
+      <div className="min-w-0 truncate text-[15px] text-right pr-1 font-medium">
+        {firstSet ? r.labelA : ''}
+      </div>
 
-                        <div className="text-center text-[15px] opacity-60">–</div>
+      <input
+        className="input h-11 w-16 px-2 text-base text-center"
+        inputMode="numeric"
+        value={scores[L]?.[r.scoreIdx]?.a ?? ''}
+        onChange={(e) => {
+          const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2)
+          setScore(L, r.scoreIdx, 'a', v)
+        }}
+      />
 
-                        <input
-                          className="input h-11 w-16 px-2 text-base text-center"
-                          inputMode="numeric"
-                          value={scores[L]?.[ridx]?.b ?? ''}
-                          onChange={(e) => {
-                            const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2)
-                            setScore(L, ridx, 'b', v)
-                          }}
-                        />
+      <div className="text-center text-[15px] opacity-60">–</div>
 
-                        <div className="min-w-0 truncate text-[15px] pl-1 font-medium">
-                          {r.labelB}
-                        </div>
-                      </div>
-                    ))
+      <input
+        className="input h-11 w-16 px-2 text-base text-center"
+        inputMode="numeric"
+        value={scores[L]?.[r.scoreIdx]?.b ?? ''}
+        onChange={(e) => {
+          const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2)
+          setScore(L, r.scoreIdx, 'b', v)
+        }}
+      />
+
+      <div className="min-w-0 truncate text-[15px] pl-1 font-medium">
+        {firstSet ? r.labelB : ''}
+      </div>
+
+      {lastOfMatch && <div className="col-span-6 h-1" />}
+    </div>
+  )
+})
                   )}
                 </div>
               </div>
@@ -1030,27 +1055,110 @@ if (raw) return raw
     const arr = [...(scores[L] ?? [])]; const row = arr[idx] ?? { a:'', b:'' }
     row[side] = val; arr[idx] = row; setScores(s => ({ ...s, [L]: arr }))
   }
+function bestOfOf(L: string): 1 | 3 {
+  const b = (store?.meta?.[L]?.bestOf ?? 1) as any
+  return Number(b) === 3 ? 3 : 1
+}
+function setsToWin(bestOf: 1 | 3) {
+  return bestOf === 3 ? 2 : 1
+}
 
-  function scheduleRows(L: string) {
-    const cap = capOf(L); const fmt = fmtOf(L)
-    if (cap < 2) return [] as { key: string; a?: number; b?: number; labelA: string; labelB: string }[]
-    if (fmt === 'pool' && cap === 4) {
-      const s1 = poolPairs.semi1, s2 = poolPairs.semi2
-      const rows: any[] = [
-        { key:'S1', a:s1[0], b:s1[1], labelA:labelBySlot(L,s1[0]), labelB:labelBySlot(L,s1[1]) },
-        { key:'S2', a:s2[0], b:s2[1], labelA:labelBySlot(L,s2[0]), labelB:labelBySlot(L,s2[1]) },
-      ]
-      const sc = scores[L] ?? []
-      const w1 = sc[0]?.a && sc[0]?.b ? (Number(sc[0].a) > Number(sc[0].b) ? s1[0] : s1[1]) : undefined
-      const l1 = w1 ? (w1 === s1[0] ? s1[1] : s1[0]) : undefined
-      const w2 = sc[1]?.a && sc[1]?.b ? (Number(sc[1].a) > Number(sc[1].b) ? s2[0] : s2[1]) : undefined
-      const l2 = w2 ? (w2 === s2[0] ? s2[1] : s2[0]) : undefined
-      rows.push({ key:'F12', a:w1, b:w2, labelA: w1?labelBySlot(L,w1):'Vincente G1', labelB: w2?labelBySlot(L,w2):'Vincente G2' })
-      rows.push({ key:'F34', a:l1, b:l2, labelA: l1?labelBySlot(L,l1):'Perdente G1', labelB: l2?labelBySlot(L,l2):'Perdente G2' })
-      return rows
-    }
-    return rr(cap).map(([a,b], i) => ({ key:`R${i+1}`, a, b, labelA:labelBySlot(L,a), labelB:labelBySlot(L,b) }))
+function matchWinnerFromScores(L: string, matchIdx: number): { winner?: 'A'|'B' } {
+  const bestOf = bestOfOf(L)
+  const need = setsToWin(bestOf)
+  const sc = scores[L] ?? []
+  let wa = 0, wb = 0
+
+  for (let s = 0; s < bestOf; s++) {
+    const row = sc[matchIdx * bestOf + s]
+    const a = Number(row?.a), b = Number(row?.b)
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue
+    if (a === b) continue // pareggi non li contiamo (in beach non dovrebbe succedere)
+    if (a > b) wa++
+    else wb++
   }
+
+  if (wa >= need) return { winner: 'A' }
+  if (wb >= need) return { winner: 'B' }
+  return {}
+}
+
+function matchPointsSum(L: string, matchIdx: number): { aPF: number; aPS: number; bPF: number; bPS: number } {
+  const bestOf = bestOfOf(L)
+  const sc = scores[L] ?? []
+  let aPF = 0, aPS = 0, bPF = 0, bPS = 0
+
+  for (let s = 0; s < bestOf; s++) {
+    const row = sc[matchIdx * bestOf + s]
+    const a = Number(row?.a), b = Number(row?.b)
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue
+    aPF += a; aPS += b
+    bPF += b; bPS += a
+  }
+  return { aPF, aPS, bPF, bPS }
+}
+function scheduleRows(L: string): ScheduleRow[] {
+  const cap = capOf(L)
+  const fmt = fmtOf(L)
+  const bestOf = bestOfOf(L)
+
+  if (cap < 2) return []
+
+  const explodeMatch = (
+    base: { key: string; a?: number; b?: number; labelA: string; labelB: string },
+    matchIdx: number
+  ): ScheduleRow[] => {
+    return Array.from({ length: bestOf }, (_, si) => ({
+      ...base,
+      key: `${base.key}-S${si + 1}`,      // 👈 IMPORTANT: key unica per set
+      setNo: si + 1,
+      matchIdx,
+      scoreIdx: matchIdx * bestOf + si,
+    }))
+  }
+
+  // POOL 4 (semi + finali)
+  if (fmt === 'pool' && cap === 4) {
+    const s1 = poolPairs.semi1
+    const s2 = poolPairs.semi2
+
+    const m0 = { key: 'S1', a: s1[0], b: s1[1], labelA: labelBySlot(L, s1[0]), labelB: labelBySlot(L, s1[1]) }
+    const m1 = { key: 'S2', a: s2[0], b: s2[1], labelA: labelBySlot(L, s2[0]), labelB: labelBySlot(L, s2[1]) }
+
+    const w0 = matchWinnerFromScores(L, 0).winner
+    const w1 = matchWinnerFromScores(L, 1).winner
+
+    const wSlot0 = w0 ? (w0 === 'A' ? s1[0] : s1[1]) : undefined
+    const lSlot0 = w0 ? (w0 === 'A' ? s1[1] : s1[0]) : undefined
+    const wSlot1 = w1 ? (w1 === 'A' ? s2[0] : s2[1]) : undefined
+    const lSlot1 = w1 ? (w1 === 'A' ? s2[1] : s2[0]) : undefined
+
+    const m2 = { key: 'F12', a: wSlot0, b: wSlot1, labelA: wSlot0 ? labelBySlot(L, wSlot0) : 'Vincente G1', labelB: wSlot1 ? labelBySlot(L, wSlot1) : 'Vincente G2' }
+    const m3 = { key: 'F34', a: lSlot0, b: lSlot1, labelA: lSlot0 ? labelBySlot(L, lSlot0) : 'Perdente G1', labelB: lSlot1 ? labelBySlot(L, lSlot1) : 'Perdente G2' }
+
+    return [
+      ...explodeMatch(m0, 0),
+      ...explodeMatch(m1, 1),
+      ...explodeMatch(m2, 2),
+      ...explodeMatch(m3, 3),
+    ]
+  }
+
+  // Round-robin classico
+  const baseMatches = rr(cap).map(([a, b], i) => ({
+    key: `R${i + 1}`,
+    a,
+    b,
+    labelA: labelBySlot(L, a),
+    labelB: labelBySlot(L, b),
+  }))
+
+  const out: ScheduleRow[] = []
+  baseMatches.forEach((m, matchIdx) => out.push(...explodeMatch(m, matchIdx)))
+  return out
+}
+
+ 
 // Salvataggio auto su Supabase di times + scores (stesso schema della pagina /admin/gironi)
 useEffect(() => {
   // salva solo quando:
@@ -1096,60 +1204,201 @@ useEffect(() => {
 }, [tId, times, scores, store, isLoadingState, loadedFor])
 
 
-
   // ---------- Classifica + avulsa: salvataggi ----------
-  type TeamStat = { slot:number; label:string; W:number; PF:number; PS:number; QP:number; finish?:number }
+  type TeamStat = {
+  slot: number
+  label: string
+  W: number
+  PF: number
+  PS: number
+  QP: number
+  SW: number   // set vinti
+  SL: number   // set persi
+  QS: number   // quoziente set = SW/SL
+  finish?: number
+}
 
  
 
-  function computeStatsFor(L: string): TeamStat[] {
-    const cap = capOf(L)
-    const fmt = (store?.meta?.[L]?.format ?? 'pool').toLowerCase() as 'pool'|'ita'
-    const init: Record<number, TeamStat> = {}
-    for (let s = 1; s <= cap; s++) init[s] = { slot:s, label:labelBySlot(L,s), W:0, PF:0, PS:0, QP:0 }
+ function computeStatsFor(L: string): TeamStat[] {
+  const cap = capOf(L)
+  const fmt = (store?.meta?.[L]?.format ?? 'pool').toLowerCase() as 'pool' | 'ita'
 
-    const rows = scheduleRows(L); const sc = scores[L] ?? []
-    const apply = (slotA?:number, slotB?:number, idx?:number) => {
-      if (!slotA || !slotB) return
-      const a = Number(sc[idx!]?.a), b = Number(sc[idx!]?.b)
-      if (!Number.isFinite(a) || !Number.isFinite(b)) return
-      init[slotA].PF += a; init[slotA].PS += b
-      init[slotB].PF += b; init[slotB].PS += a
-      if (a>b) init[slotA].W += 1; else if (b>a) init[slotB].W += 1
+  const init: Record<number, TeamStat> = {}
+  for (let s = 1; s <= cap; s++) {
+    init[s] = { slot: s, label: labelBySlot(L, s), W: 0, PF: 0, PS: 0, QP: 0, SW: 0, SL: 0, QS: 0 }
+  }
+
+  const rows = scheduleRows(L)
+
+  const apply = (slotA?: number, slotB?: number, matchIdx?: number) => {
+    if (!slotA || !slotB) return
+    const mi = matchIdx ?? 0
+
+    // punti PF/PS (somma set)
+    const pts = matchPointsSum(L, mi)
+    init[slotA].PF += pts.aPF; init[slotA].PS += pts.aPS
+    init[slotB].PF += pts.bPF; init[slotB].PS += pts.bPS
+
+    // set vinti/persi (serve per QS)
+    const bestOf = bestOfOf(L)
+    const sc = scores[L] ?? []
+    for (let s = 0; s < bestOf; s++) {
+      const row = sc[mi * bestOf + s]
+      const a = Number(row?.a), b = Number(row?.b)
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue
+      if (a === b) continue
+      if (a > b) { init[slotA].SW += 1; init[slotB].SL += 1 }
+      else       { init[slotB].SW += 1; init[slotA].SL += 1 }
     }
-    rows.forEach((r,idx) => apply(r.a, r.b, idx))
-    for (const s of Object.values(init)) s.QP = s.PF / Math.max(1, s.PS)
 
-    if (fmt === 'pool' && cap === 4) {
-      const s1:[number,number]=[1,4], s2:[number,number]=[2,3]
-      const w1 = (sc[0]?.a && sc[0]?.b) ? (Number(sc[0].a) > Number(sc[0].b) ? s1[0] : s1[1]) : undefined
-      const w2 = (sc[1]?.a && sc[1]?.b) ? (Number(sc[1].a) > Number(sc[1].b) ? s2[0] : s2[1]) : undefined
-      const l1 = w1 ? (w1===s1[0]?s1[1]:s1[0]) : undefined
-      const l2 = w2 ? (w2===s2[0]?s2[1]:s2[0]) : undefined
-      if (w1 && w2 && sc[2]?.a && sc[2]?.b) {
-        const a=Number(sc[2].a), b=Number(sc[2].b)
-        init[w1].finish = a>b ? 1 : 2; init[w2].finish = a>b ? 2 : 1
+    // vittoria match
+    const win = matchWinnerFromScores(L, mi).winner
+    if (win === 'A') init[slotA].W += 1
+    else if (win === 'B') init[slotB].W += 1
+  }
+
+  // conta una volta sola per match (setNo 1)
+  rows.forEach((r) => {
+    if (r?.setNo !== 1) return
+    apply(r.a, r.b, r.matchIdx)
+  })
+
+  for (const s of Object.values(init)) {
+    s.QP = s.PF / Math.max(1, s.PS)
+    s.QS = s.SW / Math.max(1, s.SL)
+  }
+
+  // ✅ QUI: funzioni disponibili per TUTTI i formati (non solo pool)
+  const headToHeadWinner = (slotX: number, slotY: number): number | undefined => {
+    const rr = scheduleRows(L)
+    for (const r of rr) {
+      if (r.setNo !== 1) continue
+      const a = r.a, b = r.b
+      if (!a || !b) continue
+      const ok = (a === slotX && b === slotY) || (a === slotY && b === slotX)
+      if (!ok) continue
+
+      const w = matchWinnerFromScores(L, r.matchIdx).winner
+      if (!w) return undefined
+      return w === 'A' ? a : b
+    }
+    return undefined
+  }
+
+  const miniStatsAmong = (slots: number[]) => {
+    const setSlots = new Set(slots)
+    const tmp: Record<number, { W: number; SW: number; SL: number; PF: number; PS: number; QS: number; QP: number }> = {}
+    for (const s of slots) tmp[s] = { W: 0, SW: 0, SL: 0, PF: 0, PS: 0, QS: 0, QP: 0 }
+
+    const rr = scheduleRows(L)
+    const bestOf = bestOfOf(L)
+    const sc = scores[L] ?? []
+
+    for (const r of rr) {
+      if (r.setNo !== 1) continue
+      const a = r.a, b = r.b
+      if (!a || !b) continue
+      if (!setSlots.has(a) || !setSlots.has(b)) continue
+
+      for (let si = 0; si < bestOf; si++) {
+        const row = sc[r.matchIdx * bestOf + si]
+        const va = Number(row?.a), vb = Number(row?.b)
+        if (!Number.isFinite(va) || !Number.isFinite(vb)) continue
+
+        tmp[a].PF += va; tmp[a].PS += vb
+        tmp[b].PF += vb; tmp[b].PS += va
+
+        if (va === vb) continue
+        if (va > vb) { tmp[a].SW += 1; tmp[b].SL += 1 }
+        else         { tmp[b].SW += 1; tmp[a].SL += 1 }
       }
-      if (l1 && l2 && sc[3]?.a && sc[3]?.b) {
-        const a=Number(sc[3].a), b=Number(sc[3].b)
-        init[l1].finish = a>b ? 3 : 4; init[l2].finish = a>b ? 4 : 3
-      }
-      const arr = Object.values(init)
-      arr.sort((x,y) => {
-        const fx=x.finish??999, fy=y.finish??999
-        if (fx!==fy) return fx-fy
-        if (y.W!==x.W) return y.W-x.W
-        if (y.QP!==x.QP) return y.QP-x.QP
-        if (y.PF!==x.PF) return y.PF-x.PF
-        return x.label.localeCompare(y.label)
-      })
-      return arr
+
+      const w = matchWinnerFromScores(L, r.matchIdx).winner
+      if (w === 'A') tmp[a].W += 1
+      else if (w === 'B') tmp[b].W += 1
+    }
+
+    for (const s of slots) {
+      tmp[s].QS = tmp[s].SW / Math.max(1, tmp[s].SL)
+      tmp[s].QP = tmp[s].PF / Math.max(1, tmp[s].PS)
+    }
+    return tmp
+  }
+
+  // POOL 4: classifica determinata da semifinali+finali
+  if (fmt === 'pool' && cap === 4) {
+    const s1 = poolPairs.semi1
+    const s2 = poolPairs.semi2
+
+    const w1 = matchWinnerFromScores(L, 0).winner
+    const w2 = matchWinnerFromScores(L, 1).winner
+
+    const wSlot1 = w1 ? (w1 === 'A' ? s1[0] : s1[1]) : undefined
+    const lSlot1 = w1 ? (w1 === 'A' ? s1[1] : s1[0]) : undefined
+    const wSlot2 = w2 ? (w2 === 'A' ? s2[0] : s2[1]) : undefined
+    const lSlot2 = w2 ? (w2 === 'A' ? s2[1] : s2[0]) : undefined
+
+    const wf = matchWinnerFromScores(L, 2).winner
+    if (wSlot1 && wSlot2 && wf) {
+      const first = wf === 'A' ? wSlot1 : wSlot2
+      const second = wf === 'A' ? wSlot2 : wSlot1
+      init[first].finish = 1
+      init[second].finish = 2
+    }
+
+    const wl = matchWinnerFromScores(L, 3).winner
+    if (lSlot1 && lSlot2 && wl) {
+      const third = wl === 'A' ? lSlot1 : lSlot2
+      const fourth = wl === 'A' ? lSlot2 : lSlot1
+      init[third].finish = 3
+      init[fourth].finish = 4
     }
 
     const arr = Object.values(init)
-    arr.sort((a,b) => (b.W-a.W) || (b.QP-a.QP) || (b.PF-a.PF) || a.label.localeCompare(b.label))
+    arr.sort((x, y) => {
+      const fx = x.finish ?? 999, fy = y.finish ?? 999
+      if (fx !== fy) return fx - fy
+      if (y.W !== x.W) return y.W - x.W
+      if (y.QP !== x.QP) return y.QP - x.QP
+      if (y.PF !== x.PF) return y.PF - x.PF
+      return x.slot - y.slot
+    })
     return arr
   }
+
+  // ROUND ROBIN: vittorie -> scontro diretto -> QS -> QP -> PF -> fallback
+  const arr = Object.values(init)
+  arr.sort((A, B) => {
+    if (B.W !== A.W) return B.W - A.W
+
+    const tiedSlots = Object.values(init).filter(x => x.W === A.W).map(x => x.slot)
+
+    // scontro diretto se sono in 2
+    if (tiedSlots.length === 2) {
+      const w = headToHeadWinner(A.slot, B.slot)
+      if (w === A.slot) return -1
+      if (w === B.slot) return 1
+    } else if (tiedSlots.length >= 3) {
+      const ms = miniStatsAmong(tiedSlots)
+      const a = ms[A.slot], b = ms[B.slot]
+      if (a && b) {
+        if (b.W !== a.W) return b.W - a.W
+        if (b.QS !== a.QS) return b.QS - a.QS
+        if (b.QP !== a.QP) return b.QP - a.QP
+        if (b.PF !== a.PF) return b.PF - a.PF
+      }
+    }
+
+    if (B.QS !== A.QS) return B.QS - A.QS
+    if (B.QP !== A.QP) return B.QP - A.QP
+    if (B.PF !== A.PF) return B.PF - A.PF
+
+    // ✅ fallback “regola” (niente sorteggio): ordine slot (1,2,3,4...)
+    return A.slot - B.slot
+  })
+  return arr
+}
 
   type AvulsaRow = { letter:string; pos:number; label:string; W:number; PF:number; PS:number; QP:number }
   const avulsa: AvulsaRow[] = useMemo(() => {
@@ -1159,6 +1408,25 @@ useEffect(() => {
     out.sort((a,b) => (a.pos-b.pos) || (b.W-a.W) || (b.QP-a.QP) || a.letter.localeCompare(b.letter))
     return out
   }, [store, letters, scores])
+      useEffect(() => {
+  if (!tourId || !tId || !store) return
+
+  // 1) groups_rank:{tour}:{tappa}  -> { A:[...], B:[...], ... }
+  const rankByGroup: Record<string, string[]> = {}
+  for (const L of letters) {
+    rankByGroup[L] = computeStatsFor(L).map(r => r.label)
+  }
+
+  // 2) classifica_avulsa:{tour}:{tappa} -> [ ...labels in ordine ]
+  const avulsaArr = avulsa.map(r => r.label)
+
+  try {
+    localStorage.setItem(`groups_rank:${tourId}:${tId}`, JSON.stringify(rankByGroup))
+    localStorage.setItem(`classifica_avulsa:${tourId}:${tId}`, JSON.stringify(avulsaArr))
+    // se in qualche punto leggi ancora "avulsa:" mettiamo anche quello
+    localStorage.setItem(`avulsa:${tourId}:${tId}`, JSON.stringify(avulsaArr))
+  } catch {}
+}, [tourId, tId, store, letters, scores, avulsa])
 
 
   // -------- Tabelloni + winners ----------
@@ -1508,44 +1776,71 @@ return (
               {rows.length === 0 ? (
                 <div className="text-xs text-neutral-500">Imposta i gironi in /admin/gironi.</div>
               ) : (
-                rows.map((r, ridx) => (
-                  <div
-                    key={`${tId}-${L}-${r.key}`}
-                    className="grid items-center"
-                    style={{
-                      gridTemplateColumns: '96px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
-                      columnGap: '.35rem',
-                    }}
-                  >
-                    <input
-                      type="time"
-                      className="input h-8 pl-1 pr-0 text-sm text-white w-[92px] tabular-nums"
-                      value={(times[L] ?? [])[ridx] ?? ''}
-                      onChange={(e) => setTime(L, ridx, e.target.value)}
-                    />
-                    <div className="min-w-0 truncate text-sm text-right pr-0.5">{r.labelA}</div>
-                    <input
-                      className="input h-8 w-12 px-1 text-sm text-center"
-                      inputMode="numeric"
-                      value={scores[L]?.[ridx]?.a ?? ''}
-                      onChange={(e) => {
-                        const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2)
-                        setScore(L, ridx, 'a', v)
-                      }}
-                    />
-                    <div className="w-6 text-center text-[13px] text-neutral-400">vs</div>
-                    <input
-                      className="input h-8 w-12 px-1 text-sm text-center"
-                      inputMode="numeric"
-                      value={scores[L]?.[ridx]?.b ?? ''}
-                      onChange={(e) => {
-                        const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2)
-                        setScore(L, ridx, 'b', v)
-                      }}
-                    />
-                    <div className="min-w-0 truncate text-sm pl-1">{r.labelB}</div>
-                  </div>
-                ))
+           rows.map((r, ridx) => {
+  const firstSet = r.setNo === 1
+  const lastOfMatch =
+    ridx === rows.length - 1 || rows[ridx + 1]?.matchIdx !== r.matchIdx
+
+  return (
+    <div
+      key={`${tId}-${L}-${r.key}`}
+      className={[
+        'grid items-center',
+        firstSet ? 'pt-1' : '',
+        lastOfMatch ? 'pb-2 border-b border-neutral-800' : '',
+      ].join(' ')}
+      style={{
+        gridTemplateColumns: '96px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
+        columnGap: '.35rem',
+      }}
+    >
+      {firstSet ? (
+        <input
+          type="time"
+          className="input h-8 pl-1 pr-0 text-sm text-white w-[92px] tabular-nums"
+          value={(times[L] ?? [])[r.matchIdx] ?? ''}
+          onChange={(e) => setTime(L, r.matchIdx, e.target.value)}
+        />
+      ) : (
+        <div className="w-[92px] h-8 flex items-center text-xs text-neutral-500">
+          Set {r.setNo}
+        </div>
+      )}
+
+      <div className="min-w-0 truncate text-sm text-right pr-0.5">
+        {firstSet ? r.labelA : ''}
+      </div>
+
+      <input
+        className="input h-8 w-12 px-1 text-sm text-center"
+        inputMode="numeric"
+        value={scores[L]?.[r.scoreIdx]?.a ?? ''}
+        onChange={(e) => {
+          const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2)
+          setScore(L, r.scoreIdx, 'a', v)
+        }}
+      />
+
+      <div className="w-6 text-center text-[13px] text-neutral-400">
+        {firstSet ? 'vs' : '–'}
+      </div>
+
+      <input
+        className="input h-8 w-12 px-1 text-sm text-center"
+        inputMode="numeric"
+        value={scores[L]?.[r.scoreIdx]?.b ?? ''}
+        onChange={(e) => {
+          const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2)
+          setScore(L, r.scoreIdx, 'b', v)
+        }}
+      />
+
+      <div className="min-w-0 truncate text-sm pl-1">
+        {firstSet ? r.labelB : ''}
+      </div>
+    </div>
+  )
+})
               )}
             </div>
           </div>
