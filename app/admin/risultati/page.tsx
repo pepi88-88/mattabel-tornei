@@ -1030,16 +1030,10 @@ const labelBySlot = (L: string, slot: number) => {
   const rid = store?.assign?.[`${L}-${slot}`] ?? ''
   const raw = rid ? store?.labels?.[rid] ?? '' : ''
 
-  // 1) se il nome "crudo" esiste nei labels, uso quello
-if (raw) return raw
+  // usa solo il nome reale salvato nello stato
+  if (raw) return raw
 
-  // 2) fallback robusto: risolvi A1/B2... in cognomi brevi tramite i resolver locali
-  //    (usa i dati già in localStorage: groups_rank / classifica_avulsa)
-  const token = `${L}${slot}` // es. "A1"
-  const solved = resolveSlotBasic(token, tourId, tId) // già fa: gruppi_rank -> avulsa -> token
-  if (solved && solved !== token && solved !== '—') return solved
-
-  // 3) ultimo fallback visuale
+  // se manca davvero, mostra Slot X ma NON usare la classifica live
   return `Slot ${slot}`
 }
 
@@ -1178,16 +1172,17 @@ useEffect(() => {
       const prev = (js?.state || {}) as any
 
       const next = {
-        groupsCount: prev?.groupsCount ?? store?.groupsCount ?? 0,
-        meta: prev?.meta ?? store?.meta ?? {},
-        assign: prev?.assign ?? store?.assign ?? {},
-        labels: prev?.labels ?? store?.labels ?? {},
-        gField: prev?.gField ?? {},
-        times: { ...(prev?.times || {}), ...(times || {}) },
-        scores: { ...(prev?.scores || {}), ...(scores || {}) },
-        isPublic: typeof prev?.isPublic === 'boolean' ? prev.isPublic : false,
-        groupsConfirmed: !!prev?.groupsConfirmed,
-      }
+  groupsCount: prev?.groupsCount ?? store?.groupsCount ?? 0,
+  meta: prev?.meta ?? store?.meta ?? {},
+  assign: prev?.assign ?? store?.assign ?? {},
+  labels: prev?.labels ?? store?.labels ?? {},
+  gField: prev?.gField ?? {},
+  times: { ...(prev?.times || {}), ...(times || {}) },
+  scores: { ...(prev?.scores || {}), ...(scores || {}) },
+  isPublic: typeof prev?.isPublic === 'boolean' ? prev.isPublic : false,
+  groupsConfirmed: !!prev?.groupsConfirmed,
+  regia: prev?.regia ?? { items: {} },
+}
 
       // se nel frattempo l’utente ha cambiato tappa, non salvare
       if (curTId !== tId) return
@@ -1550,11 +1545,12 @@ useEffect(() => {
       const prevWinners = Array.isArray(prev) ? {}   : (prev?.winnersById || {})
       const prevIta     = Array.isArray(prev) ? {}   : (prev?.itaScoresById || {})
 
-      const next = {
-        items: prevItems.length ? prevItems : brackets,     // fallback
-        winnersById: { ...(prevWinners || {}), ...(winnersById || {}) },
-        itaScoresById: { ...(prevIta || {}), ...(itaScoresById || {}) },
-      }
+     const next = {
+  items: prevItems.length ? prevItems : brackets,
+  winnersById: { ...(prevWinners || {}), ...(winnersById || {}) },
+  itaScoresById: { ...(prevIta || {}), ...(itaScoresById || {}) },
+  regia: prev?.regia ?? { items: {} },
+}
 
       if (curTId !== tId) return
 
