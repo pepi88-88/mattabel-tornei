@@ -221,12 +221,14 @@ const createEdition = async () => {
 React.useEffect(() => {
   const q = playerInput.trim()
   if (!q) { setSuggestions([]); setSuggestOpen(false); return }
+
   const t = setTimeout(async () => {
     try {
       setIsSearching(true)
       const r = await fetch(`/api/players?search=${encodeURIComponent(q)}`, { cache:'no-store' })
       const j = await r.json().catch(()=>({}))
       const items: GlobalPlayer[] = j?.items ?? []
+
       setSuggestions(
         items
           .filter(gp =>
@@ -237,13 +239,15 @@ React.useEffect(() => {
       )
       setSuggestOpen(true)
     } catch {
-      setSuggestions([]); setSuggestOpen(false)
+      setSuggestions([])
+      setSuggestOpen(false)
     } finally {
       setIsSearching(false)
     }
   }, 220)
+
   return () => clearTimeout(t)
-}, [playerInput])
+}, [playerInput, existingIds, existingNames])
 
 function normalizeName(s: string) {
   return String(s || '')
@@ -634,112 +638,109 @@ const totalsSorted = React.useMemo(() => {
               </tr>
             </thead>
 
-            <tbody>
-              {totalsSorted.map((r, i) => (
-               <tr
-  key={r.player_id}
-  className={rowPremiumClass(i + 1)}
->
-                <tr
-  key={r.player_id}
-  className={rowPremiumClass(i + 1)}
->
+           <tbody>
+  {totalsSorted.map((r, i) => (
+    <tr
+      key={r.player_id}
+      className={rowPremiumClass(i + 1)}
+    >
+      <td className="py-1">
+        <span
+          className={`inline-flex min-w-[28px] h-7 items-center justify-center rounded-md text-sm font-semibold tabular-nums ${rankBadgeClass(i + 1)}`}
+        >
+          {i + 1}
+        </span>
+      </td>
 
-                  <td className="py-1 truncate">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate">{r.display_name}</span>
-                      <button
-                        className="btn btn-xs"
-                        onClick={async () => {
-                          if (!editionId) return
-                          if (
-                            !confirm(
-                              `Eliminare “${r.display_name}” dal tour? Saranno rimossi anche i suoi risultati.`
-                            )
-                          )
-                            return
-                          try {
-                            const del = await fetch('/api/ranking/players', {
-                              method: 'DELETE',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ edition_id: editionId, player_id: r.player_id })
-                            })
-                            if (!del.ok) throw new Error(await del.text())
-                            await Promise.all([refetchPlayers(), refetchTotals()])
-                          } catch (e: any) {
-                            alert('Errore eliminazione: ' + (e?.message || ''))
-                          }
-                        }}
-                      >
-                        Elimina
-                      </button>
-                    </div>
-                  </td>
+      <td className="py-1 truncate">
+        <div className="flex items-center gap-2">
+          <span className="truncate">{r.display_name}</span>
+          <button
+            className="btn btn-xs"
+            onClick={async () => {
+              if (!editionId) return
+              if (
+                !confirm(
+                  `Eliminare “${r.display_name}” dal tour? Saranno rimossi anche i suoi risultati.`
+                )
+              ) return
 
-                  {/* Totale subito dopo il nome (senza decimali) */}
-                 <td className={`py-1 text-right font-extrabold pl-3 pr-4 ${totalCellClass(i + 1)}`}>
-                    {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(
-                      Number(
-                        totalsSorted.find(x => x.player_id === r.player_id)?.client_total || 0
-                      )
-                    )}
-                  </td>
+              try {
+                const del = await fetch('/api/ranking/players', {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ edition_id: editionId, player_id: r.player_id })
+                })
+                if (!del.ok) throw new Error(await del.text())
+                await Promise.all([refetchPlayers(), refetchTotals()])
+              } catch (e: any) {
+                alert('Errore eliminazione: ' + (e?.message || ''))
+              }
+            }}
+          >
+            Elimina
+          </button>
+        </div>
+      </td>
 
-                  {/* Celle per ogni TAPPA: punti + select sulla stessa riga e centrati */}
-                  {stages.map((st, idx2) => {
-                    const maxPos = Math.max(1, Number(st.total_teams || 0))
-                    const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
-                    const posNum = Number(cur)
-                    const pts =
-                      cur !== '-' && Number.isFinite(posNum)
-                        ? pointsOfBucket(
-                            posNum,
-                            maxPos,
-                            Number(st.multiplier || 1),
-                            legendSet
-                          )
-                        : ''
+    <td className={`py-1 text-right font-extrabold pl-3 pr-4 ${totalCellClass(i + 1)}`}>
+  {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(
+    Number(r.client_total || 0)
+  )}
+</td>
 
-                    return (
-                      <td
-                        key={`${st.id}-${r.player_id}`}
-                        className={`py-1 ${idx2 > 0 ? 'border-l border-neutral-800' : ''}`}
-                      >
-                        <div className="flex items-center justify-center gap-3">
-                          {/* punteggio a sinistra */}
-                          <div className="w-10 text-right tabular-nums">
-                            {pts !== '' ? pts : '—'}
-                          </div>
+      {stages.map((st, idx2) => {
+        const maxPos = Math.max(1, Number(st.total_teams || 0))
+        const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
+        const posNum = Number(cur)
+        const pts =
+          cur !== '-' && Number.isFinite(posNum)
+            ? pointsOfBucket(
+                posNum,
+                maxPos,
+                Number(st.multiplier || 1),
+                legendSet
+              )
+            : ''
 
-                          {/* select posizione (larga per 2 cifre) */}
-                          <select
-                            className="input w-20 text-center px-0"
-                            value={cur}
-                            onChange={e => setPlacement(st.id, r.player_id, e.target.value)}
-                            title="Posizione"
-                          >
-                            <option value="-">-</option>
-                            {Array.from({ length: maxPos }, (_, n) => n + 1).map(n => (
-                              <option key={n} value={String(n)}>
-                                {n}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
+        return (
+          <td
+            key={`${st.id}-${r.player_id}`}
+            className={`py-1 ${idx2 > 0 ? 'border-l border-neutral-800' : ''}`}
+          >
+            <div className="flex items-center justify-center gap-3">
+              <div className="w-10 text-right tabular-nums">
+                {pts !== '' ? pts : '—'}
+              </div>
 
-              {totalsSorted.length === 0 && (
-                <tr>
-                  <td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">
-                    Nessun dato
-                  </td>
-                </tr>
-              )}
-            </tbody>
+              <select
+                className="input w-20 text-center px-0"
+                value={cur}
+                onChange={e => setPlacement(st.id, r.player_id, e.target.value)}
+                title="Posizione"
+              >
+                <option value="-">-</option>
+                {Array.from({ length: maxPos }, (_, n) => n + 1).map(n => (
+                  <option key={n} value={String(n)}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </td>
+        )
+      })}
+    </tr>
+  ))}
+
+  {totalsSorted.length === 0 && (
+    <tr>
+      <td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">
+        Nessun dato
+      </td>
+    </tr>
+  )}
+</tbody>
           </table>
         </div>
       </div>
