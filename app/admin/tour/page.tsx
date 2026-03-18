@@ -27,9 +27,9 @@ export default function Page(){
   }
 
 const { data: taps, mutate: refreshTaps } = useSWR(
-    tourId ? `/api/tournaments?tour_id=${tourId}` : null,
-    fetcher
-  )
+  tourId ? `/api/tournaments?tour_id=${tourId}&include_closed=1` : null,
+  fetcher
+)
 
 
   // Ordina le tappe: APERTE → CHIUSE → ARCHIVIATE
