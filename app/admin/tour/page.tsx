@@ -26,10 +26,28 @@ export default function Page(){
     localStorage.setItem('selectedTourId', id)
   }
 
-  const { data: taps, mutate: refreshTaps } = useSWR(
-    tourId ? `/api/tournaments?tour_id=${tourId}` : null,
-    fetcher
-  )
+ export async function GET(req: Request) {
+  const sp = new URL(req.url).searchParams
+  const tour_id = sp.get('tour_id') || sp.get('tourId') || ''
+  const include_closed = sp.get('include_closed') === '1'
+
+  const s = supabaseAdmin()
+
+  let q = s
+    .from('tournaments')
+    .select('*')
+    .order('event_date', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  if (tour_id) q = q.eq('tour_id', tour_id)
+
+  if (!include_closed) q = q.neq('status', 'closed')
+
+  const { data, error } = await q
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ items: data ?? [] })
+}
 
   // Ordina le tappe: APERTE → CHIUSE → ARCHIVIATE
   const tapSorted = useMemo(() => {
