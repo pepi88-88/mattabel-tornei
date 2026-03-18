@@ -111,9 +111,11 @@ const { data: stRes, mutate: refetchStages } = useSWR(
   fetcher,
   { revalidateOnFocus:false }
 )
-const stages: Stage[] = React.useMemo(() => {
-  return [...(stRes?.items ?? [])].reverse()
-}, [stRes?.items])
+const { data, error } = await supabase
+  .from('rank_stage')
+  .select('id, edition_id, name, day, month, multiplier, total_teams, created_at')
+  .eq('edition_id', edition_id)
+  .order('created_at', { ascending: false })
 
 const { data: totRes, mutate: refetchTotals } = useSWR(
   editionId ? `/api/ranking/totals?edition_id=${editionId}` : null,
