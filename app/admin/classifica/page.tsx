@@ -14,7 +14,41 @@ type GlobalPlayer = { id: string; display_name: string }
 
 const fetcher = (u: string) => fetch(u).then(r => r.json()).catch(() => null)
 const asNum = (v: any, d=0) => Number.isFinite(Number(v)) ? Number(v) : d
+function rowPremiumClass(rank: number) {
+  if (rank === 1) {
+    return [
+      'bg-[linear-gradient(90deg,rgba(255,145,0,0.38)_0%,rgba(255,145,0,0.20)_22%,rgba(255,145,0,0.08)_55%,rgba(0,0,0,0)_100%)]',
+      'border-t border-orange-400/60',
+      'shadow-[inset_0_1px_0_rgba(255,190,92,0.35)]',
+    ].join(' ')
+  }
 
+  if (rank >= 2 && rank <= 8) {
+    return [
+      'bg-[linear-gradient(90deg,rgba(0,122,255,0.30)_0%,rgba(0,122,255,0.16)_24%,rgba(0,122,255,0.06)_55%,rgba(0,0,0,0)_100%)]',
+      'border-t border-sky-500/30',
+      'shadow-[inset_0_1px_0_rgba(125,190,255,0.10)]',
+    ].join(' ')
+  }
+
+  return 'border-t border-neutral-800'
+}
+
+function totalCellClass(rank: number) {
+  if (rank === 1) return 'text-orange-300'
+  if (rank >= 2 && rank <= 8) return 'text-sky-300'
+  return 'text-white'
+}
+
+function rankBadgeClass(rank: number) {
+  if (rank === 1) {
+    return 'bg-orange-500/20 text-orange-200 border border-orange-400/40'
+  }
+  if (rank >= 2 && rank <= 8) {
+    return 'bg-sky-500/20 text-sky-200 border border-sky-400/30'
+  }
+  return 'bg-neutral-800 text-neutral-200 border border-neutral-700'
+}
 export default function ClassificaPage() {
   /* ------------------------ Stato base ------------------------ */
   const [gender, setGender] = React.useState<'M'|'F'>('M')
@@ -77,7 +111,19 @@ const { data: stRes, mutate: refetchStages } = useSWR(
   fetcher,
   { revalidateOnFocus:false }
 )
-const stages: Stage[] = stRes?.items ?? []
+const stages: Stage[] = React.useMemo(() => {
+  const arr: Stage[] = [...(stRes?.items ?? [])]
+  arr.sort((a, b) => {
+    const ma = Number(a.month || 0)
+    const mb = Number(b.month || 0)
+    if (ma !== mb) return mb - ma
+
+    const da = Number(a.day || 0)
+    const db = Number(b.day || 0)
+    return db - da
+  })
+  return arr
+}, [stRes?.items])
 
 const { data: totRes, mutate: refetchTotals } = useSWR(
   editionId ? `/api/ranking/totals?edition_id=${editionId}` : null,
@@ -590,16 +636,14 @@ const totalsSorted = React.useMemo(() => {
 
             <tbody>
               {totalsSorted.map((r, i) => (
+               <tr
+  key={r.player_id}
+  className={rowPremiumClass(i + 1)}
+>
                 <tr
-                  key={r.player_id}
-                  className={`border-t border-neutral-800 ${
-                    i === 0 ? 'bg-yellow-500/10' : i > 0 && i < 8 ? 'bg-emerald-500/5' : ''
-                  }`}
-                >
-                  <td className="py-1">
-                    {i + 1}
-                    {i === 0 && <span className="ml-1">👑</span>}
-                  </td>
+  key={r.player_id}
+  className={rowPremiumClass(i + 1)}
+>
 
                   <td className="py-1 truncate">
                     <div className="flex items-center gap-2">
@@ -633,7 +677,7 @@ const totalsSorted = React.useMemo(() => {
                   </td>
 
                   {/* Totale subito dopo il nome (senza decimali) */}
-                  <td className="py-1 text-right font-semibold pl-3 pr-4">
+                 <td className={`py-1 text-right font-extrabold pl-3 pr-4 ${totalCellClass(i + 1)}`}>
                     {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(
                       Number(
                         totalsSorted.find(x => x.player_id === r.player_id)?.client_total || 0
