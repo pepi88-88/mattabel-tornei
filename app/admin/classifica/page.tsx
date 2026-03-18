@@ -112,17 +112,7 @@ const { data: stRes, mutate: refetchStages } = useSWR(
   { revalidateOnFocus:false }
 )
 const stages: Stage[] = React.useMemo(() => {
-  const arr: Stage[] = [...(stRes?.items ?? [])]
-  arr.sort((a, b) => {
-    const ma = Number(a.month || 0)
-    const mb = Number(b.month || 0)
-    if (ma !== mb) return mb - ma
-
-    const da = Number(a.day || 0)
-    const db = Number(b.day || 0)
-    return db - da
-  })
-  return arr
+  return [...(stRes?.items ?? [])].reverse()
 }, [stRes?.items])
 
 const { data: totRes, mutate: refetchTotals } = useSWR(
