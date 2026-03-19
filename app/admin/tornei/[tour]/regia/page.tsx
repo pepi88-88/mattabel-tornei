@@ -24,6 +24,9 @@ type TournamentOption = {
   name: string
   date?: string
 }
+function rowUiKey(row: RegiaRow) {
+  return `${row.tournament_id}::${row.key}`
+}
 const COURTS = Array.from({ length: 10 }, (_, i) => i + 1)
 const SEQ_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1)
 
@@ -74,17 +77,19 @@ const STORAGE_KEY = 'regia:selectedTournaments'
     setRows(items)
 
     const nextDrafts: Record<string, { court: string; sequence: string }> = {}
-    items.forEach((r) => {
-      nextDrafts[r.key] = {
-        court: r.court == null ? '' : String(r.court),
-        sequence:
-          r.status === 'paused'
-            ? '0'
-            : r.sequence == null
-            ? ''
-            : String(r.sequence),
-      }
-    })
+  items.forEach((r) => {
+  const id = rowUiKey(r)
+
+  nextDrafts[id] = {
+    court: r.court == null ? '' : String(r.court),
+    sequence:
+      r.status === 'paused'
+        ? '0'
+        : r.sequence == null
+        ? ''
+        : String(r.sequence),
+  }
+})
     setDrafts(nextDrafts)
   } finally {
     setLoading(false)
@@ -96,16 +101,18 @@ const STORAGE_KEY = 'regia:selectedTournaments'
   void loadData()
 }, [activeTournamentA, activeTournamentB])
 
-  function setDraft(key: string, patch: Partial<{ court: string; sequence: string }>) {
-    setDrafts((prev) => ({
-      ...prev,
-      [key]: {
-        court: prev[key]?.court ?? '',
-        sequence: prev[key]?.sequence ?? '',
-        ...patch,
-      },
-    }))
-  }
+ function setDraft(row: RegiaRow, patch: Partial<{ court: string; sequence: string }>) {
+  const id = rowUiKey(row)
+
+  setDrafts((prev) => ({
+    ...prev,
+    [id]: {
+      court: prev[id]?.court ?? '',
+      sequence: prev[id]?.sequence ?? '',
+      ...patch,
+    },
+  }))
+}
 async function loadTournamentOptions() {
   try {
     const res = await fetch('/api/tournaments', { cache: 'no-store' })
@@ -141,19 +148,19 @@ async function loadTournamentOptions() {
     setActiveTournamentB('')
   }
 }, [initialTournamentId])
-  function tournamentIdForKey(key: string) {
-  const row = rows.find((r) => r.key === key)
-  return row?.tournament_id || ''
-}
+  
 async function mutate(
-  key: string | null,
+  row: RegiaRow | null,
   action: 'save_assignment' | 'set_live' | 'stop_live' | 'close_match' | 'reopen_match' | 'reset_tournament_regia',
   extra?: { court?: number | null; sequence?: number | null; tournament_id?: string }
 ) {
-  const targetTournamentId = extra?.tournament_id || (key ? tournamentIdForKey(key) : '')
+  const targetTournamentId = extra?.tournament_id || row?.tournament_id || ''
   if (!targetTournamentId) return
 
-  setSavingKey(key || '__bulk__')
+  const rowKey = row?.key ?? null
+  const busyId = row ? rowUiKey(row) : '__bulk__'
+
+  setSavingKey(busyId)
 
   try {
     const res = await fetch('/api/regia/state', {
@@ -165,7 +172,7 @@ async function mutate(
       body: JSON.stringify({
         tournament_id: targetTournamentId,
         action,
-        key: key || undefined,
+        key: rowKey || undefined,
         ...extra,
       }),
     })
@@ -246,28 +253,34 @@ function applyTournamentSelection() {
     )
   } catch {}
 }
-  async function saveAssignment(row: RegiaRow) {
-    if (row.status === 'live') {
-      alert('Una partita LIVE non può essere spostata.')
-      return
-    }
-
-    const court = drafts[row.key]?.court ? Number(drafts[row.key].court) : null
-    const sequence =
-      drafts[row.key]?.sequence && drafts[row.key].sequence !== '0'
-        ? Number(drafts[row.key].sequence)
-        : null
-
-    const changed = row.court !== court || row.sequence !== sequence || (court == null && row.status !== 'waiting')
-    if (!changed) return
-
-    if (row.court != null || row.sequence != null) {
-      const ok = window.confirm('Stai modificando un’assegnazione esistente. Continuare?')
-      if (!ok) return
-    }
-
-    await mutate(row.key, 'save_assignment', { court, sequence })
+async function saveAssignment(row: RegiaRow) {
+  if (row.status === 'live') {
+    alert('Una partita LIVE non può essere spostata.')
+    return
   }
+
+  const id = rowUiKey(row)
+
+  const court = drafts[id]?.court ? Number(drafts[id].court) : null
+  const sequence =
+    drafts[id]?.sequence && drafts[id].sequence !== '0'
+      ? Number(drafts[id].sequence)
+      : null
+
+  const changed =
+    row.court !== court ||
+    row.sequence !== sequence ||
+    (court == null && row.status !== 'waiting')
+
+  if (!changed) return
+
+  if (row.court != null || row.sequence != null) {
+    const ok = window.confirm('Stai modificando un’assegnazione esistente. Continuare?')
+    if (!ok) return
+  }
+
+  await mutate(row, 'save_assignment', { court, sequence })
+}
 
   const activeRows = useMemo(
     () => rows.filter((r) => r.status !== 'done' && r.status !== 'paused'),
@@ -563,9 +576,9 @@ Pulisci regia
                 </tr>
               ) : (
                 visibleActiveRows.map((row) => {
-                  const busy = savingKey === row.key
+                  const busy = savingKey === rowUiKey(row)
                   return (
-                 <tr key={row.key} className={`border-b border-neutral-800 ${rowBg(row.status, row.tournament_id)}`}>
+                 <tr key={rowUiKey(row)} className={`border-b border-neutral-800 ${rowBg(row.status, row.tournament_id)}`}>
   <td className="px-4 py-3 align-top">
    <span
   className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${tournamentBadge(row.tournament_id)}`}
@@ -599,14 +612,16 @@ Pulisci regia
                         ) : (
                           <div className="flex flex-wrap items-center gap-2">
                             <select
-                              value={drafts[row.key]?.court ?? ''}
+                              value={drafts[rowUiKey(row)]?.court ?? ''}
                               onChange={(e) => {
-                                const nextCourt = e.target.value
-                                setDraft(row.key, {
-                                  court: nextCourt,
-                                  sequence: nextCourt ? String((row.sequence ?? 0) || 1) : '',
-                                })
-                              }}
+  const nextCourt = e.target.value
+  const id = rowUiKey(row)
+
+  setDraft(row, {
+    court: nextCourt,
+    sequence: nextCourt ? (drafts[id]?.sequence ?? '') : '',
+  })
+}}
                               disabled={busy}
                               className="rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm text-white"
                             >
@@ -619,9 +634,9 @@ Pulisci regia
                             </select>
 
                             <select
-                              value={drafts[row.key]?.sequence ?? ''}
-                              onChange={(e) => setDraft(row.key, { sequence: e.target.value })}
-                              disabled={busy || !(drafts[row.key]?.court ?? '')}
+                              value={drafts[rowUiKey(row)]?.sequence ?? ''}
+                              onChange={(e) => setDraft(row, { sequence: e.target.value })}
+                              disabled={busy || !(drafts[rowUiKey(row)]?.court ?? '')}
                               className="rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm text-white"
                             >
                               <option value="">Seq</option>
@@ -648,7 +663,7 @@ Pulisci regia
                           {row.status !== 'live' ? (
                             <button
                               type="button"
-                              onClick={() => void mutate(row.key, 'set_live')}
+                              onClick={() => void mutate(row, 'set_live')}
                               disabled={busy || row.court == null}
                               className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                             >
@@ -659,7 +674,7 @@ Pulisci regia
                               type="button"
                               onClick={() => {
                                 const ok = window.confirm('Togliere la partita da LIVE e metterla in sospesa?')
-                                if (ok) void mutate(row.key, 'stop_live')
+                                if (ok) void mutate(row, 'stop_live')
                               }}
                               disabled={busy}
                               className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
@@ -672,7 +687,7 @@ Pulisci regia
                             type="button"
                             onClick={() => {
                               const ok = window.confirm('Segnare la partita come chiusa?')
-                              if (ok) void mutate(row.key, 'close_match')
+                              if (ok) void mutate(row, 'close_match')
                             }}
                             disabled={busy || row.status === 'waiting'}
                            className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
@@ -710,9 +725,9 @@ Pulisci regia
               </thead>
               <tbody>
                 {pausedRows.map((row) => {
-                  const busy = savingKey === row.key
+                  const busy = savingKey === rowUiKey(row)
                   return (
-                  <tr key={row.key} className="border-b border-neutral-800 bg-amber-950/20">
+                  <tr key={rowUiKey(row)} className="border-b border-neutral-800 bg-amber-950/20">
                     <td className="px-4 py-3">
   <span
   className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${tournamentBadge(row.tournament_id)}`}
@@ -730,8 +745,8 @@ Pulisci regia
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
                           <select
-                            value={drafts[row.key]?.court ?? ''}
-                            onChange={(e) => setDraft(row.key, { court: e.target.value })}
+                            value={drafts[rowUiKey(row)]?.court ?? ''}
+                            onChange={(e) => setDraft(row, { court: e.target.value })}
                             disabled={busy}
                            className="rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm text-white"
                           >
@@ -744,9 +759,9 @@ Pulisci regia
                           </select>
 
                           <select
-                            value={drafts[row.key]?.sequence === '0' ? '' : drafts[row.key]?.sequence ?? ''}
-                            onChange={(e) => setDraft(row.key, { sequence: e.target.value })}
-                            disabled={busy || !(drafts[row.key]?.court ?? '')}
+                            value={drafts[rowUiKey(row)]?.sequence === '0' ? '' : drafts[rowUiKey(row)]?.sequence ?? ''}
+                            onChange={(e) => setDraft(row, { sequence: e.target.value })}
+                            disabled={busy || !(drafts[rowUiKey(row)]?.court ?? '')}
                            className="rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm text-white"
                           >
                             <option value="">Seq</option>
@@ -796,10 +811,10 @@ Pulisci regia
 </thead>
               <tbody>
   {doneRows.map((row) => {
-    const busy = savingKey === row.key
+    const busy = savingKey === rowUiKey(row)
 
     return (
-      <tr key={row.key} className="border-b border-neutral-800 bg-neutral-950 text-neutral-500">
+      <tr key={rowUiKey(row)} className="border-b border-neutral-800 bg-neutral-950 text-neutral-500">
         <td className="px-4 py-3">
           <span
             className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${tournamentBadge(row.tournament_id)}`}
@@ -819,7 +834,7 @@ Pulisci regia
             type="button"
             onClick={() => {
               const ok = window.confirm('Riaprire questa partita chiusa?')
-              if (ok) void mutate(row.key, 'reopen_match')
+              if (ok) void mutate(row, 'reopen_match')
             }}
             disabled={busy}
             className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
