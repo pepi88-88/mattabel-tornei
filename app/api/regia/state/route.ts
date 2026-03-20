@@ -1103,15 +1103,22 @@ function buildDERows(
 
 function sortRows(rows: RegiaRow[]) {
   return [...rows].sort((a, b) => {
+    // PRIORITÀ STATUS
+    const order = { live: 0, queued: 1, paused: 2, waiting: 3, done: 4 }
+    const sa = order[a.status] ?? 99
+    const sb = order[b.status] ?? 99
+    if (sa !== sb) return sa - sb
+
+    // poi campo
     const ac = a.court == null ? 999 : a.court
     const bc = b.court == null ? 999 : b.court
     if (ac !== bc) return ac - bc
 
-    const as = a.status === 'paused' ? 0 : (a.sequence == null ? 999 : a.sequence)
-    const bs = b.status === 'paused' ? 0 : (b.sequence == null ? 999 : b.sequence)
+    // poi sequenza
+    const as = a.sequence == null ? 999 : a.sequence
+    const bs = b.sequence == null ? 999 : b.sequence
     if (as !== bs) return as - bs
 
-    if (a.phase !== b.phase) return a.phase.localeCompare(b.phase)
     return a.key.localeCompare(b.key)
   })
 }
@@ -1254,7 +1261,7 @@ rows.push({
       rows.push(r)
     })
   })
-  return sortRows(rows)
+  return rows
 }
 
 async function persistStates(
@@ -1293,11 +1300,34 @@ async function persistStates(
   if (bErr) throw new Error(bErr.message)
 }
 
-return NextResponse.json({
-  ok: true,
-  rows: sortRows(allRows),
-})
+export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return new NextResponse('Unauthorized', { status: 401 })
 
+  try {
+    const sp = new URL(req.url).searchParams
+    const tournament_ids = sp.getAll('tournament_id').map((x) => String(x || '').trim()).filter(Boolean)
+
+    if (!tournament_ids.length) {
+      return NextResponse.json({ error: 'Missing tournament_id' }, { status: 400 })
+    }
+
+    const s = supabaseAdmin()
+    const allRows: RegiaRow[] = []
+
+    for (const tournament_id of tournament_ids) {
+      const { groupState, bracketState } = await loadStates(s, tournament_id)
+      const rows = buildAllRows(tournament_id, groupState, bracketState)
+      allRows.push(...rows)
+    }
+
+    return NextResponse.json({
+      ok: true,
+      rows: sortRows(allRows),
+    })
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message || 'Errore GET regia' }, { status: 500 })
+  }
+}
 export async function PUT(req: NextRequest) {
   if (!requireAdmin(req)) return new NextResponse('Unauthorized', { status: 401 })
 
