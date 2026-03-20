@@ -523,16 +523,39 @@ function computeStatsForGroup(gs: GroupState, L: string) {
 
   return arr
 }
+function isGroupResolved(gs: GroupState, L: string) {
+  const rows = scheduleRowsForGroup(gs, L).filter((r) => r.setNo === 1)
+  if (!rows.length) return false
+
+  return rows.every((r) => {
+    const winner = matchWinnerFromScores(gs, L, r.matchIdx).winner
+    return !!winner
+  })
+}
 function buildGroupsRank(gs: GroupState) {
   const letters = getGroupLetters(gs)
   const byGroup: Record<string, string[]> = {}
-  const avulsa: string[] = []
+  const avulsaRows: Array<{
+    letter: string
+    pos: number
+    label: string
+    W: number
+    PF: number
+    PS: number
+    QP: number
+  }> = []
 
   for (const L of letters) {
+    if (!isGroupResolved(gs, L)) {
+      byGroup[L] = []
+      continue
+    }
+
     const stats = computeStatsForGroup(gs, L)
     byGroup[L] = stats.map((r: any) => lastSurnames(r.label))
+
     stats.forEach((r: any, idx: number) => {
-      avulsa.push(JSON.stringify({
+      avulsaRows.push({
         letter: L,
         pos: idx + 1,
         label: lastSurnames(r.label),
@@ -540,16 +563,20 @@ function buildGroupsRank(gs: GroupState) {
         PF: r.PF,
         PS: r.PS,
         QP: r.QP,
-      }))
+      })
     })
   }
 
-  const avRows = avulsa.map((s) => JSON.parse(s))
-  avRows.sort((a, b) => (a.pos - b.pos) || (b.W - a.W) || (b.QP - a.QP) || a.letter.localeCompare(b.letter))
+  avulsaRows.sort((a, b) =>
+    (a.pos - b.pos) ||
+    (b.W - a.W) ||
+    (b.QP - a.QP) ||
+    a.letter.localeCompare(b.letter)
+  )
 
   return {
     byGroup,
-    avulsa: avRows.map((r) => r.label as string),
+    avulsa: avulsaRows.map((r) => r.label),
   }
 }
 function normalizeRefText(s: string) {
@@ -573,27 +600,26 @@ function makeBracketResolver(
     if (raw === '-' || raw === '—') return '—'
     if (raw.toUpperCase() === 'BYE') return 'BYE'
 
-    let m = raw.match(/^([A-Z])(\d{1,2})$/)
-    if (m) {
-      const letter = m[1].toUpperCase()
-      const pos = Math.max(1, Number(m[2])) - 1
-      const name = byGroup[letter]?.[pos]
-      return name || raw
-    }
+  let m = raw.match(/^([A-Z])(\d{1,2})$/)
+if (m) {
+  const letter = m[1].toUpperCase()
+  const pos = Math.max(1, Number(m[2])) - 1
+  const name = byGroup[letter]?.[pos]
+  return name || ''
+}
 
-    m = raw.match(/^(\d{1,2})([A-Z])$/)
-    if (m) {
-      const letter = m[2].toUpperCase()
-      const pos = Math.max(1, Number(m[1])) - 1
-      const name = byGroup[letter]?.[pos]
-      return name || raw
-    }
+m = raw.match(/^(\d{1,2})([A-Z])$/)
+if (m) {
+  const letter = m[2].toUpperCase()
+  const pos = Math.max(1, Number(m[1])) - 1
+  const name = byGroup[letter]?.[pos]
+  return name || ''
+}
 
-    if (/^\d+$/.test(raw)) {
-      const idx = Math.max(1, Number(raw)) - 1
-      return avulsa[idx] || raw
-    }
-
+if (/^\d+$/.test(raw)) {
+  const idx = Math.max(1, Number(raw)) - 1
+  return avulsa[idx] || ''
+}
     return raw
   }
 
