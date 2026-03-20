@@ -51,6 +51,7 @@ type RegiaItemState = {
   court: number | null
   sequence: number | null
   status: RegiaStatus
+  scheduledTimeManual?: string
 }
 
 type RegiaRow = {
@@ -897,7 +898,7 @@ function buildSERows(
         phase: phaseLabelSE(round, rounds, idx, bracket.title),
         teamA: labelsByCode[code]?.A || '—',
         teamB: labelsByCode[code]?.B || '—',
-        scheduledTime: '',
+        scheduledTime: reg.scheduledTimeManual || '',
         court: reg.court ?? null,
         sequence: reg.sequence ?? null,
         status: reg.status ?? 'waiting',
@@ -924,7 +925,7 @@ const loserB = winB ? labelsByCode[semiB][winB === 'A' ? 'B' : 'A'] : ''
         phase: `3° / 4° ${bracket.title}`,
         teamA: loserA || '—',
 teamB: loserB || '—',
-        scheduledTime: '',
+        scheduledTime: reg.scheduledTimeManual || '',
         court: reg.court ?? null,
         sequence: reg.sequence ?? null,
         status: reg.status ?? 'waiting',
@@ -1116,7 +1117,7 @@ case 'THIRD':
       phase: d.phase,
      teamA: labels.a || '—',
 teamB: labels.b || '—',
-      scheduledTime: '',
+      scheduledTime: reg.scheduledTimeManual || '',
       court: reg.court ?? null,
       sequence: reg.sequence ?? null,
       status: reg.status ?? 'waiting',
@@ -1171,10 +1172,11 @@ function applyRowsBackToStates(rows: RegiaRow[], groupState: GroupState, bracket
 
   rows.forEach((r) => {
     const payload: RegiaItemState = {
-      court: r.court ?? null,
-      sequence: r.sequence ?? null,
-      status: r.status,
-    }
+  court: r.court ?? null,
+  sequence: r.sequence ?? null,
+  status: r.status,
+  scheduledTimeManual: r.sourceType === 'bracket' ? (r.scheduledTime || '') : undefined,
+}
     if (r.sourceType === 'girone') gMap[r.key] = payload
     else bMap[r.key] = payload
   })
@@ -1351,62 +1353,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: err?.message || 'Errore GET regia' }, { status: 500 })
   }
 }
-export async function PUT(req: NextRequest) {
-  if (!requireAdmin(req)) return new NextResponse('Unauthorized', { status: 401 })
-
-  try {
-   const body = (await req.json().catch(() => null)) as
-  | {
-      tournament_id?: string
-      action?:
-        | 'save_assignment'
-        | 'set_live'
-        | 'stop_live'
-        | 'close_match'
-        | 'reopen_match'
-        | 'reset_tournament_regia'
-      key?: string
-      court?: number | null
-      sequence?: number | null
-    }
-  | null
-
-   const tournament_id = String(body?.tournament_id || '').trim()
-const action = body?.action
-const key = String(body?.key || '').trim()
-
-if (!tournament_id || !action) {
-  return NextResponse.json({ error: 'Missing params' }, { status: 400 })
-}
-
-if (action !== 'reset_tournament_regia' && !key) {
-  return NextResponse.json({ error: 'Missing key' }, { status: 400 })
-}
-
-   const s = supabaseAdmin()
-const { groupState, bracketState, gData, bData } = await loadStates(s, tournament_id)
-const rows = buildAllRows(tournament_id, groupState, bracketState)
-
-const target =
-  action === 'reset_tournament_regia'
-    ? null
-    : readRegiaState(rows, key)
-
-if (action !== 'reset_tournament_regia' && !target) {
-  return NextResponse.json({ error: 'Partita non trovata' }, { status: 404 })
-}
-
- if (action === 'save_assignment') {
-  if (!target) {
-    return NextResponse.json({ error: 'Partita non trovata' }, { status: 404 })
+function applyAssignmentToRow(
+  target: RegiaRow,
+  patch: {
+    court?: number | null
+    sequence?: number | null
+    scheduledTime?: string
   }
-
+) {
   if (target.status === 'live') {
-    return NextResponse.json({ error: 'Una partita LIVE non può essere spostata' }, { status: 400 })
+    throw new Error('Una partita LIVE non può essere spostata')
   }
 
-  const nextCourt = body?.court == null ? null : Number(body.court)
-  const nextSequence = body?.sequence == null ? null : Number(body.sequence)
+  const nextCourt = patch.court == null ? null : Number(patch.court)
+  const nextSequence = patch.sequence == null ? null : Number(patch.sequence)
+  const nextScheduledTime = String(patch.scheduledTime || '').trim()
+
+  target.scheduledTime = nextScheduledTime
 
   if (nextCourt == null) {
     target.court = null
@@ -1420,6 +1383,120 @@ if (action !== 'reset_tournament_regia' && !target) {
     }
   }
 }
+
+export async function PUT(req: NextRequest) {
+  if (!requireAdmin(req)) return new NextResponse('Unauthorized', { status: 401 })
+
+  try {
+  const body = (await req.json().catch(() => null)) as
+  | {
+      tournament_id?: string
+      action?:
+        | 'save_assignment'
+        | 'save_assignment_batch'
+        | 'set_live'
+        | 'stop_live'
+        | 'close_match'
+        | 'reopen_match'
+        | 'reset_tournament_regia'
+      key?: string
+      court?: number | null
+      sequence?: number | null
+      scheduledTime?: string
+      changes?: Array<{
+        key: string
+        court?: number | null
+        sequence?: number | null
+        scheduledTime?: string
+      }>
+    }
+  | null
+   const tournament_id = String(body?.tournament_id || '').trim()
+const action = body?.action
+const key = String(body?.key || '').trim()
+
+if (!tournament_id || !action) {
+  return NextResponse.json({ error: 'Missing params' }, { status: 400 })
+}
+
+if (
+  action !== 'reset_tournament_regia' &&
+  action !== 'save_assignment_batch' &&
+  !key
+) {
+  return NextResponse.json({ error: 'Missing key' }, { status: 400 })
+}
+
+   const s = supabaseAdmin()
+const { groupState, bracketState, gData, bData } = await loadStates(s, tournament_id)
+const rows = buildAllRows(tournament_id, groupState, bracketState)
+
+const target =
+  action === 'reset_tournament_regia' || action === 'save_assignment_batch'
+    ? null
+    : readRegiaState(rows, key)
+
+if (
+  action !== 'reset_tournament_regia' &&
+  action !== 'save_assignment_batch' &&
+  !target
+) {
+  return NextResponse.json({ error: 'Partita non trovata' }, { status: 404 })
+}
+
+if (action === 'save_assignment') {
+  if (!target) {
+    return NextResponse.json({ error: 'Partita non trovata' }, { status: 404 })
+  }
+
+  try {
+    applyAssignmentToRow(target, {
+      court: body?.court,
+      sequence: body?.sequence,
+      scheduledTime: body?.scheduledTime,
+    })
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message || 'Errore assegnazione' }, { status: 400 })
+  }
+}
+    if (action === 'save_assignment_batch') {
+  const changes = Array.isArray(body?.changes) ? body!.changes : []
+
+  if (!changes.length) {
+    return NextResponse.json({ error: 'Nessuna modifica da salvare' }, { status: 400 })
+  }
+
+  const seen = new Set<string>()
+
+  for (const change of changes) {
+    const changeKey = String(change?.key || '').trim()
+    if (!changeKey) {
+      return NextResponse.json({ error: 'Una modifica non ha key valida' }, { status: 400 })
+    }
+    if (seen.has(changeKey)) continue
+    seen.add(changeKey)
+
+    const row = readRegiaState(rows, changeKey)
+    if (!row) {
+      return NextResponse.json({ error: `Partita non trovata: ${changeKey}` }, { status: 404 })
+    }
+
+    try {
+      applyAssignmentToRow(row, {
+        court: change?.court,
+        sequence: change?.sequence,
+        scheduledTime: change?.scheduledTime,
+      })
+    } catch (err: any) {
+      return NextResponse.json(
+        { error: `${changeKey}: ${err?.message || 'Errore assegnazione'}` },
+        { status: 400 }
+      )
+    }
+  }
+}
+
+ 
 if (action === 'set_live') {
   if (!target) {
     return NextResponse.json({ error: 'Partita non trovata' }, { status: 404 })
