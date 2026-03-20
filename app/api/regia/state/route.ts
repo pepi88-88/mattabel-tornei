@@ -632,50 +632,50 @@ if (prefix === 'M') prefix = 'R'
         const left = `R${idx * 2 + 1}`
         const right = `R${idx * 2 + 2}`
         return {
-          A: winnerOfCode(left) || `Winner ${left} — ${br.title}`,
-          B: winnerOfCode(right) || `Winner ${right} — ${br.title}`,
-        }
+  A: winnerOfCode(left) || '',
+  B: winnerOfCode(right) || '',
+}
       }
 
-      if (/^Y\d+$/i.test(code)) {
-        const idx = Number(code.slice(1))
-        const z = `Z${idx}`
-        return {
-          A: winnerOfCode(z) || `Winner ${z} — ${br.title}`,
-          B: '—',
-        }
-      }
+    if (/^Y\d+$/i.test(code)) {
+  const idx = Number(code.slice(1))
+  const z = `Z${idx}`
+  return {
+    A: winnerOfCode(z) || '',
+    B: '',
+  }
+}
 
         if (/^X\d+$/i.test(code)) {
         const idx = Number(code.slice(1))
 
         if (idx === 1) {
-          return {
-            A: loserOfCode('R1') || `Loser R1 — ${br.title}`,
-            B: loserOfCode('R2') || `Loser R2 — ${br.title}`,
-          }
+         return {
+  A: loserOfCode('R1') || '',
+  B: loserOfCode('R2') || '',
+}
         }
 
-        if (idx === 2) {
-          return {
-            A: loserOfCode('R3') || `Loser R3 — ${br.title}`,
-            B: loserOfCode('R4') || `Loser R4 — ${br.title}`,
-          }
-        }
+       if (idx === 2) {
+  return {
+    A: loserOfCode('R3') || '',
+    B: loserOfCode('R4') || '',
+  }
+}
 
-        if (idx === 3) {
-          return {
-            A: winnerOfCode('X1') || `Winner X1 — ${br.title}`,
-            B: '—',
-          }
-        }
+if (idx === 3) {
+  return {
+    A: winnerOfCode('X1') || '',
+    B: '',
+  }
+}
 
-        if (idx === 4) {
-          return {
-            A: winnerOfCode('X2') || `Winner X2 — ${br.title}`,
-            B: '—',
-          }
-        }
+if (idx === 4) {
+  return {
+    A: winnerOfCode('X2') || '',
+    B: '',
+  }
+}
 
         return null
       }
@@ -683,19 +683,19 @@ if (prefix === 'M') prefix = 'R'
       if (/^Q\d+$/i.test(code)) {
         const idx = Number(code.slice(1))
 
-        if (idx === 1) {
-          return {
-            A: loserOfCode('Z1') || `Loser Z1 — ${br.title}`,
-            B: '—',
-          }
-        }
+      if (idx === 1) {
+  return {
+    A: loserOfCode('Z1') || '',
+    B: '',
+  }
+}
 
-        if (idx === 2) {
-          return {
-            A: loserOfCode('Z2') || `Loser Z2 — ${br.title}`,
-            B: '—',
-          }
-        }
+if (idx === 2) {
+  return {
+    A: loserOfCode('Z2') || '',
+    B: '',
+  }
+}
 
         return null
       }
@@ -703,56 +703,53 @@ if (prefix === 'M') prefix = 'R'
       if (/^W\d+$/i.test(code)) {
         const idx = Number(code.slice(1))
 
-        if (idx === 1) {
-          return {
-            A: winnerOfCode('Q1') || `Winner Q1 — ${br.title}`,
-            B: winnerOfCode('X3') || `Winner X3 — ${br.title}`,
-          }
-        }
+     if (idx === 1) {
+  return {
+    A: winnerOfCode('Q1') || '',
+    B: winnerOfCode('X3') || '',
+  }
+}
 
-        if (idx === 2) {
-          return {
-            A: winnerOfCode('Q2') || `Winner Q2 — ${br.title}`,
-            B: winnerOfCode('X4') || `Winner X4 — ${br.title}`,
-          }
-        }
-
+if (idx === 2) {
+  return {
+    A: winnerOfCode('Q2') || '',
+    B: winnerOfCode('X4') || '',
+  }
+}
         return null
       }
 
       if (/^CO\d+$/i.test(code)) {
         const idx = Number(code.slice(2))
 
-        if (idx === 1) {
-          return {
-            A: winnerOfCode('Y1') || `Winner Y1 — ${br.title}`,
-            B: winnerOfCode('W2') || `Winner W2 — ${br.title}`,
-          }
-        }
+      if (idx === 1) {
+  return {
+    A: winnerOfCode('Y1') || '',
+    B: winnerOfCode('W2') || '',
+  }
+}
 
-        if (idx === 2) {
-          return {
-            A: winnerOfCode('Y2') || `Winner Y2 — ${br.title}`,
-            B: winnerOfCode('W1') || `Winner W1 — ${br.title}`,
-          }
-        }
-
+if (idx === 2) {
+  return {
+    A: winnerOfCode('Y2') || '',
+    B: winnerOfCode('W1') || '',
+  }
+}
         return null
       }
-      if (code === 'F') {
-        return {
-          A: winnerOfCode('CO1') || `Winner CO1 — ${br.title}`,
-          B: winnerOfCode('CO2') || `Winner CO2 — ${br.title}`,
-        }
-      }
+     if (code === 'F') {
+  return {
+    A: winnerOfCode('CO1') || '',
+    B: winnerOfCode('CO2') || '',
+  }
+}
 
-      if (code === 'THIRD') {
-        return {
-          A: loserOfCode('CO1') || `Loser CO1 — ${br.title}`,
-          B: loserOfCode('CO2') || `Loser CO2 — ${br.title}`,
-        }
-      }
-
+if (code === 'THIRD') {
+  return {
+    A: loserOfCode('CO1') || '',
+    B: loserOfCode('CO2') || '',
+  }
+}
       return null
     }
 
@@ -842,9 +839,9 @@ function buildSERows(
       const wB = winners[prevB]
 
       labelsByCode[code] = {
-        A: wA ? labelsByCode[prevA][wA] : `Winner ${prevA} — ${bracket.title}`,
-        B: wB ? labelsByCode[prevB][wB] : `Winner ${prevB} — ${bracket.title}`,
-      }
+  A: wA ? labelsByCode[prevA][wA] : '',
+  B: wB ? labelsByCode[prevB][wB] : '',
+}
     }
 
     prevCodes = nextCodes
@@ -889,8 +886,8 @@ function buildSERows(
       const semiB = semis[1]
       const winA = winners[semiA]
       const winB = winners[semiB]
-      const loserA = winA ? labelsByCode[semiA][winA === 'A' ? 'B' : 'A'] : `Loser ${semiA} — ${bracket.title}`
-      const loserB = winB ? labelsByCode[semiB][winB === 'A' ? 'B' : 'A'] : `Loser ${semiB} — ${bracket.title}`
+      const loserA = winA ? labelsByCode[semiA][winA === 'A' ? 'B' : 'A'] : ''
+const loserB = winB ? labelsByCode[semiB][winB === 'A' ? 'B' : 'A'] : ''
       const key = `bracket:${bracket.id}:THIRD`
       const reg = regiaItems[key] || { court: null, sequence: null, status: 'waiting' as RegiaStatus }
 
@@ -899,8 +896,8 @@ function buildSERows(
         sourceType: 'bracket',
         tournament_id: '',
         phase: `3° / 4° ${bracket.title}`,
-        teamA: loserA,
-        teamB: loserB,
+        teamA: loserA || '—',
+teamB: loserB || '—',
         scheduledTime: '',
         court: reg.court ?? null,
         sequence: reg.sequence ?? null,
@@ -935,100 +932,100 @@ function buildDERows(
   case 'R4': return rLabel(3)
 
   case 'Z1':
-    return {
-      a: winnerOf('R1') || `Winner R1 — ${bracket.title}`,
-      b: winnerOf('R2') || `Winner R2 — ${bracket.title}`,
-    }
+  return {
+    a: winnerOf('R1') || '',
+    b: winnerOf('R2') || '',
+  }
 
   case 'Z2':
-    return {
-      a: winnerOf('R3') || `Winner R3 — ${bracket.title}`,
-      b: winnerOf('R4') || `Winner R4 — ${bracket.title}`,
-    }
+  return {
+    a: winnerOf('R3') || '',
+    b: winnerOf('R4') || '',
+  }
 
-  case 'Y1':
-    return {
-      a: winnerOf('Z1') || `Winner Z1 — ${bracket.title}`,
-      b: '—',
-    }
+ case 'Y1':
+  return {
+    a: winnerOf('Z1') || '',
+    b: '',
+  }
 
-  case 'Y2':
-    return {
-      a: winnerOf('Z2') || `Winner Z2 — ${bracket.title}`,
-      b: '—',
-    }
+case 'Y2':
+  return {
+    a: winnerOf('Z2') || '',
+    b: '',
+  }
 
-  case 'X1':
-    return {
-      a: loserOf('R1') || `Loser R1 — ${bracket.title}`,
-      b: loserOf('R2') || `Loser R2 — ${bracket.title}`,
-    }
+case 'X1':
+  return {
+    a: loserOf('R1') || '',
+    b: loserOf('R2') || '',
+  }
 
-  case 'X2':
-    return {
-      a: loserOf('R3') || `Loser R3 — ${bracket.title}`,
-      b: loserOf('R4') || `Loser R4 — ${bracket.title}`,
-    }
+case 'X2':
+  return {
+    a: loserOf('R3') || '',
+    b: loserOf('R4') || '',
+  }
 
-  case 'X3':
-    return {
-      a: winnerOf('X1') || `Winner X1 — ${bracket.title}`,
-      b: '—',
-    }
+case 'X3':
+  return {
+    a: winnerOf('X1') || '',
+    b: '',
+  }
 
-  case 'X4':
-    return {
-      a: winnerOf('X2') || `Winner X2 — ${bracket.title}`,
-      b: '—',
-    }
+case 'X4':
+  return {
+    a: winnerOf('X2') || '',
+    b: '',
+  }
 
-  case 'Q1':
-    return {
-      a: loserOf('Z1') || `Loser Z1 — ${bracket.title}`,
-      b: '—',
-    }
+case 'Q1':
+  return {
+    a: loserOf('Z1') || '',
+    b: '',
+  }
 
-  case 'Q2':
-    return {
-      a: loserOf('Z2') || `Loser Z2 — ${bracket.title}`,
-      b: '—',
-    }
+case 'Q2':
+  return {
+    a: loserOf('Z2') || '',
+    b: '',
+  }
 
-  case 'W1':
-    return {
-      a: winnerOf('Q1') || `Winner Q1 — ${bracket.title}`,
-      b: winnerOf('X3') || `Winner X3 — ${bracket.title}`,
-    }
+case 'W1':
+  return {
+    a: winnerOf('Q1') || '',
+    b: winnerOf('X3') || '',
+  }
 
-  case 'W2':
-    return {
-      a: winnerOf('Q2') || `Winner Q2 — ${bracket.title}`,
-      b: winnerOf('X4') || `Winner X4 — ${bracket.title}`,
-    }
+case 'W2':
+  return {
+    a: winnerOf('Q2') || '',
+    b: winnerOf('X4') || '',
+  }
 
-  case 'CO1':
-    return {
-      a: winnerOf('Y1') || `Winner Y1 — ${bracket.title}`,
-      b: winnerOf('W2') || `Winner W2 — ${bracket.title}`,
-    }
+case 'CO1':
+  return {
+    a: winnerOf('Y1') || '',
+    b: winnerOf('W2') || '',
+  }
 
-  case 'CO2':
-    return {
-      a: winnerOf('Y2') || `Winner Y2 — ${bracket.title}`,
-      b: winnerOf('W1') || `Winner W1 — ${bracket.title}`,
-    }
+case 'CO2':
+  return {
+    a: winnerOf('Y2') || '',
+    b: winnerOf('W1') || '',
+  }
 
-  case 'F':
-    return {
-      a: winnerOf('CO1') || `Winner CO1 — ${bracket.title}`,
-      b: winnerOf('CO2') || `Winner CO2 — ${bracket.title}`,
-    }
+case 'F':
+  return {
+    a: winnerOf('CO1') || '',
+    b: winnerOf('CO2') || '',
+  }
 
-  case 'THIRD':
-    return {
-      a: loserOf('CO1') || `Loser CO1 — ${bracket.title}`,
-      b: loserOf('CO2') || `Loser CO2 — ${bracket.title}`,
-    }
+case 'THIRD':
+  return {
+    a: loserOf('CO1') || '',
+    b: loserOf('CO2') || '',
+  }
 
   default:
     return { a: '—', b: '—' }
@@ -1091,8 +1088,8 @@ function buildDERows(
       sourceType: 'bracket' as const,
       tournament_id: '',
       phase: d.phase,
-      teamA: labels.a,
-      teamB: labels.b,
+     teamA: labels.a || '—',
+teamB: labels.b || '—',
       scheduledTime: '',
       court: reg.court ?? null,
       sequence: reg.sequence ?? null,
@@ -1205,10 +1202,10 @@ function resolvePoolLabel(
   const winnerG2 = w2 ? (w2 === 'A' ? labelBySlot(gs, L, s2[0]) : labelBySlot(gs, L, s2[1])) : ''
   const loserG2  = w2 ? (w2 === 'A' ? labelBySlot(gs, L, s2[1]) : labelBySlot(gs, L, s2[0])) : ''
 
-  if (/^Vincente G1$/i.test(raw)) return winnerG1 ? lastSurnames(winnerG1) : '—'
-  if (/^Vincente G2$/i.test(raw)) return winnerG2 ? lastSurnames(winnerG2) : '—'
-  if (/^Perdente G1$/i.test(raw)) return loserG1 ? lastSurnames(loserG1) : '—'
-  if (/^Perdente G2$/i.test(raw)) return loserG2 ? lastSurnames(loserG2) : '—'
+  if (/^Vincente G1$/i.test(raw)) return winnerG1 ? lastSurnames(winnerG1) : 'Vincente G1'
+  if (/^Vincente G2$/i.test(raw)) return winnerG2 ? lastSurnames(winnerG2) : 'Vincente G2'
+  if (/^Perdente G1$/i.test(raw)) return loserG1 ? lastSurnames(loserG1) : 'Perdente G1'
+  if (/^Perdente G2$/i.test(raw)) return loserG2 ? lastSurnames(loserG2) : 'Perdente G2'
 
   return lastSurnames(raw)
 }
