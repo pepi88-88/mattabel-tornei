@@ -19,6 +19,7 @@ type RegiaRow = {
 }
 
 type ViewMode = 'all' | 'live' | 'live_plus_2'
+type OrderMode = 'regia' | 'phase'
 type TournamentOption = {
   id: string
   name: string
@@ -29,7 +30,64 @@ function rowUiKey(row: RegiaRow) {
 }
 const COURTS = Array.from({ length: 10 }, (_, i) => i + 1)
 const SEQ_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1)
+function getBracketStageRank(phase: string) {
+  const p = String(phase || '').toLowerCase()
 
+  if (p.includes('girone')) return 10
+
+  if (p.includes('sedices')) return 20
+  if (p.includes('ottav')) return 30
+  if (p.includes('quarto')) return 40
+  if (p.includes('semif')) return 50
+  if (p.includes('3°') || p.includes('3 / 4') || p.includes('3° / 4°') || p.includes('finalina')) return 60
+  if (p.includes('finale')) return 70
+
+  const turnoMatch = p.match(/turno\s+(\d+)/i)
+  if (turnoMatch) {
+    const n = Number(turnoMatch[1])
+    return 20 + n
+  }
+
+  if (p.includes('upper')) return 45
+  if (p.includes('losers')) return 46
+
+  return 999
+}
+
+function getGroupLetterRank(phase: string) {
+  const m = String(phase || '').match(/girone\s+([A-Za-z]+)/i)
+  if (!m) return 999
+  return m[1].toUpperCase().charCodeAt(0)
+}
+
+function getPhaseOrderValue(row: RegiaRow) {
+  return getBracketStageRank(row.phase)
+}
+
+function sortRowsByPhase(rows: RegiaRow[]) {
+  return [...rows].sort((a, b) => {
+    const ta = a.tournament_id.localeCompare(b.tournament_id)
+    if (ta !== 0) return ta
+
+    const pa = getPhaseOrderValue(a)
+    const pb = getPhaseOrderValue(b)
+    if (pa !== pb) return pa - pb
+
+    const ga = getGroupLetterRank(a.phase)
+    const gb = getGroupLetterRank(b.phase)
+    if (ga !== gb) return ga - gb
+
+    const ac = a.court == null ? 999 : a.court
+    const bc = b.court == null ? 999 : b.court
+    if (ac !== bc) return ac - bc
+
+    const as = a.sequence == null ? 999 : a.sequence
+    const bs = b.sequence == null ? 999 : b.sequence
+    if (as !== bs) return as - bs
+
+    return a.key.localeCompare(b.key)
+  })
+}
 export default function RegiaPage() {
   const params = useParams()
   const searchParams = useSearchParams()
@@ -43,7 +101,7 @@ const initialTournamentId = searchParams.get('tournament_id') || routeTour
   const [viewMode, setViewMode] = useState<ViewMode>('all')
   const [drafts, setDrafts] = useState<Record<string, { court: string; sequence: string }>>({})
 const [availableTournaments, setAvailableTournaments] = useState<TournamentOption[]>([])
-
+const [orderMode, setOrderMode] = useState<OrderMode>('regia')
 const [draftTournamentA, setDraftTournamentA] = useState<string>('')
 const [draftTournamentB, setDraftTournamentB] = useState<string>('')
 
@@ -297,42 +355,46 @@ async function saveAssignment(row: RegiaRow) {
     [rows]
   )
 
-  const visibleActiveRows = useMemo(() => {
-    if (viewMode === 'all') return activeRows
+ const visibleActiveRows = useMemo(() => {
+  if (orderMode === 'phase') {
+    return sortRowsByPhase(activeRows)
+  }
 
-    const grouped = new Map<number, RegiaRow[]>()
+  if (viewMode === 'all') return activeRows
 
-    activeRows
-      .filter((r) => r.court != null)
-      .forEach((r) => {
-        const court = r.court as number
-        const arr = grouped.get(court) ?? []
-        arr.push(r)
-        grouped.set(court, arr)
-      })
+  const grouped = new Map<number, RegiaRow[]>()
 
-    const out: RegiaRow[] = []
+  activeRows
+    .filter((r) => r.court != null)
+    .forEach((r) => {
+      const court = r.court as number
+      const arr = grouped.get(court) ?? []
+      arr.push(r)
+      grouped.set(court, arr)
+    })
 
-    Array.from(grouped.entries())
-      .sort((a, b) => a[0] - b[0])
-      .forEach(([, list]) => {
-        const sorted = [...list].sort((a, b) => (a.sequence ?? 999) - (b.sequence ?? 999))
-        const liveIdx = sorted.findIndex((r) => r.status === 'live')
+  const out: RegiaRow[] = []
 
-        if (viewMode === 'live') {
-          if (liveIdx >= 0) out.push(sorted[liveIdx])
-          else if (sorted[0]) out.push(sorted[0])
-        }
+  Array.from(grouped.entries())
+    .sort((a, b) => a[0] - b[0])
+    .forEach(([, list]) => {
+      const sorted = [...list].sort((a, b) => (a.sequence ?? 999) - (b.sequence ?? 999))
+      const liveIdx = sorted.findIndex((r) => r.status === 'live')
 
-        if (viewMode === 'live_plus_2') {
-          if (liveIdx >= 0) out.push(...sorted.slice(liveIdx, liveIdx + 3))
-          else out.push(...sorted.slice(0, 3))
-        }
-      })
+      if (viewMode === 'live') {
+        if (liveIdx >= 0) out.push(sorted[liveIdx])
+        else if (sorted[0]) out.push(sorted[0])
+      }
 
-    const unassigned = activeRows.filter((r) => r.court == null)
-    return [...out, ...unassigned]
-  }, [activeRows, viewMode])
+      if (viewMode === 'live_plus_2') {
+        if (liveIdx >= 0) out.push(...sorted.slice(liveIdx, liveIdx + 3))
+        else out.push(...sorted.slice(0, 3))
+      }
+    })
+
+  const unassigned = activeRows.filter((r) => r.court == null)
+  return [...out, ...unassigned]
+}, [activeRows, viewMode, orderMode])
 
  function courtBadge(court: number | null) {
   if (court === 1) return 'border-blue-500 bg-blue-950/40 text-blue-300'
@@ -457,7 +519,29 @@ function rowBg(status: RegiaStatus, tournamentId?: string) {
           </div>
 
          <div className="flex flex-wrap gap-2">
+<button
+  type="button"
+  onClick={() => setOrderMode('regia')}
+  className={`rounded-xl px-3 py-2 text-sm font-medium ${
+    orderMode === 'regia'
+      ? 'bg-white text-black'
+      : 'border border-neutral-700 bg-neutral-900 text-neutral-300'
+  }`}
+>
+  Ordine regia
+</button>
 
+<button
+  type="button"
+  onClick={() => setOrderMode('phase')}
+  className={`rounded-xl px-3 py-2 text-sm font-medium ${
+    orderMode === 'phase'
+      ? 'bg-white text-black'
+      : 'border border-neutral-700 bg-neutral-900 text-neutral-300'
+  }`}
+>
+  Ordina per fase
+</button>
 <button
 type="button"
 onClick={() => setViewMode('live')}
