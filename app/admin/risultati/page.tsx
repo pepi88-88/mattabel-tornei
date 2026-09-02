@@ -349,13 +349,27 @@ useEffect(() => {
   }, [pairs.length])
 
   // persistenza: preferisci server (callback), fallback LS
+const [readyScores, setReadyScores] = useState(false)
+
 useEffect(() => {
+  if (serverScores && Array.isArray(serverScores)) {
+    setScores(serverScores)
+  }
+  setReadyScores(true)
+}, [serverScores, bracket.id])
+
+
+useEffect(() => {
+  if (!readyScores) return
+
   if (onServerScoresChange) {
     onServerScoresChange(scores)
   } else {
-    try { localStorage.setItem(keyScores, JSON.stringify(scores)) } catch {}
+    try {
+      localStorage.setItem(keyScores, JSON.stringify(scores))
+    } catch {}
   }
-}, [scores, keyScores, onServerScoresChange])
+}, [scores, readyScores])
 
   /** classifica automatica */
   const standings = useMemo(() => {
@@ -424,7 +438,7 @@ useEffect(() => {
               const s = scores[i] || {}
               return (
                 <div
-                  key={`match-${a}-${b}-${idx}`}
+                  key={`match-${a1}-${b1}-${i}`}
                   className="grid items-center gap-2"
                   style={{
                     gridTemplateColumns: 'minmax(0,1fr) 52px 16px 52px minmax(0,1fr)',
