@@ -1338,7 +1338,7 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
           <div className="relative" style={{ width: seLayout.width + HSCROLL_PAD, height: seLayout.height + 100 }}>
             {/* SVG connettori */}
             <svg ref={svgRef} width={seLayout.width} height={seLayout.height} className="absolute top-4 left-4" style={{ overflow: 'visible' }}>
-             {active.type !== 'PSE' && seLayout.nodes.map((n, idx) => {
+               {seLayout.nodes.map((n, idx) => {
                 if (n.round === 1) return null
                 const A = seLayout.nodes[n.fromA!], B = seLayout.nodes[n.fromB!]
                 const ca = centerOf(A), cb = centerOf(B), c = centerOf(n)
