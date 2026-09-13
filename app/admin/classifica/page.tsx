@@ -89,7 +89,18 @@ const { data: edRes, mutate: refetchEd } = useSWR(
   { revalidateOnFocus:false }
 )
 const editions: Edition[] = edRes?.items ?? []
-const [editionId, setEditionId] = React.useState('')
+const [editionIdM, setEditionIdM] = React.useState('')
+const [editionIdF, setEditionIdF] = React.useState('')
+
+const editionId = gender === 'M' ? editionIdM : editionIdF
+
+const setEditionId = (id:string) => {
+  if (gender === 'M') {
+    setEditionIdM(id)
+  } else {
+    setEditionIdF(id)
+  }
+}
 React.useEffect(()=>{
   if (editions.length && !editionId) setEditionId(editions[0].id)
   if (!editions.length) setEditionId('')
