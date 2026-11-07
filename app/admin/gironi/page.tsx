@@ -152,6 +152,7 @@ const regAll: RegRow[] = ((regsRes?.items ?? []) as any[])
   const [gField, setGField] = useState<Record<string, string>>({})
   const [matchFields, setMatchFields] = useState<Record<string, string[]>>({})
   const [matchOrder, setMatchOrder] = useState<Record<string, number[]>>({})
+  const draggedMatch = useRef<{letter:string;idx:number}|null>(null)
 
   // Punteggi per partita
   type Score = { a: string; b: string }
@@ -673,6 +674,15 @@ function commitTimeUncontrolled(
             if (to < 0 || to >= ids.length) return
             const [item] = ids.splice(from, 1); ids.splice(to, 0, item)
             setMatchOrder(prev => ({ ...prev, [L]: ids }))
+          }
+          const dropMatch = (targetIdx:number) => {
+            if (draggedMatch.current?.letter !== L) return
+            const ids=[...new Set(rows.map(r=>r.matchIdx))]
+            const from=ids.indexOf(draggedMatch.current.idx),to=ids.indexOf(targetIdx)
+            if(from<0||to<0||from===to)return
+            const [item]=ids.splice(from,1);ids.splice(to,0,item)
+            setMatchOrder(prev=>({...prev,[L]:ids}))
+            draggedMatch.current=null
           }
           const sortByTime = () => {
             const ids = [...new Set(rows.map(r => r.matchIdx))]
