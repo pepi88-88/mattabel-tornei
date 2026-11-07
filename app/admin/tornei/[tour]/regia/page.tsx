@@ -213,10 +213,11 @@ async function loadTournamentOptions() {
     }
   } catch {}
 
-  if (initialTournamentId) {
-    setDraftTournamentA(initialTournamentId)
+  const preferred = localStorage.getItem('selectedTournamentId') || initialTournamentId
+  if (preferred) {
+    setDraftTournamentA(preferred)
     setDraftTournamentB('')
-    setActiveTournamentA(initialTournamentId)
+    setActiveTournamentA(preferred)
     setActiveTournamentB('')
   }
 }, [initialTournamentId])
@@ -332,6 +333,7 @@ function applyTournamentSelection() {
 
   setActiveTournamentA(draftTournamentA)
   setActiveTournamentB(draftTournamentB)
+  localStorage.setItem('selectedTournamentId', draftTournamentA)
 
   try {
     localStorage.setItem(
