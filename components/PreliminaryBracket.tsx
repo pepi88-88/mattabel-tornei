@@ -168,71 +168,74 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
       })
     })}
   </svg>
-  // PDE uses the SAME DE manual layout: R/Z/Y on top, X/Q/W below,
-  // crossovers and final on the right. Only a P column is added on the left.
+  // Keep the classic DE layout and its match codes. Only P1..P4 are
+  // added in a narrower column immediately before R1..R4.
   const pdePositions: Record<string,{x:number;y:number}> = {}
   if(type==='PDE'){
-    const off=20, dx=cardW+160, step=cardH+28
-    ;['P','R'].forEach((prefix,col)=>Array.from({length:4},(_,i)=>pdePositions[`${prefix}${i+1}`]={x:off+col*dx,y:45+i*step}))
-    pdePositions.Z1={x:off+dx*2,y:45+step/2}
-    pdePositions.Z2={x:off+dx*2,y:45+step*2.5}
-    pdePositions.Y1={x:off+dx*3,y:45+step/2}
-    pdePositions.Y2={x:off+dx*3,y:45+step*2.5}
+    const pX=20, rX=pX+cardW+56, zX=rX+cardW+110
+    const coX=zX+cardW+120, finalX=coX+cardW+120
+    const top=45, step=cardH+28
+    for(let i=0;i<4;i++){
+      pdePositions[`P${i+1}`]={x:pX,y:top+i*step}
+      pdePositions[`R${i+1}`]={x:rX,y:top+i*step}
+    }
+    pdePositions.Z1={x:zX,y:top+step/2}
+    pdePositions.Z2={x:zX,y:top+step*2.5}
+    // Direct Z -> CO entry: no intermediate Y boxes or stair-step routes.
+    pdePositions.CO1={x:coX,y:pdePositions.Z1.y}
+    pdePositions.CO2={x:coX,y:pdePositions.Z2.y}
+    pdePositions.F={x:finalX,y:(pdePositions.CO1.y+pdePositions.CO2.y)/2}
+    pdePositions.THIRD={x:finalX,y:pdePositions.F.y+cardH+48}
+
     const loserBase=830
-    pdePositions.X1={x:off+dx,y:loserBase+150}
-    pdePositions.X2={x:off+dx,y:loserBase+560}
-    pdePositions.Q1={x:off+dx*2,y:loserBase-20}
-    pdePositions.Q2={x:off+dx*2,y:loserBase+390}
-    pdePositions.X3={x:off+dx*2,y:loserBase+150}
-    pdePositions.X4={x:off+dx*2,y:loserBase+560}
-    pdePositions.W1={x:off+dx*3,y:loserBase+65}
-    pdePositions.W2={x:off+dx*3,y:loserBase+475}
-    pdePositions.CO1={x:off+dx*4,y:250}
-    pdePositions.CO2={x:off+dx*4,y:250+step}
-    pdePositions.F={x:off+dx*5,y:250+step/2}
-    pdePositions.WIN={x:off+dx*6,y:250+step/2}
-    pdePositions.THIRD={x:off+dx*5,y:250+step/2+cardH+48}
+    pdePositions.X1={x:rX,y:loserBase+150}
+    pdePositions.X2={x:rX,y:loserBase+560}
+    pdePositions.Q1={x:zX,y:loserBase-20}
+    pdePositions.Q2={x:zX,y:loserBase+390}
+    pdePositions.X3={x:zX,y:loserBase+150}
+    pdePositions.X4={x:zX,y:loserBase+560}
+    pdePositions.W1={x:coX,y:loserBase+65}
+    pdePositions.W2={x:coX,y:loserBase+475}
   }
   const pdeGames=type==='PDE'
     ? new Map(rounds.flatMap(round=>round.games).map(m=>[m.code,m]))
     : new Map<string,Game>()
-  const pdePassthrough:Record<string,string>={
-    Y1:winner('Z1',pdeGames.get('Z1')?.A||'',pdeGames.get('Z1')?.B||''),
-    Y2:winner('Z2',pdeGames.get('Z2')?.A||'',pdeGames.get('Z2')?.B||''),
+  const pdePassthrough: Record<string,string> = {
     Q1:(()=>{const m=pdeGames.get('Z1');return m ? (winners.Z1==='A'?m.B:winners.Z1==='B'?m.A:'Perdente Z1'):''})(),
     Q2:(()=>{const m=pdeGames.get('Z2');return m ? (winners.Z2==='A'?m.B:winners.Z2==='B'?m.A:'Perdente Z2'):''})(),
     X3:(()=>{const m=pdeGames.get('X1');return m?winner('X1',m.A,m.B):''})(),
     X4:(()=>{const m=pdeGames.get('X2');return m?winner('X2',m.A,m.B):''})(),
-    WIN:(()=>{const m=pdeGames.get('F');return m?winner('F',m.A,m.B):''})(),
   }
-  const pdeLinks:Array<[string,string]>=[
-    ...Array.from({length:4},(_,i)=>[`P${i+1}`,`R${i+1}`] as [string,string]),
-    ['R1','Z1'],['R2','Z1'],['R3','Z2'],['R4','Z2'],
-    ['Z1','Y1'],['Z2','Y2'],['X1','X3'],['X2','X4'],
-    ['Q1','W1'],['X3','W1'],['Q2','W2'],['X4','W2'],
-    ['Y1','CO1'],['Y2','CO2'],['CO1','F'],['CO2','F'],['F','WIN'],
-  ]
-  const pdeWidth=20+7*(cardW+160)+20
+  const pdeWidth=pdePositions.F ? pdePositions.F.x+cardW+55 : 0
   const pdeHeight=830+560+cardH+80
-  const pdeLine=(from:string,to:string)=>{
-    const a=pdePositions[from],b=pdePositions[to]
-    if(!a||!b)return null
-    const mini=(['Y1','Y2','Q1','Q2','X3','X4','WIN'] as string[])
-    const hA=mini.includes(from)?90:cardH
-    const hB=mini.includes(to)?90:cardH
-    const y1=a.y+hA/2,y2=b.y+hB/2
-    const start=a.x+cardW,end=b.x
-    const mid=(start+end)/2
-    return <path key={`${from}-${to}`} d={`M ${start} ${y1} H ${mid} V ${y2} H ${end}`}
-      stroke={color} strokeWidth={3} fill="none"/>
-  }
   const pdeSmall=(code:string)=>{
     const pos=pdePositions[code]
     if(!pos)return null
     return <div key={code} className="absolute card p-3 shadow-lg" style={{left:pos.x,top:pos.y,width:cardW,height:90}}>
-      <div className="text-[11px] uppercase opacity-70 mb-2">{code==='WIN'?'VINCITORE TORNEO':code}</div>
+      <div className="text-[11px] uppercase opacity-70 mb-2">{code}</div>
       <div className="text-sm font-mono truncate" title={pdePassthrough[code]}>{pdePassthrough[code]||'—'}</div>
     </div>
+  }
+  const pdeLine=(from:string,to:string)=>{
+    const a=pdePositions[from],b=pdePositions[to]
+    if(!a||!b)return null
+    const small=['Q1','Q2','X3','X4']
+    const y1=a.y+(small.includes(from)?45:cardH/2)
+    const y2=b.y+(small.includes(to)?45:cardH/2)
+    const start=a.x+cardW,end=b.x
+    const mid=(start+end)/2
+    return <path key={`${from}-${to}`}
+      d={Math.abs(y1-y2)<1 ? `M ${start} ${y1} H ${end}` : `M ${start} ${y1} H ${mid} V ${y2} H ${end}`}
+      stroke={color} strokeWidth={3} fill="none"/>
+  }
+  const pdePair=(fromA:string,fromB:string,to:string)=>{
+    const a=pdePositions[fromA],b=pdePositions[fromB],t=pdePositions[to]
+    if(!a||!b||!t)return null
+    const ay=a.y+cardH/2,by=b.y+cardH/2,ty=t.y+cardH/2
+    const x=a.x+cardW,junction=(x+t.x)/2
+    return <path key={`${fromA}-${fromB}-${to}`}
+      d={`M ${x} ${ay} H ${junction} M ${x} ${by} H ${junction} M ${junction} ${Math.min(ay,by)} V ${Math.max(ay,by)} M ${junction} ${ty} H ${t.x}`}
+      stroke={color} strokeWidth={3} fill="none"/>
   }
   return <div className="card p-4 space-y-4">
     <h3 className="font-semibold text-sm">{type} — {count===8?'16+8':'8+4'} <span className="text-xs text-neutral-400">{editable&&onWinner?'Clic sul nome per confermare la vincitrice':''}</span></h3>
@@ -248,13 +251,20 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
         <div className="absolute text-xs font-semibold tracking-widest text-neutral-400" style={{top:15,left:pdePositions.R1.x}}>WINNERS</div>
         <div className="absolute text-xs font-semibold tracking-widest text-neutral-400" style={{top:800,left:pdePositions.X1.x}}>LOSERS</div>
         <svg className="absolute inset-0 pointer-events-none" width={pdeWidth} height={pdeHeight} aria-hidden="true">
-          {pdeLinks.map(([from,to])=>pdeLine(from,to))}
+          {Array.from({length:4},(_,i)=>pdeLine(`P${i+1}`,`R${i+1}`))}
+          {pdePair('R1','R2','Z1')}
+          {pdePair('R3','R4','Z2')}
+          {pdeLine('Z1','CO1')}{pdeLine('Z2','CO2')}
+          {pdePair('CO1','CO2','F')}
+          {['X1','X2'].map((c,i)=>pdeLine(c,`X${i+3}`))}
+          {pdeLine('Q1','W1')}{pdeLine('X3','W1')}
+          {pdeLine('Q2','W2')}{pdeLine('X4','W2')}
         </svg>
         {Array.from(pdeGames.values()).map(m=>{
           const p=pdePositions[m.code]
           return p?renderCard({m,x:p.x,y:p.y,col:0}):null
         })}
-        {['Y1','Y2','X3','X4','Q1','Q2','WIN'].map(pdeSmall)}
+        {['X3','X4','Q1','Q2'].map(pdeSmall)}
       </div>}
     </div>
     {type==='PDE'&&<p className="text-xs text-neutral-400">Le perdenti P1–P4 passano alle categorie successive. Il ramo Losers riceve soltanto le perdenti R1–R4.</p>}
