@@ -935,6 +935,7 @@ useEffect(() => {
       const prev = (js?.state || {}) as any
 
       const next = {
+        ...(Array.isArray(prev) ? {} : prev),
         items: brackets,
         winnersById: Object.fromEntries(Object.entries({...Object.fromEntries(brackets.map(b => [b.id, {}])), ...(prev?.winnersById || {})}).map(([id, values]) => {
           const b = brackets.find(x => x.id === id)
