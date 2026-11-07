@@ -164,6 +164,7 @@ const versionRef = useRef<string | null>(null)
 const savedSnapshotRef = useRef('')
 const draftKey = (id: string) => 'mattabel:gironi:pending:' + id
 const pendingRef = useRef<string | null>(null)
+const [retrySave, setRetrySave] = useState(0)
 
 // Non attivare mai il salvataggio dopo un GET fallito.
 useEffect(() => {
@@ -195,6 +196,10 @@ useEffect(() => {
       if (pending) {
         try {
           const parsed = JSON.parse(pending)
+          if (parsed?.data && JSON.stringify(parsed.data) === JSON.stringify(serverDraft)) {
+            localStorage.removeItem(draftKey(tId))
+            setSaveStatus('Salvato su Supabase')
+          } else
           if (parsed?.data && window.confirm('Esiste una modifica ai gironi non sincronizzata su questo dispositivo. Vuoi recuperarla?')) {
             loaded = parsed.data
             pendingRef.current = JSON.stringify(loaded)
@@ -267,7 +272,7 @@ useEffect(() => {
     }
   }, 450)
   return () => { cancelled = true; clearTimeout(timer) }
-}, [ready, tId, groupsCount, meta, assign, times, gField, scores, isPublic])
+}, [ready, tId, groupsCount, meta, assign, times, gField, scores, isPublic, retrySave])
 
   // util
   const regToLetter = useMemo(() => { const m: Record<string, string> = {}; for (const [k, v] of Object.entries(assign)) { if (!v) continue; const L = k.split('-')[0]; m[v] = L } return m }, [assign])
@@ -836,7 +841,7 @@ function commitTimeUncontrolled(
             </div>
             <div>
               <div className="text-xs text-neutral-400 mb-1"># Gironi</div>
-              <span role="status" className="text-xs">{saveStatus}</span><input className="input w-24" type="number" min={1} value={groupsCount}
+              <span role="status" className="text-xs">{saveStatus}</span>{saveStatus.includes('conservate') && <button type="button" onClick={() => setRetrySave(x => x + 1)}>Riprova salvataggio</button>}<input className="input w-24" type="number" min={1} value={groupsCount}
                 onChange={e => setGroupsCount(Math.max(1, Number(e.target.value || 1)))} />
             </div>
           <div className="flex items-end gap-2">
