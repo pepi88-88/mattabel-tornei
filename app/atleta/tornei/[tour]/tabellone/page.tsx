@@ -908,6 +908,7 @@ export default function AthleteTabellonePage() {
                               <div>{resolve(String(m.A || '-'))}</div>
                               <div className="text-xs opacity-60 my-1">VS</div>
                               <div>{resolve(String(m.B || '-'))}</div>
+                              <div className="text-sm font-semibold mt-2" style={{color: resolvedActive.color}}>Vincente: {winnersById[resolvedActive.id]?.[`P${i+1}`] === "A" ? resolve(String(m.A || "-")) : winnersById[resolvedActive.id]?.[`P${i+1}`] === "B" ? resolve(String(m.B || "-")) : "Da decidere"}</div>
                             </div>
                           ))}
                         </div>
