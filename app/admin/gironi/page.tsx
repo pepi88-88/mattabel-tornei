@@ -721,7 +721,11 @@ function commitTimeUncontrolled(
                     const isLastSetOfMatch = r.setNo === (meta[L]?.bestOf ?? 1)
 
                     return (
-                      <div key={idx}>
+                      <div key={r.matchIdx+'-'+r.setNo} draggable={isFirstSet}
+                        onDragStart={e=>{if(!isFirstSet)return;draggedMatch.current={letter:L,idx:r.matchIdx};e.dataTransfer.effectAllowed='move'}}
+                        onDragOver={e=>{if(isFirstSet)e.preventDefault()}}
+                        onDrop={e=>{e.preventDefault();dropMatch(r.matchIdx)}}
+                        onDragEnd={()=>{draggedMatch.current=null}}>
                         {r.sep && <div className="h-px bg-neutral-800 my-3" />}
 
                         <div
