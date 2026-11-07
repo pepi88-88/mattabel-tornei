@@ -90,7 +90,7 @@ export default function GironiPage() {
   const { data: toursRes } = useSWR('/api/tours', fetcher)
   const tours: Tour[] = toursRes?.items ?? []
   const [tourId, setTourId] = useState('')
-  const { data: tappeRes } = useSWR(tourId ? `/api/tournaments?tour_id=${tourId}` : '/api/tournaments', fetcher)
+  const { data: tappeRes } = useSWR(tourId ? `/api/tournaments?tour_id=${tourId}` : null, fetcher)
   const tappe: Tournament[] = tappeRes?.items ?? []
   const [tId, setTId] = useState('')
   useEffect(() => {
