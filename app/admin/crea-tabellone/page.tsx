@@ -1357,53 +1357,33 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
         </div>
       </div>
 
-      {(active.type === 'PSE' || active.type === 'PDE') && (
-        <div className="card p-4 space-y-4">
-          <h3 className="font-bold text-lg">Preliminari {active.type} — {active.nTeams === 24 ? '16+8' : '8+4'}</h3>
-          <p className="text-sm text-neutral-400">Ogni vincente P entra automaticamente nell'incontro R con lo stesso numero. Le perdenti P sono disponibili per i tabelloni successivi.</p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {Array.from({length: active.nTeams === 24 ? 8 : 4}, (_, i) => {
-              const m = active.prelims?.[i] ?? {A:'-',B:'-'}
-              return <div key={i} className="rounded-lg border border-neutral-700 p-3">
-                <div className="font-semibold mb-2">P{i+1} → R{i+1}</div>
-                {(['A','B'] as const).map(side => <select key={side} className="input w-full mb-2" value={m[side]} disabled={locked} onChange={e => {
-                  const prelims = Array.from({length: active.nTeams === 24 ? 8 : 4}, (_, j) => ({A:active.prelims?.[j]?.A ?? '-', B:active.prelims?.[j]?.B ?? '-'}))
-                  prelims[i] = {...prelims[i], [side]:e.target.value}
-                  patchActive({prelims})
-                }}>
-                  <option value="-">—</option><option value="BYE">BYE</option>
-                  {slotOptions.map(op => <option key={op} value={op} disabled={usedCodesGlobal.has(op) && m[side] !== op}>{op}</option>)}
-                </select>)}
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-xs text-neutral-400">Vincente P{i+1}</span>
-                  <select className="input flex-1" disabled={locked} value={winnersById[active.id]?.[`P${i+1}`] || ''} onChange={e => {
-                    const side = e.target.value as 'A' | 'B' | ''
-                    setWinnersById(prev => ({...prev,[active.id]: {...(prev[active.id] || {}), [`P${i+1}`]: side || undefined}}))
-                  }}>
-                    <option value="">Da decidere</option>
-                    <option value="A" disabled={m.A === '-'}>Squadra A: {m.A}</option>
-                    <option value="B" disabled={m.B === '-'}>Squadra B: {m.B}</option>
-                  </select>
-                </div>
-              </div>
-            })}
-          </div>
-          <h3 className="font-bold">Squadre dirette al turno R</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {Array.from({length: active.nTeams === 24 ? 8 : 4}, (_, i) => <div key={i} className="rounded-lg border border-neutral-700 p-3">
-              <div className="mb-2">R{i+1}: Vincente P{i+1} contro</div>
-              <select className="input w-full" value={active.r1?.[i]?.B ?? '-'} disabled={locked} onChange={e=>setSlot(i,1,e.target.value)}>
-                <option value="-">—</option><option value="BYE">BYE</option>
-                {slotOptions.map(op => <option key={op} value={op} disabled={isTakenElsewhere(op,{pair:i,side:1})}>{op}</option>)}
-              </select>
-            </div>)}
-          </div>
-          <p className="text-xs text-neutral-400">Qui configuri gli ingressi e puoi impostare le vincenti dei preliminari. Risultati, punteggi e campi dei turni successivi si gestiscono nella pagina Risultati.</p>
-        </div>
-      )}
       {(active.type === 'PSE' || active.type === 'PDE') && <PreliminaryBracket
         title={active.title} color={active.color} type={active.type} nTeams={active.nTeams}
         prelims={active.prelims} r1={active.r1} winners={winnersById[active.id] || {}}
+        editable={!locked}
+        slotOptions={slotOptions}
+        isSlotTaken={(value,code,side) => {
+          if (!value || value === '-' || value === 'BYE') return false
+          const match = code.match(/^([PR])(\d+)$/)
+          if (!match) return false
+          const index = Number(match[2])-1
+          const current = match[1] === 'P'
+            ? active.prelims?.[index]?.[side]
+            : active.r1?.[index]?.[side]
+          return value !== current && usedCodesGlobal.has(value)
+        }}
+        onSlotChange={(code,side,value) => {
+          const match = code.match(/^([PR])(\d+)$/)
+          if (!match) return
+          const index = Number(match[2])-1
+          if (match[1] === 'P') {
+            const prelims = Array.from({length:active.nTeams === 24 ? 8 : 4}, (_,i)=>({
+              A:active.prelims?.[i]?.A??'-', B:active.prelims?.[i]?.B??'-'
+            }))
+            prelims[index] = {...prelims[index],[side]:value}
+            patchActive({prelims})
+          } else if (side === 'B') setSlot(index,1,value)
+        }}
       />}
       {/* === SE === */}
       {active.type === 'SE' && (
