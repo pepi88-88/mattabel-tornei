@@ -1460,27 +1460,29 @@ useEffect(() => {
     return wonA >= need || wonB >= need
   }
 
-  function completedSlotsFor(L: string): Set<number> {
+  function matchProgressFor(L: string): Record<number, { played: number; total: number }> {
     const rows = scheduleRows(L).filter(r => r.setNo === 1)
-    const complete = new Set<number>()
-    for (let slot = 1; slot <= capOf(L); slot++) {
+    const cap = capOf(L)
+    const isPoolFour = fmtOf(L) === 'pool' && cap === 4
+    const progress: Record<number, { played: number; total: number }> = {}
+    for (let slot = 1; slot <= cap; slot++) {
       const matches = rows.filter(r => r.a === slot || r.b === slot)
-      if (matches.length && matches.every(r => r.a && r.b && matchIsCompleted(L, r.matchIdx))) {
-        complete.add(slot)
-      }
+      const played = matches.filter(r => r.a && r.b && matchIsCompleted(L, r.matchIdx)).length
+      progress[slot] = { played, total: isPoolFour ? 2 : matches.length }
     }
-    return complete
+    return progress
   }
 
-  type AvulsaRow = { letter:string; pos:number; label:string; W:number; PF:number; PS:number; QP:number; completed:boolean }
+  type AvulsaRow = { letter:string; pos:number; label:string; W:number; PF:number; PS:number; QP:number; completed:boolean; played:number; total:number }
   const avulsa: AvulsaRow[] = useMemo(() => {
     if (!store) return []
     const out: AvulsaRow[] = []
     for (const L of letters) {
-      const complete = completedSlotsFor(L)
+      const progress = matchProgressFor(L)
       computeStatsFor(L).forEach((s,i) => out.push({
         letter:L, pos:i+1, label:s.label, W:s.W, PF:s.PF, PS:s.PS, QP:s.QP,
-        completed:complete.has(s.slot)
+        completed:progress[s.slot].total > 0 && progress[s.slot].played === progress[s.slot].total,
+        played:progress[s.slot].played, total:progress[s.slot].total
       }))
     }
     out.sort((a,b) => (a.pos-b.pos) || (b.W-a.W) || (b.QP-a.QP) || a.letter.localeCompare(b.letter))
@@ -2016,6 +2018,7 @@ return (
                 <th className="text-left">Pos</th>
                 <th className="text-left">Gir</th>
                 <th className="text-left">Team</th>
+                <th className="text-right">Partite</th>
                 <th className="text-right">W</th>
                 <th className="text-right">PF</th>
                 <th className="text-right">PS</th>
@@ -2028,6 +2031,7 @@ return (
                   <td className="py-1">{r.pos}</td>
                   <td>{r.letter}</td>
                   <td className="truncate">{r.label}</td>
+                  <td className="text-right tabular-nums">{r.played}/{r.total}</td>
                   <td className="text-right">{r.W}</td>
                   <td className="text-right">{r.PF}</td>
                   <td className="text-right">{r.PS}</td>
