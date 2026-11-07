@@ -82,7 +82,7 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
   type Game = {code:string; A:string; B:string}
   type Positioned = {m:Game; x:number; y:number; col:number}
   // Same card proportions as the classic SE/DE canvas.
-  const cardW=256, cardH=(editable && onScoreChange) ? 176 : 148
+  const cardW=256, cardH=148
   const colW=cardW+140, rowH=cardH+28
   const upper=rounds.filter(r=>!r.name.startsWith('Losers') && r.name!=='3° / 4° posto')
   const loserRounds=rounds.filter(r=>r.name.startsWith('Losers'))
@@ -145,7 +145,7 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
               {slotOptions.map(op=><option value={op} key={op} disabled={!!isSlotTaken?.(op,m.code,side)}>{op}</option>)}
             </select> : <button key={side} type="button" title={name}
               disabled={!editable||!onWinner}
-              onDoubleClick={()=>chooseWinner(side,name)}
+              onClick={()=>chooseWinner(side,name)}
               className={`w-full h-10 rounded-md px-2 text-left truncate transition
                 ${editable&&onWinner?'cursor-pointer':'cursor-default'}
                 ${selected===side?'bg-yellow-500/20 ring-1 ring-yellow-500':'bg-neutral-800/40 hover:bg-neutral-700/40'}`}>
@@ -153,13 +153,7 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
             </button>
         })}
       </div>
-      {onScoreChange||scores[m.code] ? <div className="flex gap-1 items-center mt-2 text-[10px] text-neutral-400">
-        <span>Punti</span>
-        {(['A','B'] as const).map((side,i)=><React.Fragment key={side}>{i>0&&<span>–</span>}
-          {editable&&onScoreChange?<input aria-label={`Punti ${side} ${m.code}`} type="number" min="0" className="input w-12 h-7 text-center"
-            value={scores[m.code]?.[side]??''} onChange={e=>onScoreChange(m.code,side,e.target.value===''?null:Number(e.target.value))}/>:
-            <span>{scores[m.code]?.[side]??'—'}</span>}</React.Fragment>)}
-      </div>:null}
+
     </div>
   }
   const drawLines=(nodes:Positioned[],stages:typeof rounds)=><svg className="absolute inset-0 pointer-events-none" width={width} height={Math.max(mainHeight,...nodes.map(n=>n.y+cardH+20))} aria-hidden="true">
@@ -241,7 +235,7 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
     </div>
   }
   return <div className="card p-4 space-y-4">
-    <h3 className="font-semibold text-sm">{type} — {count===8?'16+8':'8+4'} <span className="text-xs text-neutral-400">{editable&&onWinner?'Doppio clic sul nome per confermare la vincitrice':''}</span></h3>
+    <h3 className="font-semibold text-sm">{type} — {count===8?'16+8':'8+4'} <span className="text-xs text-neutral-400">{editable&&onWinner?'Clic sul nome per confermare la vincitrice':''}</span></h3>
     <div className="overflow-x-auto pb-4">
       {type==='PSE'? <div className="relative" style={{width,height:mainHeight}}>
         {upper.map((r,i)=><div key={i} className="absolute text-xs font-semibold text-center" style={{left:i*colW+8,width:cardW,top:0}}>{r.name}</div>)}
