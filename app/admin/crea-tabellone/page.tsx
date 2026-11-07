@@ -1058,9 +1058,12 @@ const avulsaOps = Array.from(
 )
   // Eliminati
   const loser = active?.fromTableId ? brackets.find(b => b.id === active.fromTableId) : null
-  const mCount = loser ? nextPow2(loser.nTeams) / 2 : 0
+  // I preliminari PSE/PDE liberano esclusivamente le loro perdenti verso
+  // la categoria seguente. Le perdenti R del PDE restano nel ramo Losers.
+  const isPreliminary = loser?.type === 'PSE' || loser?.type === 'PDE'
+  const mCount = loser && !isPreliminary ? nextPow2(loser.nTeams) / 2 : 0
   const elimOps = loser ? [
-    ...((loser.type === 'PSE' || loser.type === 'PDE') ? Array.from({ length: loser.prelims?.length ?? (loser.nTeams === 24 ? 8 : 4) }, (_, i) => `Perdente ${loser.title.toUpperCase()} P${i + 1}`) : []),
+    ...(isPreliminary ? Array.from({ length: loser.prelims?.length ?? (loser.nTeams === 24 ? 8 : 4) }, (_, i) => `Perdente ${loser.title.toUpperCase()} P${i + 1}`) : []),
     ...Array.from({ length: mCount }, (_, i) => `Perdente ${loser.title.toUpperCase()} M${i + 1}`),
   ] : []
 
