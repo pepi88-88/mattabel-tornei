@@ -1262,6 +1262,16 @@ function applyRowsBackToStates(rows: RegiaRow[], groupState: GroupState, bracket
 
   groupState.regia = { items: gMap }
   bracketState.regia = { items: bMap }
+  // Keep the results editor's field numbers in sync with Regia for PSE/PDE.
+  const byId = bracketState.courtsByBracket || {}
+  rows.filter(row => row.sourceType === 'bracket').forEach(row => {
+    const match = row.key.match(/^bracket:([^:]+):(.+)$/)
+    if (!match) return
+    const bracket = bracketState.items?.find(b => b.id === match[1])
+    if (!bracket || (bracket.type !== 'PSE' && bracket.type !== 'PDE')) return
+    byId[bracket.id] = { ...(byId[bracket.id] || {}), [match[2]]: row.court == null ? '' : String(row.court) }
+  })
+  bracketState.courtsByBracket = byId
 }
 
 async function loadStates(s: ReturnType<typeof supabaseAdmin>, tournament_id: string) {
