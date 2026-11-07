@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import useSWR from 'swr'
 import BracketCanvas, {
   type WinnerMap,
@@ -998,6 +998,7 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato Ã
   labels: gm.labels,
   times: gm.times,
 })
+    lastResultsSnapshot.current = JSON.stringify({ times: gm.times, scores: gm.scores })
     setTimes(gm.times)
     setScores(gm.scores)
     setGroupsConfirmed(gm.groupsConfirmed)
