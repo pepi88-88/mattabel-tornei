@@ -154,6 +154,7 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
   labels: Record<string, string>
   times: Record<string, string[]>
   scores: Record<string, { a: string; b: string }[]>
+  gField: Record<string, string>
   matchFields: Record<string, string[]>
   matchOrder: Record<string, number[]>
   groupsConfirmed: boolean
@@ -166,7 +167,7 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
       labels: {},
       times: {},
       scores: {},
-      matchFields: {}, matchOrder: {},
+      gField: {}, matchFields: {}, matchOrder: {},
       groupsConfirmed: false,
     }
   }
@@ -186,7 +187,7 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
       labels: st?.labels || {},
       times: st?.times || {},
       scores: st?.scores || {},
-      matchFields: st?.matchFields || {}, matchOrder: st?.matchOrder || {},
+      gField: st?.gField || {}, matchFields: st?.matchFields || {}, matchOrder: st?.matchOrder || {},
       groupsConfirmed: !!st?.groupsConfirmed,
     }
   } catch (error) {
@@ -806,6 +807,9 @@ function MobileGroupsCarousel({
   colorFor,
   times,
   scores,
+  matchFields,
+  setMatchFields,
+  gField,
 }: {
   letters: string[]
   tId: string
@@ -816,6 +820,9 @@ function MobileGroupsCarousel({
   colorFor: (L: string) => string
   times: Record<string, string[]>
   scores: Record<string, { a: string; b: string }[]>
+  matchFields: Record<string,string[]>
+  setMatchFields: React.Dispatch<React.SetStateAction<Record<string,string[]>>>
+  gField: Record<string,string>
 }) {
   // ogni slide = 1 girone, “ingrandito”
   return (
@@ -855,7 +862,7 @@ function MobileGroupsCarousel({
         firstSet ? 'border border-neutral-800' : 'border-x border-b border-neutral-800 rounded-t-none',
       ].join(' ')}
       style={{
-        gridTemplateColumns: '110px minmax(0,1fr) 64px 18px 64px minmax(0,1fr)',
+        gridTemplateColumns: '90px 44px minmax(0,1fr) 64px 18px 64px minmax(0,1fr)',
         columnGap: '.5rem',
         marginTop: firstSet ? 0 : -1,
       }}
@@ -873,6 +880,7 @@ function MobileGroupsCarousel({
         </div>
       )}
 
+      {firstSet ? <input className="input h-8 w-[40px] px-1 text-center" placeholder="C." title="Campo partita" inputMode="numeric" maxLength={2} value={matchFields[L]?.[r.matchIdx] ?? gField[L] ?? ''} onChange={e=>setMatchFields(prev=>{const arr=[...(prev[L]||[])];arr[r.matchIdx]=e.target.value.replace(/\D/g,'').slice(0,2);return {...prev,[L]:arr}})}/> : <div/>}
       <div className="min-w-0 truncate text-[15px] text-right pr-1 font-medium">
         {firstSet ? r.labelA : ''}
       </div>
@@ -903,7 +911,7 @@ function MobileGroupsCarousel({
         {firstSet ? r.labelB : ''}
       </div>
 
-      {lastOfMatch && <div className="col-span-6 h-1" />}
+      {lastOfMatch && <div className="col-span-7 h-1" />}
     </div>
   )
 })
@@ -1176,12 +1184,15 @@ function scheduleRows(L: string): ScheduleRow[] {
     const m2 = { key: 'F12', a: wSlot0, b: wSlot1, labelA: wSlot0 ? labelBySlot(L, wSlot0) : 'Vincente G1', labelB: wSlot1 ? labelBySlot(L, wSlot1) : 'Vincente G2' }
     const m3 = { key: 'F34', a: lSlot0, b: lSlot1, labelA: lSlot0 ? labelBySlot(L, lSlot0) : 'Perdente G1', labelB: lSlot1 ? labelBySlot(L, lSlot1) : 'Perdente G2' }
 
-    return [
+    const rows = [
       ...explodeMatch(m0, 0),
       ...explodeMatch(m1, 1),
       ...explodeMatch(m2, 2),
       ...explodeMatch(m3, 3),
     ]
+    const order = matchOrder[L] || []
+    const rank = (i:number) => { const p=order.indexOf(i); return p<0?order.length+i:p }
+    return rows.sort((a,b)=>rank(a.matchIdx)-rank(b.matchIdx)||a.setNo-b.setNo)
   }
 
   // Round-robin classico
@@ -1878,6 +1889,9 @@ return (
   colorFor={colorFor}
   times={times}
   scores={scores}
+  matchFields={matchFields}
+  setMatchFields={setMatchFields}
+  gField={store?.gField || {}}
 />
 
 {/* DESKTOP/TABLET: layout originale a griglia (immutato) */}
@@ -1930,7 +1944,7 @@ return (
         </div>
       )}
 
-      {firstSet ? <input className="input h-8 w-[38px] px-1 text-xs text-center" inputMode="numeric" maxLength={2} placeholder="C." title="Campo partita" value={matchFields[L]?.[r.matchIdx] ?? ''} onChange={e => setMatchFields(prev => { const arr=[...(prev[L]||[])]; arr[r.matchIdx]=e.target.value.replace(/\D/g,'').slice(0,2); return {...prev,[L]:arr} })}/> : <div/>}
+      {firstSet ? <input className="input h-8 w-[38px] px-1 text-xs text-center" inputMode="numeric" maxLength={2} placeholder="C." title="Campo partita" value={matchFields[L]?.[r.matchIdx] ?? store?.gField?.[L] ?? ''} onChange={e => setMatchFields(prev => { const arr=[...(prev[L]||[])]; arr[r.matchIdx]=e.target.value.replace(/\D/g,'').slice(0,2); return {...prev,[L]:arr} })}/> : <div/>}
       <div className="min-w-0 truncate text-sm text-right pr-0.5">
         {firstSet ? r.labelA : ''}
       </div>
