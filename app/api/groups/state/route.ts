@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ state: data?.state || {}, updated_at: data?.updated_at || null })
+  return NextResponse.json({ state: data?.state || {}, updated_at: data?.updated_at || 'new' })
 }
 
 export async function PUT(req: NextRequest) {
@@ -70,6 +70,13 @@ export async function PATCH(req: NextRequest) {
   const { data: current, error: readError } = await s.from('group_states')
     .select('state, updated_at').eq('tournament_id', tournament_id).maybeSingle()
   if (readError) return NextResponse.json({ error: readError.message }, { status: 500 })
+  if (!current && body.base_updated_at === 'new') {
+    const state = { ...changes }
+    const { error } = await s.from('group_states').insert({ tournament_id, state, is_public: Boolean(state.isPublic), updated_at: new Date().toISOString() })
+    if (error) return NextResponse.json({ error: 'Concurrent creation or database error' }, { status: error.code === '23505' ? 409 : 500 })
+    const { data: created } = await s.from('group_states').select('updated_at').eq('tournament_id', tournament_id).single()
+    return NextResponse.json({ ok: true, updated_at: created?.updated_at })
+  }
   if (!current || current.updated_at !== body.base_updated_at) {
     return NextResponse.json({ error: 'State changed on server', state: current?.state ?? null,
       updated_at: current?.updated_at ?? null }, { status: 409 })
