@@ -1397,14 +1397,12 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
               </select>
             </div>)}
           </div>
-          <p className="text-xs text-amber-300">La progressione principale è visibile sotto. Per PDE il ramo Losers è ancora in lavorazione.</p>
+          <p className="text-xs text-neutral-400">Qui configuri gli ingressi e puoi impostare le vincenti dei preliminari. Risultati, punteggi e campi dei turni successivi si gestiscono nella pagina Risultati.</p>
         </div>
       )}
       {(active.type === 'PSE' || active.type === 'PDE') && <PreliminaryBracket
         title={active.title} color={active.color} type={active.type} nTeams={active.nTeams}
         prelims={active.prelims} r1={active.r1} winners={winnersById[active.id] || {}}
-        editable={!locked}
-        onWinner={(code, side) => setWinnersById(prev => ({...prev,[active.id]:{...(prev[active.id] || {}),[code]:side}}))}
       />}
       {/* === SE === */}
       {active.type === 'SE' && (
