@@ -552,7 +552,10 @@ function makeExternalResolver(
   winnersById: Record<string, Record<string,'A'|'B'|undefined>>,
 ) {
   const byTitle = new Map(brackets.map(b => [b.title.trim().toUpperCase(), b]))
-  return (token: string): string | undefined => {
+  const resolveOne = (token: string, seen: Set<string>): string | undefined => {
+    const raw = String(token || '').trim()
+    if (seen.has(raw)) return undefined
+    seen.add(raw)
     const m=String(token || '').trim().match(/^(Perdente|Loser|Vincente|Winner)\s+(.+?)\s+([A-Za-z])?(\d+)$/i)
     if (!m) return undefined
     const br=byTitle.get(m[2].trim().toUpperCase())
@@ -573,8 +576,10 @@ function makeExternalResolver(
     const side=w[`${letter}${idx+1}`]
     if (!side || !actualA || !actualB) return undefined
     const loser=/^(Perdente|Loser)$/i.test(m[1])
-    return (side==='A') !== loser ? actualA : actualB
+    const selected = (side==='A') !== loser ? actualA : actualB
+    return resolveOne(selected,seen) || selected
   }
+  return (token: string): string | undefined => resolveOne(token,new Set<string>())
 }
 
 /* ============== ITA viewer (read-only) ============== */
