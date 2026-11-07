@@ -532,6 +532,7 @@ type Persist = {
   meta: Record<string, Meta>
   assign: Record<string, string>
   times?: Record<string, string[]>
+  gField?: Record<string, string>
   labels?: Record<string, string>
 }
 type Score = { a: string; b: string }
