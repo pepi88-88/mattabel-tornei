@@ -1169,51 +1169,43 @@ function scheduleRows(L: string): ScheduleRow[] {
 }
 
  
-// Salvataggio auto su Supabase di times + scores (stesso schema della pagina /admin/gironi)
+// Risultati: aggiornamento parziale. Non riscrivere mai gruppi, assegnazioni o conferme.
+const lastResultsSnapshot = useRef<string>('')
+const [resultsSaveError, setResultsSaveError] = useState('')
 useEffect(() => {
-  // salva solo quando:
-  // - c’è una tappa
-  // - NON stiamo caricando
-  // - i dati in memoria sono stati caricati proprio per questa tappa
   if (!tId || isLoadingState || loadedFor !== tId) return
-
-  const curTId = tId
+  const snapshot = JSON.stringify({ times, scores })
+  if (snapshot === lastResultsSnapshot.current) return
+  const id = tId
+  let cancelled = false
   const timer = setTimeout(async () => {
     try {
-      const res = await fetch(
-        `/api/groups/state?tournament_id=${encodeURIComponent(curTId)}`,
-        { headers: { 'x-role': 'admin' }, cache: 'no-store' }
-      )
-      const js = await res.json()
-      const prev = (js?.state || {}) as any
-
-      const next = {
-  groupsCount: prev?.groupsCount ?? store?.groupsCount ?? 0,
-  meta: prev?.meta ?? store?.meta ?? {},
-  assign: prev?.assign ?? store?.assign ?? {},
-  labels: prev?.labels ?? store?.labels ?? {},
-  gField: prev?.gField ?? {},
-  times: { ...(prev?.times || {}), ...(times || {}) },
-  scores: { ...(prev?.scores || {}), ...(scores || {}) },
-  isPublic: typeof prev?.isPublic === 'boolean' ? prev.isPublic : false,
-  groupsConfirmed: !!prev?.groupsConfirmed,
-  regia: prev?.regia ?? { items: {} },
-}
-
-      // se nel frattempo l’utente ha cambiato tappa, non salvare
-      if (curTId !== tId) return
-
-      await fetch('/api/groups/state', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
-        body: JSON.stringify({ tournament_id: curTId, state: next }),
-      })
-    } catch {}
-  }, 300)
-
-  return () => clearTimeout(timer)
-}, [tId, times, scores, store, isLoadingState, loadedFor])
-
+      for (let attempt = 0; attempt < 5; attempt++) {
+        if (cancelled) return
+        const read = await fetch(`/api/groups/state?tournament_id=${encodeURIComponent(id)}`, {
+          headers: { 'x-role': 'admin' }, cache: 'no-store'
+        })
+        if (!read.ok) throw new Error('Lettura fallita')
+        const current = await read.json()
+        if (!current.updated_at) throw new Error('Versione mancante')
+        const res = await fetch('/api/groups/state', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
+          body: JSON.stringify({ tournament_id: id, base_updated_at: current.updated_at,
+            changes: { times: { ...(current.state?.times || {}), ...times },
+                       scores: { ...(current.state?.scores || {}), ...scores } } })
+        })
+        if (res.status === 409) continue
+        if (!res.ok) throw new Error('Salvataggio fallito')
+        if (!cancelled) { lastResultsSnapshot.current = snapshot; setResultsSaveError('') }
+        return
+      }
+      throw new Error('Conflitto salvataggi')
+    } catch {
+      if (!cancelled) setResultsSaveError('Risultati non sincronizzati: non chiudere questa pagina.')
+    }
+  }, 450)
+  return () => { cancelled = true; clearTimeout(timer) }
+}, [tId, times, scores, isLoadingState, loadedFor])
 
   // ---------- Classifica + avulsa: salvataggi ----------
   type TeamStat = {
