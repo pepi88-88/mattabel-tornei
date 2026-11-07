@@ -6,6 +6,7 @@ import BracketCanvas, {
   type WinnerMap,
   type Bracket as BracketType,
 } from '../../../components/BracketCanvas'
+import PreliminaryBracket from '../../../components/PreliminaryBracket'
 import {
   colorForLetter as colorFor,
   GROUP_LETTERS as LETTERS_STR,
@@ -718,7 +719,7 @@ function PlacementsEditor({
 const nextPow2 = (n: number) => { let p=1; while (p < n) p <<= 1; return p }
 function normalizeBracket(b: any): BracketType {
   const n = Math.max(2, Number(b?.nTeams) || 8)
-  const r1 = Array.from({ length: nextPow2(n) / 2 }, (_, i) => ({
+  const r1 = Array.from({ length: b?.type === 'PSE' || b?.type === 'PDE' ? (b?.type === 'PSE' && n === 24 ? 8 : 4) : nextPow2(n) / 2 }, (_, i) => ({
     A: b?.r1?.[i]?.A ?? '-',
     B: b?.r1?.[i]?.B ?? '-',
   }))
@@ -732,6 +733,7 @@ function normalizeBracket(b: any): BracketType {
     source: (b?.source as BracketType['source']) || 'gironi',
     fromTableId: b?.fromTableId || undefined,
     r1,
+    prelims: b?.type === 'PSE' || b?.type === 'PDE' ? Array.from({length:b?.type === 'PSE' && n === 24 ? 8 : 4}, (_,i)=>({A:b?.prelims?.[i]?.A??'-', B:b?.prelims?.[i]?.B??'-'})) : undefined,
     slots,
   }
 }
@@ -1539,6 +1541,7 @@ useEffect(() => {
 
   // -------- Tabelloni + winners ----------
   const [courtsByBracket, setCourtsByBracket] = useState<Record<string, Record<string, string>>>({})
+  const [bracketScoresById, setBracketScoresById] = useState<Record<string, Record<string, {A:number|null;B:number|null}>>>({})
   const [bracketsLoadKey, setBracketsLoadKey] = useState('')
   const [bracketsLoadError, setBracketsLoadError] = useState('')
   const bracketsBaselineRef = useRef('')
@@ -1627,6 +1630,7 @@ const resolveToken = useMemo(() => {
   setWinnersById({})
   setItaScoresById({})
   setCourtsByBracket({})
+  setBracketScoresById({})
   if (!key) return () => controller.abort()
   ;(async () => {
     try {
@@ -1643,12 +1647,14 @@ const resolveToken = useMemo(() => {
       const winners = Array.isArray(raw) ? {} : (raw?.winnersById || {})
       const ita = Array.isArray(raw) ? {} : (raw?.itaScoresById || {})
       const courts = Array.isArray(raw) ? {} : (raw?.courtsByBracket || {})
-      bracketsBaselineRef.current = JSON.stringify({ winners, ita, courts })
+      const bracketScores = Array.isArray(raw) ? {} : (raw?.bracketScoresById || {})
+      bracketsBaselineRef.current = JSON.stringify({ winners, ita, courts, bracketScores })
       setBrackets(normalized)
       setActiveId(normalized[0]?.id ?? null)
       setWinnersById(winners)
       setItaScoresById(ita)
       setCourtsByBracket(courts)
+      setBracketScoresById(bracketScores)
       setBracketsLoadKey(key)
     } catch {
       if (!controller.signal.aborted && request === bracketsRequestRef.current)
@@ -1662,7 +1668,7 @@ const resolveToken = useMemo(() => {
 useEffect(() => {
   const key = tourId && tId ? tourId + ':' + tId : ''
   if (!key || bracketsLoadKey !== key || bracketsLoadError) return
-  const snapshot = JSON.stringify({ winners: winnersById, ita: itaScoresById, courts: courtsByBracket })
+  const snapshot = JSON.stringify({ winners: winnersById, ita: itaScoresById, courts: courtsByBracket, bracketScores: bracketScoresById })
   if (snapshot === bracketsBaselineRef.current) return
   const request = bracketsRequestRef.current
   let cancelled = false
@@ -1683,6 +1689,7 @@ useEffect(() => {
         winnersById: { ...(Array.isArray(previous) ? {} : previous?.winnersById || {}), ...winnersById },
         itaScoresById: { ...(Array.isArray(previous) ? {} : previous?.itaScoresById || {}), ...itaScoresById },
         courtsByBracket: { ...(Array.isArray(previous) ? {} : previous?.courtsByBracket || {}), ...courtsByBracket },
+        bracketScoresById: { ...(Array.isArray(previous) ? {} : previous?.bracketScoresById || {}), ...bracketScoresById },
       }
       if (cancelled || request !== bracketsRequestRef.current) return
       const saved = await fetch('/api/brackets/state', {
@@ -1697,7 +1704,7 @@ useEffect(() => {
     }
   }, 450)
   return () => { cancelled = true; clearTimeout(timer) }
-}, [tourId, tId, bracketsLoadKey, bracketsLoadError, winnersById, itaScoresById, courtsByBracket])
+}, [tourId, tId, bracketsLoadKey, bracketsLoadError, winnersById, itaScoresById, courtsByBracket, bracketScoresById])
 
   const active = useMemo(() => brackets.find(b => b.id === activeId) || null, [activeId, brackets])
 // Bracket "per display": per SE/DE risolvo A1/B2/avulsa(1..N) -> cognomi
@@ -1849,6 +1856,27 @@ return (
         onServerScoresChange={(rows) =>
           setItaScoresById((prev) => ({ ...prev, [active.id]: rows }))
         }
+      />
+    ) : (active.type === 'PSE' || active.type === 'PDE') ? (
+      <PreliminaryBracket
+        title={active.title} color={active.color} type={active.type} nTeams={active.nTeams}
+        prelims={active.prelims} r1={active.r1} resolve={resolveToken}
+        editable
+        winners={winnersById[active.id] || {}}
+        onWinner={(code,side) => setWinnersById(prev => ({
+          ...prev, [active.id]: {...(prev[active.id] || {}), [code]:side}
+        }))}
+        courts={courtsByBracket[active.id] || {}}
+        onCourtChange={(code,court) => setCourtsByBracket(prev => ({
+          ...prev,[active.id]:{...(prev[active.id] || {}),[code]:court}
+        }))}
+        scores={bracketScoresById[active.id] || {}}
+        onScoreChange={(code,side,value) => setBracketScoresById(prev => ({
+          ...prev,[active.id]:{
+            ...(prev[active.id] || {}),
+            [code]:{A:prev[active.id]?.[code]?.A ?? null,B:prev[active.id]?.[code]?.B ?? null,[side]:value}
+          }
+        }))}
       />
     ) : (
       <BracketCanvas
