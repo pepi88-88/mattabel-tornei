@@ -1468,6 +1468,10 @@ useEffect(() => {
 
 
   // -------- Tabelloni + winners ----------
+  const [bracketsLoadKey, setBracketsLoadKey] = useState('')
+  const [bracketsLoadError, setBracketsLoadError] = useState('')
+  const bracketsBaselineRef = useRef('')
+  const bracketsRequestRef = useRef(0)
   const [brackets, setBrackets] = useState<BracketType[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [winnersById, setWinnersById] = useState<Record<string, WinnerMap>>({})
@@ -1541,72 +1545,84 @@ const resolveToken = useMemo(() => {
 }, [brackets, winnersById, tourId, tId, avulsa])
 
  useEffect(() => {
-  if (!tourId || !tId) { setBrackets([]); setActiveId(null); setWinnersById({}); setItaScoresById({}); return }
+  const request = ++bracketsRequestRef.current
+  const controller = new AbortController()
+  const key = tourId && tId ? tourId + ':' + tId : ''
+  setBracketsLoadKey('')
+  setBracketsLoadError('')
+  bracketsBaselineRef.current = ''
+  setBrackets([])
+  setActiveId(null)
+  setWinnersById({})
+  setItaScoresById({})
+  if (!key) return () => controller.abort()
   ;(async () => {
     try {
-      const r = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`, {
-        headers: { 'x-role': 'admin' },
-        cache: 'no-store',
+      const response = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`, {
+        headers: { 'x-role': 'admin' }, cache: 'no-store', signal: controller.signal
       })
-      const js = await r.json()
-      const raw = js?.state
-
-      // Accetta sia il vecchio formato (array) che il nuovo (oggetto con items + winnersById + itaScoresById)
-      const itemsRaw = Array.isArray(raw) ? raw : (raw?.items || [])
-      const winnersRaw = Array.isArray(raw) ? {}   : (raw?.winnersById   || {})
-      const itaRaw     = Array.isArray(raw) ? {}   : (raw?.itaScoresById || {})
-
-      const normalized = itemsRaw.map(normalizeBracket)
+      if (!response.ok) throw new Error('Caricamento tabelloni fallito')
+      const json = await response.json()
+      if (controller.signal.aborted || request !== bracketsRequestRef.current) return
+      const raw = json?.state
+      const items = Array.isArray(raw) ? raw : (raw?.items || [])
+      if (!Array.isArray(items)) throw new Error('Formato tabelloni non valido')
+      const normalized = items.map(normalizeBracket)
+      const winners = Array.isArray(raw) ? {} : (raw?.winnersById || {})
+      const ita = Array.isArray(raw) ? {} : (raw?.itaScoresById || {})
+      bracketsBaselineRef.current = JSON.stringify({ winners, ita })
       setBrackets(normalized)
       setActiveId(normalized[0]?.id ?? null)
-
-      // winners / itaScores dal server
-      setWinnersById(winnersRaw as Record<string, WinnerMap>)
-      setItaScoresById(itaRaw as Record<string, ItaScore[]>)
+      setWinnersById(winners)
+      setItaScoresById(ita)
+      setBracketsLoadKey(key)
     } catch {
-      setBrackets([]); setActiveId(null); setWinnersById({}); setItaScoresById({})
+      if (!controller.signal.aborted && request === bracketsRequestRef.current)
+        setBracketsLoadError('Caricamento tabelloni fallito. Ricarica la pagina; nessun dato sovrascritto.')
     }
   })()
+  return () => { controller.abort(); bracketsRequestRef.current++ }
 }, [tourId, tId])
 
-
-// Salva winners + punteggi ITA del tabellone su Supabase (merge-safe)
+// Il caricamento non deve mai attivare un salvataggio automatico.
 useEffect(() => {
-  if (!tId) return
-  const curTId = tId
+  const key = tourId && tId ? tourId + ':' + tId : ''
+  if (!key || bracketsLoadKey !== key || bracketsLoadError) return
+  const snapshot = JSON.stringify({ winners: winnersById, ita: itaScoresById })
+  if (snapshot === bracketsBaselineRef.current) return
+  const request = bracketsRequestRef.current
+  let cancelled = false
+  const id = tId
   const timer = setTimeout(async () => {
     try {
-      const res = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(curTId)}`, {
-        headers: { 'x-role': 'admin' },
-        cache: 'no-store',
+      const response = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(id)}`, {
+        headers: { 'x-role': 'admin' }, cache: 'no-store'
       })
-      const js = await res.json()
-      const prev = js?.state
-
-      // tollerante al vecchio formato (array)
-      const prevItems   = Array.isArray(prev) ? prev : (prev?.items || [])
-      const prevWinners = Array.isArray(prev) ? {}   : (prev?.winnersById || {})
-      const prevIta     = Array.isArray(prev) ? {}   : (prev?.itaScoresById || {})
-
-     const next = {
-  items: prevItems.length ? prevItems : brackets,
-  winnersById: { ...(prevWinners || {}), ...(winnersById || {}) },
-  itaScoresById: { ...(prevIta || {}), ...(itaScoresById || {}) },
-  regia: prev?.regia ?? { items: {} },
-}
-
-      if (curTId !== tId) return
-
-      await fetch('/api/brackets/state', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
-        body: JSON.stringify({ tournament_id: curTId, state: next }),
+      if (!response.ok) throw new Error('Lettura fallita')
+      const json = await response.json()
+      if (cancelled || request !== bracketsRequestRef.current) return
+      const previous = json?.state
+      const items = Array.isArray(previous) ? previous : (previous?.items || [])
+      const next = {
+        ...(Array.isArray(previous) ? {} : (previous || {})),
+        items,
+        winnersById: { ...(Array.isArray(previous) ? {} : previous?.winnersById || {}), ...winnersById },
+        itaScoresById: { ...(Array.isArray(previous) ? {} : previous?.itaScoresById || {}), ...itaScoresById },
+      }
+      if (cancelled || request !== bracketsRequestRef.current) return
+      const saved = await fetch('/api/brackets/state', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
+        body: JSON.stringify({ tournament_id: id, state: next }),
       })
-    } catch {}
-  }, 300)
-
-  return () => clearTimeout(timer)
-}, [tId, brackets, winnersById, itaScoresById])
+      if (!saved.ok) throw new Error('Salvataggio fallito')
+      if (!cancelled && request === bracketsRequestRef.current) bracketsBaselineRef.current = snapshot
+    } catch {
+      if (!cancelled && request === bracketsRequestRef.current)
+        setBracketsLoadError('Salvataggio risultati tabellone non riuscito. Ricarica prima di continuare.')
+    }
+  }, 450)
+  return () => { cancelled = true; clearTimeout(timer) }
+}, [tourId, tId, bracketsLoadKey, bracketsLoadError, winnersById, itaScoresById])
 
   const active = useMemo(() => brackets.find(b => b.id === activeId) || null, [activeId, brackets])
 // Bracket "per display": per SE/DE risolvo A1/B2/avulsa(1..N) -> cognomi
@@ -1713,7 +1729,7 @@ return (
 ) : view === 'tabellone' ? (
 
       <div className="card p-0 overflow-hidden">
-        {!groupsConfirmed ? (
+        {bracketsLoadError ? (<div role="alert" className="p-6 text-amber-400">{bracketsLoadError}</div>) : bracketsLoadKey !== (tourId + ':' + tId) ? (<div className="p-6 text-neutral-400">Caricamento tabelloni...</div>) : !groupsConfirmed ? (
           <div className="p-6 text-sm text-neutral-400">
             Il tabellone è bloccato finché non confermi i risultati dei gironi.
             Premi <b>“Risultati gironi CONFERMATI”</b>.
