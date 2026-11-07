@@ -400,7 +400,7 @@ const Row = ({ side, text }: { side: 'A'|'B'; text: string }) => (
                   <div key={n.id} className="absolute card p-3 shadow-lg" style={{ width: CARD_W, height: CARD_H, left: n.left, top: n.top }}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-[11px] uppercase opacity-70">{n.code} — {bracket.title}</div>
-                      <div className="text-[10px] opacity-50 font-mono">M{n.mIndex+1}</div>
+                      <CourtField code={n.code} />
                     </div>
                     <div className="space-y-2">
                       <Row side="A" text={rowA} />
@@ -414,11 +414,11 @@ const Row = ({ side, text }: { side: 'A'|'B'; text: string }) => (
             {/* Finale + Vincitore + 3°/4° */}
             {se.nodes.length>0 && (() => {
               const final = se.nodes[se.nodes.length-1]
-              const lineLeft  = final.left + CARD_W + SE_FINAL_TUNE.lineDX
-              const lineTop   = final.top  + SE_FINAL_TUNE.lineDY
+              const lineLeft  = 16 + final.left + CARD_W + SE_FINAL_TUNE.lineDX
+              const lineTop   = 16 + final.top + SE_FINAL_TUNE.lineDY
               const lineWidth = SE_FINAL_TUNE.lineLEN
               const winnerLeft = lineLeft + lineWidth + 8 + SE_FINAL_TUNE.boxDX
-              const winnerTop  = final.top + (CARD_H - 100) / 2 + SE_FINAL_TUNE.boxDY
+              const winnerTop  = 16 + final.top + (CARD_H - 100) / 2 + SE_FINAL_TUNE.boxDY
 
               // semifinali (per il 3/4)
               const rounds = se.byRound.length
@@ -451,8 +451,8 @@ const thirdB = SF2 ? (loserOfNode(SF2) || `Loser ${SF2.code} — ${bracket.title
 
                   {/* 3°/4° cliccabile */}
                   {SF1 && SF2 && (
-                    <div className="absolute card p-3 shadow-lg" style={{ width: CARD_W, height: CARD_H, left: final.left, top: final.top + CARD_H + 48 }}>
-                      <div className="text-[11px] uppercase opacity-70 mb-2">3° / 4° posto — {bracket.title}</div>
+                    <div className="absolute card p-3 shadow-lg" style={{ width: CARD_W, height: CARD_H, left: 16 + final.left, top: 16 + final.top + CARD_H + 48 }}>
+                      <div className="flex items-center justify-between mb-2"><div className="text-[11px] uppercase opacity-70">3° / 4° posto — {bracket.title}</div><CourtField code="THIRD" /></div>
                       <div className="space-y-2">
                         <button
                           type="button"
