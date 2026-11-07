@@ -731,7 +731,7 @@ function commitTimeUncontrolled(
                         <div
                           className="grid items-center min-h-[38px]"
                           style={{
-                            gridTemplateColumns: '62px 40px minmax(0,1fr) 44px 16px 44px minmax(0,1fr) 22px',
+                            gridTemplateColumns: '62px 40px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
                             columnGap: '.35rem',
                           }}
                         >
@@ -767,7 +767,7 @@ function commitTimeUncontrolled(
                                })}/>
                            ) : <div className="w-[38px]"/>}
                            {/* Team / Set */}
-                          <div className="min-w-0 truncate text-sm text-right pr-0.5">
+                          <div className="min-w-0 truncate text-xs text-right pr-0.5">
                             {isFirstSet ? r.t1 : (
                               <span className="text-neutral-400 font-medium">SET {r.setNo}</span>
                             )}
@@ -823,7 +823,7 @@ function commitTimeUncontrolled(
                           />
 
                           {/* Team B */}
-                          <div className="min-w-0 truncate text-sm pl-1">
+                          <div className="min-w-0 truncate text-xs pl-1">
                             {isFirstSet ? r.t2 : ''}
                           </div>
                           {isFirstSet ? <div className="flex flex-col text-[10px] leading-3">
