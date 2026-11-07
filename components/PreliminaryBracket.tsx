@@ -81,8 +81,9 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
 
   type Game = {code:string; A:string; B:string}
   type Positioned = {m:Game; x:number; y:number; col:number}
-  const cardW=234, cardH=(editable && (onScoreChange || onCourtChange)) ? 175 : editable ? 162 : 128
-  const colW=cardW+116, rowH=cardH+30
+  // Same card proportions as the classic SE/DE canvas.
+  const cardW=256, cardH=(editable && onScoreChange) ? 176 : 148
+  const colW=cardW+140, rowH=cardH+28
   const upper=rounds.filter(r=>!r.name.startsWith('Losers') && r.name!=='3° / 4° posto')
   const loserRounds=rounds.filter(r=>r.name.startsWith('Losers'))
   const third=rounds.find(r=>r.name==='3° / 4° posto')
@@ -113,37 +114,52 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
   const mainHeight=Math.max(1,count)*rowH+25
   const renderCard=(node:Positioned)=>{
     const m=node.m
-    const slotPair=m.code.startsWith('P') && /^P\d+$/.test(m.code) ? prelims[Number(m.code.slice(1))-1]
+    const slotPair=/^P\d+$/.test(m.code) ? prelims[Number(m.code.slice(1))-1]
       : /^R\d+$/.test(m.code) ? r1[Number(m.code.slice(1))-1] : undefined
     const isPrelim=/^P\d+$/.test(m.code)
-    const configSide: Array<'A'|'B'> = isPrelim ? ['A','B'] : /^R\d+$/.test(m.code) ? ['B'] : []
-    return <div key={m.code} className="absolute rounded-xl border border-neutral-700 bg-neutral-950 p-3 shadow-md"
-      style={{left:node.x,top:node.y,width:cardW,minHeight:cardH,borderTop:`3px solid ${color}`}}>
-      <div className="text-[11px] font-bold mb-2" style={{color}}>{m.code} — {title}</div>
-      {(['A','B'] as const).map(side=>{
-        const configurable=!!slotOptions&&!!onSlotChange&&configSide.includes(side)
-        const original=slotPair?.[side]||'-'
-        return <div key={side} className="mb-2">
-          {configurable ? <select aria-label={`${m.code} squadra ${side}`} className="input w-full text-xs h-9"
-             value={original} onChange={e=>onSlotChange(m.code,side,e.target.value)}>
+    const configSides: Array<'A'|'B'> = isPrelim ? ['A','B'] : /^R\d+$/.test(m.code) ? ['B'] : []
+    const selected=winners[m.code]
+    const chooseWinner=(side:'A'|'B',name:string)=>{
+      if(!editable || !onWinner || !name || name==='—' || name==='-' || name==='BYE' || /^Vincente\s|^Perdente\s/i.test(name))return
+      const next=selected===side?undefined:side
+      const message=next ? `Confermi la vittoria di "${name}" in ${m.code}?` : `Annullare la vittoria attuale in ${m.code}?`
+      if(window.confirm(message)) onWinner(m.code,next)
+    }
+    return <div key={m.code} className="absolute card p-3 shadow-lg"
+      style={{left:node.x,top:node.y,width:cardW,height:cardH}}>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="text-[11px] uppercase opacity-70 truncate" title={`${m.code} — ${title}`}>{m.code} — {title}</div>
+        {onCourtChange || courts[m.code] ? <label className="flex shrink-0 items-center gap-1 text-[10px] text-neutral-400">
+          CAMPO {editable&&onCourtChange?<input aria-label={`Campo ${m.code}`} className="w-9 h-6 rounded border border-neutral-600 bg-neutral-900 text-center text-xs text-white"
+          inputMode="numeric" value={courts[m.code]||''} onChange={e=>onCourtChange(m.code,e.target.value.replace(/\D/g,''))} placeholder="–"/>:<span>{courts[m.code]||'–'}</span>}
+        </label>:null}
+      </div>
+      <div className="space-y-2">
+        {(['A','B'] as const).map(side=>{
+          const configurable=!!slotOptions&&!!onSlotChange&&configSides.includes(side)
+          const original=slotPair?.[side]||'-'
+          const name=side==='A'?m.A:m.B
+          return configurable ? <select key={side} aria-label={`${m.code} squadra ${side}`}
+            className="input w-full h-10 text-sm" value={original} onChange={e=>onSlotChange(m.code,side,e.target.value)}>
               <option value="-">—</option><option value="BYE">BYE</option>
               {slotOptions.map(op=><option value={op} key={op} disabled={!!isSlotTaken?.(op,m.code,side)}>{op}</option>)}
-            </select>:
-            <div className={`px-1 py-1.5 text-xs border-b border-neutral-800 min-h-7 ${winners[m.code]===side?'font-bold text-amber-300':''}`} title={side==='A'?m.A:m.B}>{side==='A'?m.A:m.B}</div>}
-        </div>
-      })}
-      {editable&&onWinner&&<select aria-label={`Vincente ${m.code}`} className="input w-full text-xs h-8 mt-1"
-        value={winners[m.code]||''} onChange={e=>onWinner(m.code,e.target.value===''?undefined:e.target.value as 'A'|'B')}>
-        <option value="">Vincente da decidere</option><option value="A">Vince A</option><option value="B">Vince B</option>
-      </select>}
-      {(onCourtChange||onScoreChange||courts[m.code]||scores[m.code])&&<div className="flex items-center gap-1 flex-wrap text-[10px] mt-2 text-neutral-400">
-        <span>Campo</span>
-        {editable&&onCourtChange?<input className="input w-10 h-7 text-center" inputMode="numeric" value={courts[m.code]||''} onChange={e=>onCourtChange(m.code,e.target.value.replace(/\D/g,''))}/>:<span>{courts[m.code]||'—'}</span>}
-        <span className="ml-1">Punti</span>
-        {(['A','B'] as const).map((side,i)=><React.Fragment key={side}>{i>0&&<span>–</span>}{editable&&onScoreChange?
-          <input aria-label={`Punti ${side} ${m.code}`} type="number" min="0" className="input w-10 h-7 text-center" value={scores[m.code]?.[side]??''} onChange={e=>onScoreChange(m.code,side,e.target.value===''?null:Number(e.target.value))}/>:
-          <span>{scores[m.code]?.[side]??'—'}</span>}</React.Fragment>)}
-      </div>}
+            </select> : <button key={side} type="button" title={name}
+              disabled={!editable||!onWinner}
+              onDoubleClick={()=>chooseWinner(side,name)}
+              className={`w-full h-10 rounded-md px-2 text-left truncate transition
+                ${editable&&onWinner?'cursor-pointer':'cursor-default'}
+                ${selected===side?'bg-yellow-500/20 ring-1 ring-yellow-500':'bg-neutral-800/40 hover:bg-neutral-700/40'}`}>
+              <span className="font-mono text-sm">{name||'—'}</span>
+            </button>
+        })}
+      </div>
+      {onScoreChange||scores[m.code] ? <div className="flex gap-1 items-center mt-2 text-[10px] text-neutral-400">
+        <span>Punti</span>
+        {(['A','B'] as const).map((side,i)=><React.Fragment key={side}>{i>0&&<span>–</span>}
+          {editable&&onScoreChange?<input aria-label={`Punti ${side} ${m.code}`} type="number" min="0" className="input w-12 h-7 text-center"
+            value={scores[m.code]?.[side]??''} onChange={e=>onScoreChange(m.code,side,e.target.value===''?null:Number(e.target.value))}/>:
+            <span>{scores[m.code]?.[side]??'—'}</span>}</React.Fragment>)}
+      </div>:null}
     </div>
   }
   const drawLines=(nodes:Positioned[],stages:typeof rounds)=><svg className="absolute inset-0 pointer-events-none" width={width} height={Math.max(mainHeight,...nodes.map(n=>n.y+cardH+20))} aria-hidden="true">
@@ -159,7 +175,7 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
     })}
   </svg>
   return <div className="card p-4 space-y-4">
-    <h3 className="font-extrabold text-xl" style={{color}}>{title} — {type} {count===8?'16+8':'8+4'}</h3>
+    <h3 className="font-semibold text-sm">{type} — {count===8?'16+8':'8+4'} <span className="text-xs text-neutral-400">{editable&&onWinner?'Doppio clic sul nome per confermare la vincitrice':''}</span></h3>
     <div className="overflow-x-auto pb-4">
       {type==='PSE'? <div className="relative" style={{width,height:mainHeight}}>
         {upper.map((r,i)=><div key={i} className="absolute text-xs font-semibold text-center" style={{left:i*colW+8,width:cardW,top:0}}>{r.name}</div>)}
