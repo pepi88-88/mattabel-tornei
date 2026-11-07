@@ -70,6 +70,8 @@ type PersistServer = {
   assign: Record<string, string>;
   times: Record<string, string[]>;
   gField: Record<string, string>;
+  matchFields?: Record<string, string[]>;
+  matchOrder?: Record<string, number[]>;
   scores: Record<string, { a: string; b: string }[]>;
   isPublic: boolean;
   labels: Record<string, string>;
@@ -148,6 +150,8 @@ const regAll: RegRow[] = ((regsRes?.items ?? []) as any[])
 
   // CAMPO per girone
   const [gField, setGField] = useState<Record<string, string>>({})
+  const [matchFields, setMatchFields] = useState<Record<string, string[]>>({})
+  const [matchOrder, setMatchOrder] = useState<Record<string, number[]>>({})
 
   // Punteggi per partita
   type Score = { a: string; b: string }
@@ -187,7 +191,7 @@ useEffect(() => {
       versionRef.current = js.updated_at
       const serverDraft = {
         groupsCount: st.groupsCount ?? 4, meta: st.meta ?? {}, assign: st.assign ?? {},
-        times: st.times ?? {}, gField: st.gField ?? {}, scores: st.scores ?? {},
+        times: st.times ?? {}, gField: st.gField ?? {}, matchFields: st.matchFields ?? {}, matchOrder: st.matchOrder ?? {}, scores: st.scores ?? {},
         isPublic: typeof st.isPublic === 'boolean' ? st.isPublic : false
       }
       savedSnapshotRef.current = JSON.stringify(serverDraft)
@@ -214,6 +218,8 @@ useEffect(() => {
       setAssign(loaded.assign)
       setTimes(loaded.times)
       setGField(loaded.gField)
+      setMatchFields(loaded.matchFields ?? {})
+      setMatchOrder(loaded.matchOrder ?? {})
       setScores(loaded.scores)
       setIsPublic(loaded.isPublic)
       setReady(true)
@@ -229,7 +235,7 @@ useEffect(() => {
 // Ogni PATCH usa la versione letta: se un'altra pagina ha salvato, rilegge e riprova.
 useEffect(() => {
   if (!ready || !tId || !versionRef.current) return
-  const data = { groupsCount, meta, assign, times, gField, scores, isPublic }
+  const data = { groupsCount, meta, assign, times, gField, matchFields, matchOrder, scores, isPublic }
   const snapshot = JSON.stringify(data)
   if (snapshot === savedSnapshotRef.current && !pendingRef.current) return
   try { localStorage.setItem(draftKey(tId), JSON.stringify({ data, savedAt: Date.now() })) }
@@ -272,7 +278,7 @@ useEffect(() => {
     }
   }, 450)
   return () => { cancelled = true; clearTimeout(timer) }
-}, [ready, tId, groupsCount, meta, assign, times, gField, scores, isPublic, retrySave])
+}, [ready, tId, groupsCount, meta, assign, times, gField, matchFields, matchOrder, scores, isPublic, retrySave])
 
   // util
   const regToLetter = useMemo(() => { const m: Record<string, string> = {}; for (const [k, v] of Object.entries(assign)) { if (!v) continue; const L = k.split('-')[0]; m[v] = L } return m }, [assign])
@@ -314,7 +320,9 @@ useEffect(() => {
 })
     }
   })
-  return out
+  const order = matchOrder[L] || []
+  const rank = (i: number) => { const p = order.indexOf(i); return p < 0 ? order.length + i : p }
+  return out.sort((a,b) => rank(a.matchIdx)-rank(b.matchIdx) || a.setNo-b.setNo)
 }
 
 function computeGroupRankingCorrect(L: string) {
@@ -659,7 +667,18 @@ function commitTimeUncontrolled(
         {pair.map(L => {
           const color = colorFor(L)
           const rows = scheduleRows(L)
-
+          const moveMatch = (from: number, direction: number) => {
+            const ids = [...new Set(rows.map(r => r.matchIdx))]
+            const to = from + direction
+            if (to < 0 || to >= ids.length) return
+            const [item] = ids.splice(from, 1); ids.splice(to, 0, item)
+            setMatchOrder(prev => ({ ...prev, [L]: ids }))
+          }
+          const sortByTime = () => {
+            const ids = [...new Set(rows.map(r => r.matchIdx))]
+            ids.sort((a,b) => ((times[L] || [])[a] || '99:99').localeCompare((times[L] || [])[b] || '99:99'))
+            setMatchOrder(prev => ({ ...prev, [L]: ids }))
+          }
           return (
             <div key={`${tId}-sch-${L}`} className="card p-0 overflow-hidden">
               {/* Barra colore full + CAMPO */}
@@ -669,7 +688,8 @@ function commitTimeUncontrolled(
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs tracking-wide uppercase text-white/90">Campo</span>
+                  <button type="button" onClick={sortByTime} className="text-xs underline text-white">Ordina per orario</button>
+                   <span className="text-xs tracking-wide uppercase text-white/90">Campo</span>
                   <input
                     type="text"
                     className="input h-7 w-24 bg-white/90 text-black"
@@ -697,7 +717,7 @@ function commitTimeUncontrolled(
                         <div
                           className="grid items-center min-h-[38px]"
                           style={{
-                            gridTemplateColumns: '86px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
+                            gridTemplateColumns: '62px 40px minmax(0,1fr) 44px 16px 44px minmax(0,1fr) 22px',
                             columnGap: '.35rem',
                           }}
                         >
@@ -707,7 +727,7 @@ function commitTimeUncontrolled(
                               type="text"
                               inputMode="numeric"
                               placeholder="hh:mm"
-                              className="input h-8 pl-1 pr-0 text-sm text-white tabular-nums w-[82px]"
+                              className="input h-8 pl-1 pr-0 text-sm text-white tabular-nums w-[60px]"
                               defaultValue={(times[L] ?? [])[r.matchIdx] ?? ''}
                               onBlur={(e) => commitTimeUncontrolled(L, r.matchIdx, e.currentTarget, setTime)}
                               onKeyDown={(e) => {
@@ -719,10 +739,20 @@ function commitTimeUncontrolled(
                               title="Ora"
                             />
                           ) : (
-                            <div className="w-[82px] h-8" />
+                            <div className="w-[60px] h-8" />
                           )}
 
-                          {/* Team / Set */}
+                          {isFirstSet ? (
+                             <input type="text" inputMode="numeric" maxLength={2}
+                               className="input h-8 w-[38px] px-1 text-center text-xs"
+                               title="Campo della partita" placeholder="C."
+                               value={matchFields[L]?.[r.matchIdx] ?? gField[L] ?? ''}
+                               onChange={e => setMatchFields(prev => {
+                                 const arr = [...(prev[L] || [])]; arr[r.matchIdx] = e.target.value.replace(/[^0-9]/g,'').slice(0,2)
+                                 return {...prev,[L]:arr}
+                               })}/>
+                           ) : <div className="w-[38px]"/>}
+                           {/* Team / Set */}
                           <div className="min-w-0 truncate text-sm text-right pr-0.5">
                             {isFirstSet ? r.t1 : (
                               <span className="text-neutral-400 font-medium">SET {r.setNo}</span>
@@ -782,6 +812,10 @@ function commitTimeUncontrolled(
                           <div className="min-w-0 truncate text-sm pl-1">
                             {isFirstSet ? r.t2 : ''}
                           </div>
+                          {isFirstSet ? <div className="flex flex-col text-[10px] leading-3">
+                            <button type="button" title="Sposta sopra" onClick={() => moveMatch([...new Set(rows.map(x => x.matchIdx))].indexOf(r.matchIdx),-1)}>▲</button>
+                            <button type="button" title="Sposta sotto" onClick={() => moveMatch([...new Set(rows.map(x => x.matchIdx))].indexOf(r.matchIdx),1)}>▼</button>
+                          </div> : <div/>}
                         </div>
 
                         {!isLastSetOfMatch && <div className="h-1" />}
