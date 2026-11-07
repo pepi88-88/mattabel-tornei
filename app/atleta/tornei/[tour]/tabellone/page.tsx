@@ -754,6 +754,8 @@ export default function AthleteTabellonePage() {
   const [brackets, setBrackets] = useState<BracketType[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [winnersById, setWinnersById] = useState<Record<string, WinnerMap>>({})
+  const [courtsByBracket, setCourtsByBracket] = useState<Record<string, Record<string, string>>>({})
+  const [bracketScoresById, setBracketScoresById] = useState<Record<string, Record<string, {A:number|null;B:number|null}>>>({})
   const [itaScoresById, setItaScoresById] = useState<Record<string, ItaScore[]>>({})
 
   useEffect(() => {
@@ -791,6 +793,8 @@ export default function AthleteTabellonePage() {
         const items   = Array.isArray(raw) ? raw : (raw?.items || [])
         const winners = Array.isArray(raw) ? {}   : (raw?.winnersById   || {})
         const ita     = Array.isArray(raw) ? {}   : (raw?.itaScoresById || {})
+        const courts = Array.isArray(raw) ? {} : (raw?.courtsByBracket || {})
+        const bracketScores = Array.isArray(raw) ? {} : (raw?.bracketScoresById || {})
 
         const normalized = items.map(normalizeBracket)
 
@@ -798,6 +802,8 @@ export default function AthleteTabellonePage() {
         setBrackets(normalized)
         setActiveId(normalized[0]?.id ?? null)
         setWinnersById(winners)
+        setCourtsByBracket(courts)
+        setBracketScoresById(bracketScores)
         setItaScoresById(ita)
         setIsPublic(Boolean(js?.is_public))
       } catch {
@@ -902,6 +908,8 @@ export default function AthleteTabellonePage() {
                     type={resolvedActive.type} nTeams={resolvedActive.nTeams}
                     prelims={resolvedActive.prelims} r1={active?.r1 || []}
                     winners={winnersById[resolvedActive.id] || {}} resolve={resolve}
+                    courts={courtsByBracket[resolvedActive.id] || {}}
+                    scores={bracketScoresById[resolvedActive.id] || {}}
                   />
                 ) : (
                   <>
