@@ -1129,6 +1129,81 @@ teamB: labels.b || '—',
   })
 }
 
+// PSE/PDE: preliminari separati, turno R ufficiale e per PDE ramo Losers
+// coerente con il tabellone Risultati. I perdenti P non vanno nel ramo Losers.
+function buildPreliminaryRows(
+  bracket: Bracket,
+  allBrackets: Bracket[],
+  gs: GroupState,
+  winnersById: Record<string, WinnerMap>,
+  regiaItems: Record<string, RegiaItemState>,
+  courts: Record<string, string>,
+): RegiaRow[] {
+  const resolve = makeBracketResolver(gs, allBrackets, winnersById)
+  const w = winnersById[bracket.id] || {}
+  const count = bracket.type === 'PSE' && bracket.nTeams === 24 ? 8 : 4
+  type Match = {code: string; A: string; B: string; phase: string}
+  const games: Match[] = []
+  const win = (m: Match) => w[m.code] === 'A' ? m.A : w[m.code] === 'B' ? m.B : `Vincente ${m.code}`
+  const lose = (m: Match) => w[m.code] === 'A' ? m.B : w[m.code] === 'B' ? m.A : `Perdente ${m.code}`
+  const p = Array.from({length:count},(_,i)=>{
+    const m=bracket.prelims?.[i] || {A:'-',B:'-'}
+    return {code:`P${i+1}`, A:resolve(m.A), B:resolve(m.B),phase:`Preliminari ${bracket.title}`}
+  })
+  games.push(...p)
+  const r = Array.from({length:count},(_,i)=>{
+    const m=bracket.r1?.[i]||{A:'-',B:'-'}
+    return {code:`R${i+1}`,A:win(p[i]),B:resolve(m.B),phase:`Turno principale ${bracket.title}`}
+  })
+  games.push(...r)
+  if (bracket.type === 'PDE') {
+    const z = [
+      {code:'Z1',A:win(r[0]),B:win(r[1]),phase:`Semifinali vincenti ${bracket.title}`},
+      {code:'Z2',A:win(r[2]),B:win(r[3]),phase:`Semifinali vincenti ${bracket.title}`},
+    ]
+    const x = [
+      {code:'X1',A:lose(r[0]),B:lose(r[1]),phase:`Losers ${bracket.title}`},
+      {code:'X2',A:lose(r[2]),B:lose(r[3]),phase:`Losers ${bracket.title}`},
+    ]
+    const wGames = [
+      {code:'W1',A:lose(z[0]),B:win(x[0]),phase:`Losers ${bracket.title}`},
+      {code:'W2',A:lose(z[1]),B:win(x[1]),phase:`Losers ${bracket.title}`},
+    ]
+    const co = [
+      {code:'CO1',A:win(z[0]),B:win(wGames[1]),phase:`Semifinali ${bracket.title}`},
+      {code:'CO2',A:win(z[1]),B:win(wGames[0]),phase:`Semifinali ${bracket.title}`},
+    ]
+    games.push(...z,...x,...wGames,...co)
+    games.push({code:'F',A:win(co[0]),B:win(co[1]),phase:`Finale ${bracket.title}`})
+    games.push({code:'THIRD',A:lose(co[0]),B:lose(co[1]),phase:`3° / 4° ${bracket.title}`})
+  } else {
+    let current=r
+    let level=0
+    while(current.length>1) {
+      const next=Array.from({length:current.length/2},(_,i)=>{
+        const a=current[i*2],b=current[i*2+1]
+        const code=current.length===2?`Y${i+1}`:current.length===4?`Z${i+1}`:`T${level+1}_${i+1}`
+        return {code,A:win(a),B:win(b),phase:`${current.length===2?'Finale':current.length===4?'Semifinali':'Quarti'} ${bracket.title}`}
+      })
+      games.push(...next)
+      current=next
+      level++
+    }
+  }
+  return games.map(m=>{
+    const key=`bracket:${bracket.id}:${m.code}`
+    const state=regiaItems[key] || {court:null,sequence:null,status:'waiting' as RegiaStatus}
+    const fromEditor = courts[m.code]
+    const editorCourt = /^\\d+$/.test(String(fromEditor ?? '')) && Number(fromEditor)>0 ? Number(fromEditor) : null
+    return {
+      key, sourceType:'bracket' as const,tournament_id:'',
+      phase:m.phase,teamA:m.A || '—',teamB:m.B || '—',
+      scheduledTime:state.scheduledTimeManual || '',
+      court:state.court ?? editorCourt,sequence:state.sequence ?? null,status:state.status ?? 'waiting',
+    }
+  })
+}
+
 function sortRows(rows: RegiaRow[]) {
   return [...rows].sort((a, b) => {
     // PRIORITÀ STATUS
@@ -1285,6 +1360,7 @@ rows.push({
     let list: RegiaRow[] = []
     if (b.type === 'SE') list = buildSERows(b, brackets, groupState, winnersById, bracketRegia)
     else if (b.type === 'DE') list = buildDERows(b, brackets, groupState, winnersById, bracketRegia)
+    else if (b.type === 'PSE' || b.type === 'PDE') list = buildPreliminaryRows(b, brackets, groupState, winnersById, bracketRegia, bracketState?.courtsByBracket?.[b.id] || {})
     else list = []
 
     list.forEach((r) => {
