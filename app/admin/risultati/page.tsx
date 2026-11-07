@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import useSWR from 'swr'
 import BracketCanvas, {
   type WinnerMap,
@@ -172,6 +172,7 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
       `/api/groups/state?tournament_id=${encodeURIComponent(tId)}`,
       { headers: { 'x-role': 'admin' }, cache: 'no-store' }
     )
+    if (!r.ok) throw new Error('GET risultati fallito')
     const j = await r.json()
     const st = (j?.state || j || {}) as any
     return {
@@ -184,16 +185,8 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
       scores: st?.scores || {},
       groupsConfirmed: !!st?.groupsConfirmed,
     }
-  } catch {
-    return {
-      groupsCount: 0,
-      meta: {},
-      assign: {},
-      labels: {},
-      times: {},
-      scores: {},
-      groupsConfirmed: false,
-    }
+  } catch (error) {
+    throw error
   }
 }
 
@@ -989,6 +982,7 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato �
   }
 
   ;(async () => {
+    try {
     const gm = await loadGroupsStateFromSupabase(tId)
     if (cancelled) return
     setStore({
@@ -998,13 +992,36 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato �
   labels: gm.labels,
   times: gm.times,
 })
-    setTimes(gm.times)
-    setScores(gm.scores)
+    lastResultsSnapshot.current = JSON.stringify({ times: gm.times, scores: gm.scores })
+    let restoredTimes = gm.times
+    let restoredScores = gm.scores
+    try {
+      const pending = localStorage.getItem('mattabel:risultati:pending:' + tId)
+      if (pending) {
+        const parsed = JSON.parse(pending)
+        if (parsed?.times && parsed?.scores) {
+          if (JSON.stringify({ times: parsed.times, scores: parsed.scores }) === lastResultsSnapshot.current) {
+            localStorage.removeItem('mattabel:risultati:pending:' + tId)
+          } else if (window.confirm('Esistono risultati non sincronizzati. Vuoi recuperarli?')) {
+            restoredTimes = parsed.times
+            restoredScores = parsed.scores
+          }
+        }
+      }
+    } catch {}
+    setTimes(restoredTimes)
+    setScores(restoredScores)
     setGroupsConfirmed(gm.groupsConfirmed)
 
     // stato coerente ora è riferito a QUESTO tId
     setLoadedFor(tId)
     setIsLoadingState(false)
+    } catch {
+      if (!cancelled) {
+        setResultsSaveError('Caricamento fallito: dati non modificati. Ricarica la pagina.')
+        setIsLoadingState(false)
+      }
+    }
   })()
 
   return () => {
@@ -1169,51 +1186,61 @@ function scheduleRows(L: string): ScheduleRow[] {
 }
 
  
-// Salvataggio auto su Supabase di times + scores (stesso schema della pagina /admin/gironi)
+// Risultati: aggiornamento parziale. Non riscrivere mai gruppi, assegnazioni o conferme.
+const lastResultsSnapshot = useRef<string>('')
+const [resultsSaveError, setResultsSaveError] = useState('')
+const resultsDraftKey = (id: string) => 'mattabel:risultati:pending:' + id
 useEffect(() => {
-  // salva solo quando:
-  // - c’è una tappa
-  // - NON stiamo caricando
-  // - i dati in memoria sono stati caricati proprio per questa tappa
   if (!tId || isLoadingState || loadedFor !== tId) return
-
-  const curTId = tId
+  const snapshot = JSON.stringify({ times, scores })
+  if (snapshot === lastResultsSnapshot.current) return
+  const id = tId
+  try {
+    localStorage.setItem(resultsDraftKey(id), JSON.stringify({ times, scores, savedAt: Date.now() }))
+  } catch {
+    setResultsSaveError('Impossibile conservare i risultati nel browser.')
+  }
+  let cancelled = false
   const timer = setTimeout(async () => {
     try {
-      const res = await fetch(
-        `/api/groups/state?tournament_id=${encodeURIComponent(curTId)}`,
-        { headers: { 'x-role': 'admin' }, cache: 'no-store' }
-      )
-      const js = await res.json()
-      const prev = (js?.state || {}) as any
-
-      const next = {
-  groupsCount: prev?.groupsCount ?? store?.groupsCount ?? 0,
-  meta: prev?.meta ?? store?.meta ?? {},
-  assign: prev?.assign ?? store?.assign ?? {},
-  labels: prev?.labels ?? store?.labels ?? {},
-  gField: prev?.gField ?? {},
-  times: { ...(prev?.times || {}), ...(times || {}) },
-  scores: { ...(prev?.scores || {}), ...(scores || {}) },
-  isPublic: typeof prev?.isPublic === 'boolean' ? prev.isPublic : false,
-  groupsConfirmed: !!prev?.groupsConfirmed,
-  regia: prev?.regia ?? { items: {} },
-}
-
-      // se nel frattempo l’utente ha cambiato tappa, non salvare
-      if (curTId !== tId) return
-
-      await fetch('/api/groups/state', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
-        body: JSON.stringify({ tournament_id: curTId, state: next }),
-      })
-    } catch {}
-  }, 300)
-
-  return () => clearTimeout(timer)
-}, [tId, times, scores, store, isLoadingState, loadedFor])
-
+      for (let attempt = 0; attempt < 5; attempt++) {
+        if (cancelled) return
+        const read = await fetch(`/api/groups/state?tournament_id=${encodeURIComponent(id)}`, {
+          headers: { 'x-role': 'admin' }, cache: 'no-store'
+        })
+        if (!read.ok) throw new Error('Lettura fallita')
+        const current = await read.json()
+        if (!current.updated_at) throw new Error('Versione mancante')
+        const res = await fetch('/api/groups/state', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
+          body: JSON.stringify({ tournament_id: id, base_updated_at: current.updated_at,
+            changes: { times: { ...(current.state?.times || {}), ...times },
+                       scores: { ...(current.state?.scores || {}), ...scores } } })
+        })
+        if (res.status === 409) continue
+        if (!res.ok) throw new Error('Salvataggio fallito')
+        if (!cancelled) {
+          lastResultsSnapshot.current = snapshot
+          try {
+            const pending = localStorage.getItem(resultsDraftKey(id))
+            if (pending) {
+              const parsed = JSON.parse(pending)
+              if (JSON.stringify({ times: parsed.times, scores: parsed.scores }) === snapshot) {
+                localStorage.removeItem(resultsDraftKey(id))
+              }
+            }
+          } catch {}
+          setResultsSaveError('')
+        }
+        return
+      }
+      throw new Error('Conflitto salvataggi')
+    } catch {
+      if (!cancelled) setResultsSaveError('Risultati conservati nel browser, non ancora sincronizzati.')
+    }
+  }, 450)
+  return () => { cancelled = true; clearTimeout(timer) }
+}, [tId, times, scores, isLoadingState, loadedFor])
 
   // ---------- Classifica + avulsa: salvataggi ----------
   type TeamStat = {
@@ -1411,11 +1438,53 @@ useEffect(() => {
   return arr
 }
 
-  type AvulsaRow = { letter:string; pos:number; label:string; W:number; PF:number; PS:number; QP:number }
+  // Evidenzia solo le coppie che hanno concluso tutte le proprie partite.
+  // Per un best-of-3 bastano due set vinti: il terzo può restare vuoto.
+  function matchIsCompleted(L: string, matchIdx: number): boolean {
+    const bestOf = bestOfOf(L)
+    const need = setsToWin(bestOf)
+    const rows = scores[L] ?? []
+    let wonA = 0
+    let wonB = 0
+    for (let si = 0; si < bestOf; si++) {
+      if (wonA >= need || wonB >= need) return true
+      const row = rows[matchIdx * bestOf + si]
+      const rawA = String(row?.a ?? '').trim()
+      const rawB = String(row?.b ?? '').trim()
+      if (!rawA || !rawB) return false
+      const a = Number(rawA), b = Number(rawB)
+      if (!Number.isFinite(a) || !Number.isFinite(b) || a === b || a < 0 || b < 0) return false
+      if (a > b) wonA++
+      else wonB++
+    }
+    return wonA >= need || wonB >= need
+  }
+
+  function matchProgressFor(L: string): Record<number, { played: number; total: number }> {
+    const rows = scheduleRows(L).filter(r => r.setNo === 1)
+    const cap = capOf(L)
+    const isPoolFour = fmtOf(L) === 'pool' && cap === 4
+    const progress: Record<number, { played: number; total: number }> = {}
+    for (let slot = 1; slot <= cap; slot++) {
+      const matches = rows.filter(r => r.a === slot || r.b === slot)
+      const played = matches.filter(r => r.a && r.b && matchIsCompleted(L, r.matchIdx)).length
+      progress[slot] = { played, total: isPoolFour ? 2 : matches.length }
+    }
+    return progress
+  }
+
+  type AvulsaRow = { letter:string; pos:number; label:string; W:number; PF:number; PS:number; QP:number; completed:boolean; played:number; total:number }
   const avulsa: AvulsaRow[] = useMemo(() => {
     if (!store) return []
     const out: AvulsaRow[] = []
-    for (const L of letters) computeStatsFor(L).forEach((s,i) => out.push({ letter:L, pos:i+1, label:s.label, W:s.W, PF:s.PF, PS:s.PS, QP:s.QP }))
+    for (const L of letters) {
+      const progress = matchProgressFor(L)
+      computeStatsFor(L).forEach((s,i) => out.push({
+        letter:L, pos:i+1, label:s.label, W:s.W, PF:s.PF, PS:s.PS, QP:s.QP,
+        completed:progress[s.slot].total > 0 && progress[s.slot].played === progress[s.slot].total,
+        played:progress[s.slot].played, total:progress[s.slot].total
+      }))
+    }
     out.sort((a,b) => (a.pos-b.pos) || (b.W-a.W) || (b.QP-a.QP) || a.letter.localeCompare(b.letter))
     return out
   }, [store, letters, scores])
@@ -1441,6 +1510,11 @@ useEffect(() => {
 
 
   // -------- Tabelloni + winners ----------
+  const [courtsByBracket, setCourtsByBracket] = useState<Record<string, Record<string, string>>>({})
+  const [bracketsLoadKey, setBracketsLoadKey] = useState('')
+  const [bracketsLoadError, setBracketsLoadError] = useState('')
+  const bracketsBaselineRef = useRef('')
+  const bracketsRequestRef = useRef(0)
   const [brackets, setBrackets] = useState<BracketType[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [winnersById, setWinnersById] = useState<Record<string, WinnerMap>>({})
@@ -1514,72 +1588,88 @@ const resolveToken = useMemo(() => {
 }, [brackets, winnersById, tourId, tId, avulsa])
 
  useEffect(() => {
-  if (!tourId || !tId) { setBrackets([]); setActiveId(null); setWinnersById({}); setItaScoresById({}); return }
+  const request = ++bracketsRequestRef.current
+  const controller = new AbortController()
+  const key = tourId && tId ? tourId + ':' + tId : ''
+  setBracketsLoadKey('')
+  setBracketsLoadError('')
+  bracketsBaselineRef.current = ''
+  setBrackets([])
+  setActiveId(null)
+  setWinnersById({})
+  setItaScoresById({})
+  setCourtsByBracket({})
+  if (!key) return () => controller.abort()
   ;(async () => {
     try {
-      const r = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`, {
-        headers: { 'x-role': 'admin' },
-        cache: 'no-store',
+      const response = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`, {
+        headers: { 'x-role': 'admin' }, cache: 'no-store', signal: controller.signal
       })
-      const js = await r.json()
-      const raw = js?.state
-
-      // Accetta sia il vecchio formato (array) che il nuovo (oggetto con items + winnersById + itaScoresById)
-      const itemsRaw = Array.isArray(raw) ? raw : (raw?.items || [])
-      const winnersRaw = Array.isArray(raw) ? {}   : (raw?.winnersById   || {})
-      const itaRaw     = Array.isArray(raw) ? {}   : (raw?.itaScoresById || {})
-
-      const normalized = itemsRaw.map(normalizeBracket)
+      if (!response.ok) throw new Error('Caricamento tabelloni fallito')
+      const json = await response.json()
+      if (controller.signal.aborted || request !== bracketsRequestRef.current) return
+      const raw = json?.state
+      const items = Array.isArray(raw) ? raw : (raw?.items || [])
+      if (!Array.isArray(items)) throw new Error('Formato tabelloni non valido')
+      const normalized = items.map(normalizeBracket)
+      const winners = Array.isArray(raw) ? {} : (raw?.winnersById || {})
+      const ita = Array.isArray(raw) ? {} : (raw?.itaScoresById || {})
+      const courts = Array.isArray(raw) ? {} : (raw?.courtsByBracket || {})
+      bracketsBaselineRef.current = JSON.stringify({ winners, ita, courts })
       setBrackets(normalized)
       setActiveId(normalized[0]?.id ?? null)
-
-      // winners / itaScores dal server
-      setWinnersById(winnersRaw as Record<string, WinnerMap>)
-      setItaScoresById(itaRaw as Record<string, ItaScore[]>)
+      setWinnersById(winners)
+      setItaScoresById(ita)
+      setCourtsByBracket(courts)
+      setBracketsLoadKey(key)
     } catch {
-      setBrackets([]); setActiveId(null); setWinnersById({}); setItaScoresById({})
+      if (!controller.signal.aborted && request === bracketsRequestRef.current)
+        setBracketsLoadError('Caricamento tabelloni fallito. Ricarica la pagina; nessun dato sovrascritto.')
     }
   })()
+  return () => { controller.abort(); bracketsRequestRef.current++ }
 }, [tourId, tId])
 
-
-// Salva winners + punteggi ITA del tabellone su Supabase (merge-safe)
+// Il caricamento non deve mai attivare un salvataggio automatico.
 useEffect(() => {
-  if (!tId) return
-  const curTId = tId
+  const key = tourId && tId ? tourId + ':' + tId : ''
+  if (!key || bracketsLoadKey !== key || bracketsLoadError) return
+  const snapshot = JSON.stringify({ winners: winnersById, ita: itaScoresById, courts: courtsByBracket })
+  if (snapshot === bracketsBaselineRef.current) return
+  const request = bracketsRequestRef.current
+  let cancelled = false
+  const id = tId
   const timer = setTimeout(async () => {
     try {
-      const res = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(curTId)}`, {
-        headers: { 'x-role': 'admin' },
-        cache: 'no-store',
+      const response = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(id)}`, {
+        headers: { 'x-role': 'admin' }, cache: 'no-store'
       })
-      const js = await res.json()
-      const prev = js?.state
-
-      // tollerante al vecchio formato (array)
-      const prevItems   = Array.isArray(prev) ? prev : (prev?.items || [])
-      const prevWinners = Array.isArray(prev) ? {}   : (prev?.winnersById || {})
-      const prevIta     = Array.isArray(prev) ? {}   : (prev?.itaScoresById || {})
-
-     const next = {
-  items: prevItems.length ? prevItems : brackets,
-  winnersById: { ...(prevWinners || {}), ...(winnersById || {}) },
-  itaScoresById: { ...(prevIta || {}), ...(itaScoresById || {}) },
-  regia: prev?.regia ?? { items: {} },
-}
-
-      if (curTId !== tId) return
-
-      await fetch('/api/brackets/state', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
-        body: JSON.stringify({ tournament_id: curTId, state: next }),
+      if (!response.ok) throw new Error('Lettura fallita')
+      const json = await response.json()
+      if (cancelled || request !== bracketsRequestRef.current) return
+      const previous = json?.state
+      const items = Array.isArray(previous) ? previous : (previous?.items || [])
+      const next = {
+        ...(Array.isArray(previous) ? {} : (previous || {})),
+        items,
+        winnersById: { ...(Array.isArray(previous) ? {} : previous?.winnersById || {}), ...winnersById },
+        itaScoresById: { ...(Array.isArray(previous) ? {} : previous?.itaScoresById || {}), ...itaScoresById },
+        courtsByBracket: { ...(Array.isArray(previous) ? {} : previous?.courtsByBracket || {}), ...courtsByBracket },
+      }
+      if (cancelled || request !== bracketsRequestRef.current) return
+      const saved = await fetch('/api/brackets/state', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
+        body: JSON.stringify({ tournament_id: id, state: next }),
       })
-    } catch {}
-  }, 300)
-
-  return () => clearTimeout(timer)
-}, [tId, brackets, winnersById, itaScoresById])
+      if (!saved.ok) throw new Error('Salvataggio fallito')
+      if (!cancelled && request === bracketsRequestRef.current) bracketsBaselineRef.current = snapshot
+    } catch {
+      if (!cancelled && request === bracketsRequestRef.current)
+        setBracketsLoadError('Salvataggio risultati tabellone non riuscito. Ricarica prima di continuare.')
+    }
+  }, 450)
+  return () => { cancelled = true; clearTimeout(timer) }
+}, [tourId, tId, bracketsLoadKey, bracketsLoadError, winnersById, itaScoresById, courtsByBracket])
 
   const active = useMemo(() => brackets.find(b => b.id === activeId) || null, [activeId, brackets])
 // Bracket "per display": per SE/DE risolvo A1/B2/avulsa(1..N) -> cognomi
@@ -1606,6 +1696,7 @@ const activeForDisplay = useMemo(() => {
 return (
   <div className="relative z-0 p-6 space-y-8 pointer-events-auto">
    
+    {resultsSaveError && <div role="alert" className="rounded border border-amber-500 p-3 text-amber-300">{resultsSaveError}</div>}
     {/* Header filtri */}
     <div className="flex flex-wrap items-end gap-3">
       <div className="flex flex-col">
@@ -1685,7 +1776,7 @@ return (
 ) : view === 'tabellone' ? (
 
       <div className="card p-0 overflow-hidden">
-        {!groupsConfirmed ? (
+        {bracketsLoadError ? (<div role="alert" className="p-6 text-amber-400">{bracketsLoadError}</div>) : bracketsLoadKey !== (tourId + ':' + tId) ? (<div className="p-6 text-neutral-400">Caricamento tabelloni...</div>) : !groupsConfirmed ? (
           <div className="p-6 text-sm text-neutral-400">
             Il tabellone è bloccato finché non confermi i risultati dei gironi.
             Premi <b>“Risultati gironi CONFERMATI”</b>.
@@ -1737,6 +1828,10 @@ return (
         interactive
         confirmOnPick
         winners={winnersById[active.id] || {}}
+        courts={courtsByBracket[active.id] || {}}
+        onCourtChange={(code, court) => setCourtsByBracket(prev => ({
+          ...prev, [active.id]: { ...(prev[active.id] || {}), [code]: court }
+        }))}
         onWinnersChange={(w) =>
           setWinnersById((prev) => ({ ...prev, [active.id]: w }))
         }
@@ -1913,13 +2008,17 @@ return (
 
         {/* Avulsa */}
         <div className="card p-3">
-          <div className="text-lg font-semibold mb-3">Classifica Avulsa</div>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="text-lg font-semibold">Classifica Avulsa</div>
+            <span className="text-xs text-emerald-400">● Verde = tutte le partite concluse</span>
+          </div>
           <table className="w-full text-sm">
             <thead className="text-xs text-neutral-400">
               <tr>
                 <th className="text-left">Pos</th>
                 <th className="text-left">Gir</th>
                 <th className="text-left">Team</th>
+                <th className="text-right">Partite</th>
                 <th className="text-right">W</th>
                 <th className="text-right">PF</th>
                 <th className="text-right">PS</th>
@@ -1928,10 +2027,11 @@ return (
             </thead>
             <tbody>
               {avulsa.map((r, i) => (
-                <tr key={i} className="border-t border-neutral-800">
+                <tr key={i} className={`border-t border-neutral-800 ${r.completed ? 'bg-emerald-950/50 text-emerald-200' : ''}`} title={r.completed ? 'Tutte le partite della coppia sono concluse' : 'Partite ancora da completare'}>
                   <td className="py-1">{r.pos}</td>
                   <td>{r.letter}</td>
                   <td className="truncate">{r.label}</td>
+                  <td className="text-right tabular-nums">{r.played}/{r.total}</td>
                   <td className="text-right">{r.W}</td>
                   <td className="text-right">{r.PF}</td>
                   <td className="text-right">{r.PS}</td>

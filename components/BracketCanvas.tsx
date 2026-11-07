@@ -166,6 +166,8 @@ type Props = {
   externalResolver?: (token:string)=>string|undefined
   /** ⬇️ nuovo: punteggi per auto-determinare WIN/LOSE */
   scores?: ScoreMap
+  courts?: Record<string, string>
+  onCourtChange?: (code: string, court: string) => void
 }
 
 
@@ -178,9 +180,28 @@ export default function BracketCanvas({
   tourId,
   tId,
   externalResolver,
+  courts = {},
+  onCourtChange,
   scores,  // ⬅️ aggiungi qui
 }: Props) {
 
+
+  const CourtField = ({ code }: { code: string }) => (
+    <label className="flex items-center gap-1 text-[10px] text-neutral-400" onClick={e => e.stopPropagation()}>
+      <span>CAMPO</span>
+      <input
+        aria-label={`Campo partita ${code}`}
+        type="text"
+        inputMode="numeric"
+        maxLength={2}
+        value={courts[code] || ''}
+        onChange={e => onCourtChange?.(code, e.target.value.replace(/[^0-9]/g, ''))}
+        disabled={!interactive || !onCourtChange}
+        className="w-9 h-6 rounded border border-neutral-600 bg-neutral-900 text-center text-xs text-white"
+        placeholder="–"
+      />
+    </label>
+  )
 
   const [localWinners, setLocalWinners] = useState<WinnerMap>(winnersProp)
   useEffect(()=>{ setLocalWinners(winnersProp) }, [winnersProp])
@@ -312,7 +333,7 @@ const thirdB = SF2 ? (loserOfNode(SF2) || `Loser ${SF2.code} — ${bracket.title
                 const header = (
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-[11px] uppercase opacity-70">{n.code} — {bracket.title}</div>
-                    <div className="text-[10px] opacity-50 font-mono">M{n.mIndex+1}</div>
+                    <CourtField code={n.code} />
                   </div>
                 )
 
@@ -379,7 +400,7 @@ const Row = ({ side, text }: { side: 'A'|'B'; text: string }) => (
                   <div key={n.id} className="absolute card p-3 shadow-lg" style={{ width: CARD_W, height: CARD_H, left: n.left, top: n.top }}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-[11px] uppercase opacity-70">{n.code} — {bracket.title}</div>
-                      <div className="text-[10px] opacity-50 font-mono">M{n.mIndex+1}</div>
+                      <CourtField code={n.code} />
                     </div>
                     <div className="space-y-2">
                       <Row side="A" text={rowA} />
@@ -393,11 +414,11 @@ const Row = ({ side, text }: { side: 'A'|'B'; text: string }) => (
             {/* Finale + Vincitore + 3°/4° */}
             {se.nodes.length>0 && (() => {
               const final = se.nodes[se.nodes.length-1]
-              const lineLeft  = final.left + CARD_W + SE_FINAL_TUNE.lineDX
-              const lineTop   = final.top  + SE_FINAL_TUNE.lineDY
+              const lineLeft  = 16 + final.left + CARD_W + SE_FINAL_TUNE.lineDX
+              const lineTop   = 16 + final.top + SE_FINAL_TUNE.lineDY
               const lineWidth = SE_FINAL_TUNE.lineLEN
               const winnerLeft = lineLeft + lineWidth + 8 + SE_FINAL_TUNE.boxDX
-              const winnerTop  = final.top + SE_FINAL_TUNE.boxDY
+              const winnerTop  = 16 + final.top + (CARD_H - 100) / 2 + SE_FINAL_TUNE.boxDY
 
               // semifinali (per il 3/4)
               const rounds = se.byRound.length
@@ -414,7 +435,7 @@ const thirdB = SF2 ? (loserOfNode(SF2) || `Loser ${SF2.code} — ${bracket.title
                   <svg width={lineWidth} height={CARD_H} className="absolute" style={{ left: lineLeft, top: lineTop }}>
                     <path d={`M 0 ${CARD_H/2} H ${lineWidth}`} stroke={bracket.color} strokeWidth={3} fill="none" />
                   </svg>
-                  <div className="absolute card p-4 shadow-lg" style={{ width: CARD_W, height: CARD_H, left: winnerLeft, top: winnerTop }}>
+                  <div className="absolute card p-4 shadow-lg" style={{ width: CARD_W, height: 100, left: winnerLeft, top: winnerTop }}>
                     <div className="text-[11px] uppercase opacity-70 mb-2">VINCITORE TORNEO</div>
                     <div className="text-sm text-neutral-300">
                       {(() => {
@@ -430,8 +451,8 @@ const thirdB = SF2 ? (loserOfNode(SF2) || `Loser ${SF2.code} — ${bracket.title
 
                   {/* 3°/4° cliccabile */}
                   {SF1 && SF2 && (
-                    <div className="absolute card p-3 shadow-lg" style={{ width: CARD_W, height: CARD_H, left: final.left, top: final.top + CARD_H + 48 }}>
-                      <div className="text-[11px] uppercase opacity-70 mb-2">3° / 4° posto — {bracket.title}</div>
+                    <div className="absolute card p-3 shadow-lg" style={{ width: CARD_W, height: CARD_H, left: 16 + final.left, top: 16 + final.top + CARD_H + 48 }}>
+                      <div className="flex items-center justify-between mb-2"><div className="text-[11px] uppercase opacity-70">3° / 4° posto — {bracket.title}</div><CourtField code="THIRD" /></div>
                       <div className="space-y-2">
                         <button
                           type="button"

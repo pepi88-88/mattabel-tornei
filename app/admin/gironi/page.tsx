@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import useSWR from 'swr'
 
@@ -159,115 +159,120 @@ const [isPublic, setIsPublic] = useState(false)
 
 
 const [ready, setReady] = useState(false)
+const [saveStatus, setSaveStatus] = useState('Caricamento...')
+const versionRef = useRef<string | null>(null)
+const savedSnapshotRef = useRef('')
+const draftKey = (id: string) => 'mattabel:gironi:pending:' + id
+const pendingRef = useRef<string | null>(null)
+const [retrySave, setRetrySave] = useState(0)
 
-// LOAD da Supabase quando cambia tId
+// Non attivare mai il salvataggio dopo un GET fallito.
 useEffect(() => {
-  (async () => {
-    // 1) subito svuoto lo stato locale per evitare che il vecchio “appaia” nella nuova tappa
-    setReady(false)
-    setGroupsCount(4)
-    setMeta({})
-    setAssign({})
-    setTimes({})
-    setGField({})
-    setScores({})
-    setIsPublic(false)
-
-    if (!tId) return
-
+  let cancelled = false
+  setReady(false)
+  setSaveStatus('Caricamento...')
+  versionRef.current = null
+  pendingRef.current = null
+  if (!tId) return
+  ;(async () => {
     try {
-      const res = await fetch(`/api/groups/state?tournament_id=${tId}`, {
-        headers: { 'x-role': 'admin' }, // API protetta
-        cache: 'no-store',
+      const res = await fetch(`/api/groups/state?tournament_id=${encodeURIComponent(tId)}`, {
+        headers: { 'x-role': 'admin' }, cache: 'no-store'
       })
+      if (!res.ok) throw new Error('Caricamento fallito (' + res.status + ')')
       const js = await res.json()
       const st: Partial<PersistServer> = js?.state || {}
-
-      if (st.groupsCount != null) setGroupsCount(st.groupsCount)
-      else setGroupsCount(4)
-
-      setMeta(st.meta ?? {})
-      setAssign(st.assign ?? {})
-      setTimes(st.times ?? {})
-      setGField(st.gField ?? {})
-      setScores(st.scores ?? {})
-      setIsPublic(typeof st.isPublic === 'boolean' ? st.isPublic : false)
-
-      // NB: le labels le rigeneriamo da regMap (vedi patch 2)
+      if (!js?.updated_at) throw new Error('Versione dello stato assente')
+      if (cancelled) return
+      versionRef.current = js.updated_at
+      const serverDraft = {
+        groupsCount: st.groupsCount ?? 4, meta: st.meta ?? {}, assign: st.assign ?? {},
+        times: st.times ?? {}, gField: st.gField ?? {}, scores: st.scores ?? {},
+        isPublic: typeof st.isPublic === 'boolean' ? st.isPublic : false
+      }
+      savedSnapshotRef.current = JSON.stringify(serverDraft)
+      let loaded = serverDraft
+      const pending = localStorage.getItem(draftKey(tId))
+      if (pending) {
+        try {
+          const parsed = JSON.parse(pending)
+          if (parsed?.data && JSON.stringify(parsed.data) === JSON.stringify(serverDraft)) {
+            localStorage.removeItem(draftKey(tId))
+            setSaveStatus('Salvato su Supabase')
+          } else
+          if (parsed?.data && window.confirm('Esiste una modifica ai gironi non sincronizzata su questo dispositivo. Vuoi recuperarla?')) {
+            loaded = parsed.data
+            pendingRef.current = JSON.stringify(loaded)
+          } else {
+            // Non cancelliamo la bozza senza una scelta esplicita.
+            setSaveStatus('Bozza locale disponibile: ricarica per recuperarla')
+          }
+        } catch { setSaveStatus('Bozza locale non leggibile') }
+      }
+      setGroupsCount(loaded.groupsCount)
+      setMeta(loaded.meta)
+      setAssign(loaded.assign)
+      setTimes(loaded.times)
+      setGField(loaded.gField)
+      setScores(loaded.scores)
+      setIsPublic(loaded.isPublic)
       setReady(true)
-    } catch {
-      // stato “vuoto” se non presente
-      setGroupsCount(4)
-      setMeta({})
-      setAssign({})
-      setTimes({})
-      setGField({})
-      setScores({})
-      setIsPublic(false)
-      setReady(true)
+      if (!pending) setSaveStatus('Salvato su Supabase')
+    } catch (e) {
+      if (!cancelled) setSaveStatus('Errore caricamento: nessuna sovrascrittura. Ricarica la pagina.')
     }
   })()
+  return () => { cancelled = true }
 }, [tId])
-function isEmptyStateForSave(st: {
-  groupsCount: number;
-  meta: Record<string, any>;
-  assign: Record<string, any>;
-}) {
-  if (!st) return true
-  if (!st.groupsCount || st.groupsCount < 1) return true
-  if (!st.meta || Object.keys(st.meta).length === 0) return true
-  // (opzionale) almeno un capacity > 0
-  const someCap = Object.values(st.meta).some((m:any) => Number(m?.capacity) > 0)
-  if (!someCap) return true
-  return false
-}
 
-// SAVE auto (debounce) verso Supabase
+// Salva una bozza sincrona nel browser prima di inviare i dati al server.
+// Ogni PATCH usa la versione letta: se un'altra pagina ha salvato, rilegge e riprova.
 useEffect(() => {
-  if (!ready || !tId) return
-
-  // 🛡️ blocca salvataggi vuoti/prematuri
-  if (isEmptyStateForSave({ groupsCount, meta, assign })) return
-
-  const curTId = tId
-
-  const id = setTimeout(async () => {
+  if (!ready || !tId || !versionRef.current) return
+  const data = { groupsCount, meta, assign, times, gField, scores, isPublic }
+  const snapshot = JSON.stringify(data)
+  if (snapshot === savedSnapshotRef.current && !pendingRef.current) return
+  try { localStorage.setItem(draftKey(tId), JSON.stringify({ data, savedAt: Date.now() })) }
+  catch { setSaveStatus('Spazio locale non disponibile: non chiudere la pagina') }
+  setSaveStatus('Salvataggio in corso...')
+  let cancelled = false
+  const timer = setTimeout(async () => {
     try {
-      const res = await fetch(`/api/groups/state?tournament_id=${encodeURIComponent(curTId)}`, {
-        headers: { 'x-role': 'admin' },
-        cache: 'no-store',
-      })
-      const js = await res.json()
-      const prev = (js?.state || {}) as Partial<PersistServer>
-
-      const payload: PersistServer = {
-        groupsCount,
-        meta,
-        assign,
-        times,
-        gField,
-        scores,
-        isPublic,
-        labels: {
-          ...(prev?.labels || {}),
-          ...(regMap || {}),
-        },
-        groupsConfirmed: !!prev?.groupsConfirmed,
-        regia: prev?.regia ?? { items: {} },
+      for (let attempt = 0; attempt < 5; attempt++) {
+        if (cancelled) return
+        const read = await fetch(`/api/groups/state?tournament_id=${encodeURIComponent(tId)}`, {
+          headers: { 'x-role': 'admin' }, cache: 'no-store'
+        })
+        if (!read.ok) throw new Error('Lettura fallita')
+        const current = await read.json()
+        if (!current.updated_at) throw new Error('Versione mancante')
+        const changes = { ...data, labels: { ...(current.state?.labels || {}), ...(regMap || {}) } }
+        const res = await fetch('/api/groups/state', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
+          body: JSON.stringify({ tournament_id: tId, changes, base_updated_at: current.updated_at })
+        })
+        if (res.status === 409) continue
+        if (!res.ok) throw new Error('Salvataggio fallito (' + res.status + ')')
+        const result = await res.json()
+        if (cancelled) return
+        versionRef.current = result.updated_at
+        savedSnapshotRef.current = snapshot
+        if (localStorage.getItem(draftKey(tId))) {
+          const pending = JSON.parse(localStorage.getItem(draftKey(tId)) || '{}')
+          if (JSON.stringify(pending.data) === snapshot) localStorage.removeItem(draftKey(tId))
+        }
+        pendingRef.current = null
+        setSaveStatus('Salvato su Supabase')
+        return
       }
-
-      if (curTId !== tId) return
-
-      await fetch('/api/groups/state', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
-        body: JSON.stringify({ tournament_id: curTId, state: payload }),
-      })
-    } catch {}
-  }, 300)
-
-  return () => clearTimeout(id)
-}, [ready, tId, groupsCount, meta, assign, times, gField, scores, isPublic, regMap])
+      throw new Error('Conflitto tra salvataggi')
+    } catch {
+      if (!cancelled) setSaveStatus('Modifiche conservate nel browser. Riprova modificando un dato o ricarica.')
+    }
+  }, 450)
+  return () => { cancelled = true; clearTimeout(timer) }
+}, [ready, tId, groupsCount, meta, assign, times, gField, scores, isPublic, retrySave])
 
   // util
   const regToLetter = useMemo(() => { const m: Record<string, string> = {}; for (const [k, v] of Object.entries(assign)) { if (!v) continue; const L = k.split('-')[0]; m[v] = L } return m }, [assign])
@@ -569,7 +574,7 @@ function commitTimeUncontrolled(
   }
 
   // ---- UI: cards gironi
-  function GroupCard({ L }: { L: string }) {
+  function renderGroupCard(L: string) {
     const color = colorFor(L)
      const m = meta[L] ?? { capacity: 0, format: 'pool', bestOf: 1 }
     const cap = m.capacity ?? 0
@@ -836,7 +841,7 @@ function commitTimeUncontrolled(
             </div>
             <div>
               <div className="text-xs text-neutral-400 mb-1"># Gironi</div>
-              <input className="input w-24" type="number" min={1} value={groupsCount}
+              <span role="status" className="text-xs">{saveStatus}</span>{saveStatus.includes('conservate') && <button type="button" onClick={() => setRetrySave(x => x + 1)}>Riprova salvataggio</button>}<input className="input w-24" type="number" min={1} value={groupsCount}
                 onChange={e => setGroupsCount(Math.max(1, Number(e.target.value || 1)))} />
             </div>
           <div className="flex items-end gap-2">
@@ -878,7 +883,7 @@ function commitTimeUncontrolled(
 
          {/* griglia gironi (responsive, niente chunk) */}
 <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
- {letters.map(L => <GroupCard key={`${tId}-${L}`} L={L} />)}
+ {letters.map(L => renderGroupCard(L))}
 </div>
 
           
