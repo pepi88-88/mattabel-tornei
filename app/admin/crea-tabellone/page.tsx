@@ -54,10 +54,11 @@ type Bracket = {
   id: string
   title: string
   color: string
-  type: 'SE' | 'DE' | 'ITA'
+  type: 'SE' | 'DE' | 'ITA' | 'PSE' | 'PDE'
   nTeams: number
   source: 'gironi' | 'avulsa' | 'eliminati' | 'gironi+eliminati'| 'avulsa+eliminati'
   fromTableId?: string
+  prelims?: { A: string; B: string }[] // P1..P4/P8; separate from official R round
   r1: { A: string; B: string }[]   // usato da SE e anche da DE (R1..R4)
   slots: string[]                   // usato da ITA
 }
@@ -70,6 +71,7 @@ function normalizeBracket(b: any): Bracket {
     B: b?.r1?.[i]?.B ?? '-',
   }))
   const slots = Array.from({ length: nextPow2(nTeams) }, (_, i) => b?.slots?.[i] ?? '')
+  const prelims = (b?.type === 'PSE' || b?.type === 'PDE') ? Array.from({length: b?.type === 'PSE' && nTeams === 24 ? 8 : 4}, (_, i) => ({A: b?.prelims?.[i]?.A ?? '-', B: b?.prelims?.[i]?.B ?? '-'})) : undefined
   return {
     id: String(b?.id || uid()),
     title: String(b?.title || 'TABELLONE 1'),
@@ -79,6 +81,7 @@ function normalizeBracket(b: any): Bracket {
     source: (b?.source as Bracket['source']) || 'gironi',
     fromTableId: b?.fromTableId || undefined,
     r1,
+    prelims,
     slots,
   }
 }
@@ -1045,7 +1048,10 @@ const avulsaOps = Array.from(
   // Eliminati
   const loser = active?.fromTableId ? brackets.find(b => b.id === active.fromTableId) : null
   const mCount = loser ? nextPow2(loser.nTeams) / 2 : 0
-  const elimOps = loser ? Array.from({ length: mCount }, (_, i) => `Perdente ${loser.title.toUpperCase()} M${i + 1}`) : []
+  const elimOps = loser ? [
+    ...((loser.type === 'PSE' || loser.type === 'PDE') ? Array.from({ length: loser.prelims?.length ?? (loser.nTeams === 24 ? 8 : 4) }, (_, i) => `Perdente ${loser.title.toUpperCase()} P${i + 1}`) : []),
+    ...Array.from({ length: mCount }, (_, i) => `Perdente ${loser.title.toUpperCase()} M${i + 1}`),
+  ] : []
 
   switch (active?.source) {
     case 'gironi':            return gironiOps
