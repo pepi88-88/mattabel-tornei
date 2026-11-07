@@ -66,7 +66,7 @@ type Bracket = {
 const keyLS = (tour: string, tappa: string) => `brackets:${tour}:${tappa}`
 function normalizeBracket(b: any): Bracket {
   const nTeams = Math.max(2, Number(b?.nTeams) || 8)
-  const needR1 = nextPow2(nTeams) / 2
+  const needR1 = b?.type === 'PSE' || b?.type === 'PDE' ? (nTeams === 24 && b?.type === 'PSE' ? 8 : 4) : nextPow2(nTeams) / 2
   const r1 = Array.from({ length: needR1 }, (_, i) => ({
     A: b?.r1?.[i]?.A ?? '-',
     B: b?.r1?.[i]?.B ?? '-',
@@ -800,7 +800,7 @@ function migrateParentsByTitle(brs: Bracket[]): Bracket[] {
     return
   }
   const nn    = newType === 'PSE' ? 12 : newType === 'PDE' ? 12 : clamp(active.nTeams, 2, 16)
-  const needR1 = nextPow2(nn) / 2
+  const needR1 = newType === 'PSE' || newType === 'PDE' ? 4 : nextPow2(nn) / 2
   const clearedR1   = Array.from({ length: needR1 }, () => ({ A: '-', B: '-' }))
   const clearedSlot = Array.from({ length: nextPow2(nn) }, () => '')
   patchActive({ type: newType, nTeams: nn, prelims: newType === 'PSE' || newType === 'PDE' ? Array.from({length:4},()=>({A:'-',B:'-'})) : undefined, r1: clearedR1, slots: clearedSlot })
@@ -1393,7 +1393,7 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
               </select>
             </div>)}
           </div>
-          <p className="text-xs text-amber-300">Anteprima di configurazione: collegamenti, risultati e visualizzazione completa del tabellone sono ancora in lavorazione.</p>
+          <p className="text-xs text-amber-300">La progressione principale è visibile sotto. Per PDE il ramo Losers è ancora in lavorazione.</p>
         </div>
       )}
       {(active.type === 'PSE' || active.type === 'PDE') && <PreliminaryBracket
