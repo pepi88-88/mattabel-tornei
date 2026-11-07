@@ -11,13 +11,13 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await s
   .from('group_states')
-  .select('state, is_public')
+  .select('state, is_public, updated_at')
   .eq('tournament_id', tournament_id)
   .maybeSingle()
 
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ state: data?.state || {} })
+  return NextResponse.json({ state: data?.state || {}, updated_at: data?.updated_at || null })
 }
 
 export async function PUT(req: NextRequest) {
