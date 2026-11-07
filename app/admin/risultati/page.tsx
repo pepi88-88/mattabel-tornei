@@ -172,6 +172,7 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
       `/api/groups/state?tournament_id=${encodeURIComponent(tId)}`,
       { headers: { 'x-role': 'admin' }, cache: 'no-store' }
     )
+    if (!r.ok) throw new Error('GET risultati fallito')
     const j = await r.json()
     const st = (j?.state || j || {}) as any
     return {
@@ -184,16 +185,8 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
       scores: st?.scores || {},
       groupsConfirmed: !!st?.groupsConfirmed,
     }
-  } catch {
-    return {
-      groupsCount: 0,
-      meta: {},
-      assign: {},
-      labels: {},
-      times: {},
-      scores: {},
-      groupsConfirmed: false,
-    }
+  } catch (error) {
+    throw error
   }
 }
 
@@ -989,6 +982,7 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato Ã
   }
 
   ;(async () => {
+    try {
     const gm = await loadGroupsStateFromSupabase(tId)
     if (cancelled) return
     setStore({
@@ -1022,6 +1016,12 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato Ã
     // stato coerente ora Ã¨ riferito a QUESTO tId
     setLoadedFor(tId)
     setIsLoadingState(false)
+    } catch {
+      if (!cancelled) {
+        setResultsSaveError('Caricamento fallito: dati non modificati. Ricarica la pagina.')
+        setIsLoadingState(false)
+      }
+    }
   })()
 
   return () => {
@@ -1633,6 +1633,7 @@ const activeForDisplay = useMemo(() => {
 return (
   <div className="relative z-0 p-6 space-y-8 pointer-events-auto">
    
+    {resultsSaveError && <div role="alert" className="rounded border border-amber-500 p-3 text-amber-300">{resultsSaveError}</div>}
     {/* Header filtri */}
     <div className="flex flex-wrap items-end gap-3">
       <div className="flex flex-col">
