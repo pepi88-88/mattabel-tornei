@@ -889,6 +889,8 @@ function commitTimeUncontrolled(
       setAssign({})
       setTimes({})
       setGField({})
+      setMatchFields({})
+      setMatchOrder({})
       setScores({})
       setIsPublic(false)
       // il salvataggio parte in automatico (effect 3.b)
