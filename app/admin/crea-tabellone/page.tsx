@@ -692,20 +692,25 @@ export default function CreaTabellonePage() {
   const [tId, setTId]       = useState<string>('')
 const [loadedRemote, setLoadedRemote] = useState(false)
 
-  useEffect(() => { (async()=>{ const ts = await fetchTours(); setTours(ts); if (!tourId && ts[0]?.id) setTourId(ts[0].id) })() }, [])
+  useEffect(() => { (async()=>{
+    const ts = await fetchTours()
+    setTours(ts)
+    const saved = localStorage.getItem('selectedTourId')
+    setTourId(ts.find((t:any)=>t.id===saved)?.id || ts[0]?.id || '')
+  })() }, [])
   useEffect(() => {
-  (async () => {
-    if (!tourId) { setTappe([]); setTId(''); return }
-    const { items } = await fetchTappe(tourId)
-    const vis = (items || []).filter((x: any) => String(x?.status || '').toLowerCase() !== 'closed')
-    setTappe(vis)
-    if (!tId && vis[0]?.id) setTId(vis[0].id)
-  })()
-}, [tourId])
-
-useEffect(() => {
-  if (tId && !tappe.some(t => t.id === tId)) setTId('')
-}, [tappe, tId])
+    let cancelled = false
+    if (!tourId) { setTappe([]); return }
+    ;(async () => {
+      const { items } = await fetchTappe(tourId)
+      if(cancelled)return
+      const vis = (items || []).filter((x: any) => String(x?.status || '').toLowerCase() !== 'closed')
+      setTappe(vis)
+      const saved=localStorage.getItem('selectedTournamentId')
+      setTId(old => vis.some((t:any)=>t.id===old) ? old : (vis.find((t:any)=>t.id===saved)?.id || vis[0]?.id || ''))
+    })()
+    return ()=>{cancelled=true}
+  }, [tourId])
 
   /* 2) Meta/iscritti + nominativi */
   const [groups, setGroups] = useState<GroupMeta[]>([])
@@ -1175,7 +1180,7 @@ return (
       <select
         className="input w-56 h-12 text-base"
         value={tourId}
-        onChange={e=>{ setTourId(e.target.value); setTId('') }}
+        onChange={e=>{ localStorage.setItem('selectedTourId',e.target.value);localStorage.removeItem('selectedTournamentId');setTourId(e.target.value);setTId('');setTappe([]) }}
       >
         {tours.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
       </select>
@@ -1187,7 +1192,7 @@ return (
       <select
         className="input w-56 h-12 text-base"
         value={tId}
-        onChange={e=>setTId(e.target.value)}
+        onChange={e=>{localStorage.setItem('selectedTournamentId',e.target.value);setTId(e.target.value)}}
       >
         {tappe.map(t => (
           <option key={t.id} value={t.id}>
