@@ -798,11 +798,11 @@ function migrateParentsByTitle(brs: Bracket[]): Bracket[] {
     patchActive({ type: newType })
     return
   }
-  const nn    = clamp(active.nTeams, 2, 16)
+  const nn    = newType === 'PSE' ? 12 : newType === 'PDE' ? 12 : clamp(active.nTeams, 2, 16)
   const needR1 = nextPow2(nn) / 2
   const clearedR1   = Array.from({ length: needR1 }, () => ({ A: '-', B: '-' }))
   const clearedSlot = Array.from({ length: nextPow2(nn) }, () => '')
-  patchActive({ type: newType, r1: clearedR1, slots: clearedSlot })
+  patchActive({ type: newType, nTeams: nn, prelims: newType === 'PSE' || newType === 'PDE' ? Array.from({length:4},()=>({A:'-',B:'-'})) : undefined, r1: clearedR1, slots: clearedSlot })
 }
 
 
@@ -1070,6 +1070,7 @@ case 'avulsa+eliminati':  return [...avulsaOps, ...elimOps]
     const add = (code?:string) => { if (!code) return; if (code==='-'||code==='BYE') return; s.add(code) }
     for (const b of brackets) {
       for (const r of b.r1 ?? []) { add(r?.A); add(r?.B) }
+      for (const r of b.prelims ?? []) { add(r?.A); add(r?.B) }
       for (const c of b.slots ?? []) add(c)
     }
     return s
@@ -1273,12 +1274,14 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
   <option value="SE">Singola eliminazione</option>
   <option value="ITA">Girone all’italiana</option>
   <option value="DE">Doppia eliminazione (manuale)</option>
+  <option value="PSE">PSE — Pre-turno + singola eliminazione</option>
+  <option value="PDE">PDE 8+4 — Pre-turno + doppia eliminazione</option>
 </select>
 
           </div>
           <div>
             <div className="text-xs text-neutral-400 mb-1"># Squadre</div>
-            <input className="input w-28 h-12 text-base" type="number" min={2} max={16} step={1} value={active.nTeams} onChange={(e)=>ensureR1For(Math.max(2, Number(e.target.value)||2))} disabled={locked}/>
+            {active.type === "PSE" ? <select className="input w-36 h-12" value={active.nTeams} disabled={locked} onChange={e => {const n=Number(e.target.value); patchActive({nTeams:n,prelims:Array.from({length:n===24?8:4},()=>({A:"-",B:"-"})),r1:Array.from({length:n===24?8:4},()=>({A:"-",B:"-"}))})}}><option value={12}>8+4 (12)</option><option value={24}>16+8 (24)</option></select> : active.type === "PDE" ? <input className="input w-28 h-12" value="12 (8+4)" disabled readOnly/> : <input className="input w-28 h-12 text-base" type="number" min={2} max={16} step={1} value={active.nTeams} onChange={(e)=>ensureR1For(Math.max(2, Number(e.target.value)||2))} disabled={locked}/>}
           </div>
           <div>
             <div className="text-xs text-neutral-400 mb-1">Provenienza</div>
@@ -1338,6 +1341,39 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
         </div>
       </div>
 
+      {(active.type === 'PSE' || active.type === 'PDE') && (
+        <div className="card p-4 space-y-4">
+          <h3 className="font-bold text-lg">Preliminari {active.type} — {active.nTeams === 24 ? '16+8' : '8+4'}</h3>
+          <p className="text-sm text-neutral-400">Ogni vincente P entra automaticamente nell'incontro R con lo stesso numero. Le perdenti P sono disponibili per i tabelloni successivi.</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {Array.from({length: active.nTeams === 24 ? 8 : 4}, (_, i) => {
+              const m = active.prelims?.[i] ?? {A:'-',B:'-'}
+              return <div key={i} className="rounded-lg border border-neutral-700 p-3">
+                <div className="font-semibold mb-2">P{i+1} → R{i+1}</div>
+                {(['A','B'] as const).map(side => <select key={side} className="input w-full mb-2" value={m[side]} disabled={locked} onChange={e => {
+                  const prelims = Array.from({length: active.nTeams === 24 ? 8 : 4}, (_, j) => ({A:active.prelims?.[j]?.A ?? '-', B:active.prelims?.[j]?.B ?? '-'}))
+                  prelims[i] = {...prelims[i], [side]:e.target.value}
+                  patchActive({prelims})
+                }}>
+                  <option value="-">—</option><option value="BYE">BYE</option>
+                  {slotOptions.map(op => <option key={op} value={op} disabled={usedCodesGlobal.has(op) && m[side] !== op}>{op}</option>)}
+                </select>)}
+              </div>
+            })}
+          </div>
+          <h3 className="font-bold">Squadre dirette al turno R</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {Array.from({length: active.nTeams === 24 ? 8 : 4}, (_, i) => <div key={i} className="rounded-lg border border-neutral-700 p-3">
+              <div className="mb-2">R{i+1}: Vincente P{i+1} contro</div>
+              <select className="input w-full" value={active.r1?.[i]?.B ?? '-'} disabled={locked} onChange={e=>setSlot(i,1,e.target.value)}>
+                <option value="-">—</option><option value="BYE">BYE</option>
+                {slotOptions.map(op => <option key={op} value={op} disabled={isTakenElsewhere(op,{pair:i,side:1})}>{op}</option>)}
+              </select>
+            </div>)}
+          </div>
+          <p className="text-xs text-amber-300">Anteprima di configurazione: collegamenti, risultati e visualizzazione completa del tabellone sono ancora in lavorazione.</p>
+        </div>
+      )}
       {/* === SE === */}
       {active.type === 'SE' && (
         <div className="relative card overflow-x-auto overflow-y-hidden" style={{ height: seLayout.height + 120 }}>
