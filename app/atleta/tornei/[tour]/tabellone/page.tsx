@@ -548,40 +548,32 @@ function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
 
 /* ============== External “Vincente/Perdente …” ============== */
 function makeExternalResolver(
-  brackets: Array<{ id: string; title: string; r1?: { A: string; B: string }[]; prelims?: { A: string; B: string }[] }>,
-  winnersById: Record<string, Record<string, 'A' | 'B' | undefined>>
+  brackets: Array<{ id:string; title:string; type?:string; r1?:{A:string;B:string}[]; prelims?:{A:string;B:string}[] }>,
+  winnersById: Record<string, Record<string,'A'|'B'|undefined>>,
 ) {
-  const byTitle = new Map(brackets.map(b => [b.title.toUpperCase(), b]))
+  const byTitle = new Map(brackets.map(b => [b.title.trim().toUpperCase(), b]))
   return (token: string): string | undefined => {
-    if (!token) return undefined
-    const t = token.trim()
-
-    // es. "Vincente Tabellone 1 R2" | "Perdente Main Draw R3" ecc.
-    const m = t.match(/^(Perdente|Loser|Vincente|Winner)\s+(.+?)\s+([A-Za-z])(\d+)$/i)
+    const m=String(token || '').trim().match(/^(Perdente|Loser|Vincente|Winner)\s+(.+?)\s+([A-Za-z])?(\d+)$/i)
     if (!m) return undefined
-
-    const kind = m[1].toLowerCase()
-    const titleU = m[2].toUpperCase()
-    let letter = m[3].toUpperCase()
-    const num = Number(m[4])
-
-    const br = byTitle.get(titleU)
-    if (!br || !Number.isFinite(num) || num < 1) return undefined
-    if (letter === 'M') letter = 'R'   // compat vecchia “M” per “R”
-    if (letter !== 'R' && letter !== 'P') return undefined
-
-    const pair = letter === 'P' ? br.prelims?.[num - 1] : br.r1?.[num - 1]
+    const br=byTitle.get(m[2].trim().toUpperCase())
+    if (!br) return undefined
+    let letter=String(m[3] || 'R').toUpperCase()
+    if (['M','G','S','F'].includes(letter)) letter='R'
+    if (letter!=='P' && letter!=='R') return undefined
+    const idx=Number(m[4])-1
+    const pair=letter==='P' ? br.prelims?.[idx] : br.r1?.[idx]
     if (!pair) return undefined
-
-    const side = (winnersById[br.id] || {})[`${letter}${num}`] // 'A' | 'B'
-    if (!side) return undefined
-
-    if (kind === 'vincente' || kind === 'winner') return side === 'A' ? pair.A : pair.B
-    if (kind === 'perdente' || kind === 'loser') {
-      const loserSide = side === 'A' ? 'B' : 'A'
-      return loserSide === 'A' ? pair.A : pair.B
-    }
-    return undefined
+    const w=winnersById[br.id] || {}
+    const p=br.prelims?.[idx]
+    const pw=w[`P${idx+1}`]
+    const actualA=letter==='R' && (br.type==='PSE' || br.type==='PDE')
+      ? pw==='A' ? p?.A : pw==='B' ? p?.B : undefined
+      : pair.A
+    const actualB=pair.B
+    const side=w[`${letter}${idx+1}`]
+    if (!side || !actualA || !actualB) return undefined
+    const loser=/^(Perdente|Loser)$/i.test(m[1])
+    return (side==='A') !== loser ? actualA : actualB
   }
 }
 
