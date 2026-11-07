@@ -116,7 +116,7 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
     const slotPair=m.code.startsWith('P') && /^P\d+$/.test(m.code) ? prelims[Number(m.code.slice(1))-1]
       : /^R\d+$/.test(m.code) ? r1[Number(m.code.slice(1))-1] : undefined
     const isPrelim=/^P\d+$/.test(m.code)
-    const configSide=isPrelim ? ['A','B'] as const : /^R\d+$/.test(m.code)?['B'] as const:[] as ('A'|'B')[]
+    const configSide: Array<'A'|'B'> = isPrelim ? ['A','B'] : /^R\d+$/.test(m.code) ? ['B'] : []
     return <div key={m.code} className="absolute rounded-xl border border-neutral-700 bg-neutral-950 p-3 shadow-md"
       style={{left:node.x,top:node.y,width:cardW,minHeight:cardH,borderTop:`3px solid ${color}`}}>
       <div className="text-[11px] font-bold mb-2" style={{color}}>{m.code} — {title}</div>
