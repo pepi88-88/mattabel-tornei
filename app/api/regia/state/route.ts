@@ -652,7 +652,7 @@ if (prefix === 'M') prefix = 'R'
         const idx = Number(code.slice(1)) - 1
         const pair = br.prelims?.[idx]
         if (!pair) return null
-        return { A: baseResolve(pair.A), B: baseResolve(pair.B) }
+        return { A: resolveNested(pair.A), B: resolveNested(pair.B) }
       }
       if (/^R\d+$/i.test(code)) {
         const idx = Number(code.slice(1)) - 1
@@ -660,8 +660,8 @@ if (prefix === 'M') prefix = 'R'
         if (!pair) return null
         const fromPrelim = br.type === 'PSE' || br.type === 'PDE'
         return {
-          A: fromPrelim ? winnerOfCode(`P${idx + 1}`) : baseResolve(String(pair.A || '').trim()),
-          B: baseResolve(String(pair.B || '').trim()),
+          A: fromPrelim ? winnerOfCode(`P${idx + 1}`) : resolveNested(String(pair.A || '').trim()),
+          B: resolveNested(String(pair.B || '').trim()),
         }
       }
 
@@ -820,11 +820,22 @@ if (code === 'THIRD') {
     return undefined
   }
 
-  return (token: string): string => {
-    const ext = externalResolve(token)
-    if (ext) return baseResolve(ext)
-    return baseResolve(token)
+  // Resolve a chain of elimination references (e.g. Bronze <- Silver <- Gold)
+  // while preventing accidental circular bracket sources from recursing forever.
+  const resolvingNested = new Set<string>()
+  const resolveNested = (token: string): string => {
+    const raw = String(token || '').trim()
+    if (!/^(Perdente|Loser|Vincente|Winner)\s+/i.test(raw)) return baseResolve(raw)
+    if (resolvingNested.has(raw)) return baseResolve(raw)
+    resolvingNested.add(raw)
+    try {
+      const result = externalResolve(raw)
+      return baseResolve(result || raw)
+    } finally {
+      resolvingNested.delete(raw)
+    }
   }
+  return (token: string): string => resolveNested(token)
 }
 
 function phaseLabelSE(round: number, totalRounds: number, idx: number, title: string) {
