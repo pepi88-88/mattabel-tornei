@@ -935,7 +935,17 @@ useEffect(() => {
 
       const next = {
         items: brackets,
-        winnersById: prev?.winnersById || {},
+        winnersById: Object.fromEntries(Object.entries(prev?.winnersById || {}).map(([id, values]) => {
+          const b = brackets.find(x => x.id === id)
+          if (!b || (b.type !== 'PSE' && b.type !== 'PDE')) return [id, values]
+          const merged = {...(values as Record<string, 'A' | 'B' | undefined>)}
+          for (let i = 0; i < (b.prelims?.length || 0); i++) {
+            const code = `P${i+1}`
+            const local = winnersById[id]?.[code]
+            if (local === 'A' || local === 'B') merged[code] = local
+          }
+          return [id, merged]
+        })),
         itaScoresById: prev?.itaScoresById || {},
         isPublic: typeof prev?.isPublic === 'boolean' ? prev.isPublic : false,
         regia: prev?.regia ?? { items: {} }, // <-- IMPORTANTE: preserva la regia
@@ -966,7 +976,7 @@ useEffect(() => {
   }, 300)
 
   return () => clearTimeout(timer)
-}, [tId, loadedRemote, brackets])
+}, [tId, loadedRemote, brackets, winnersById])
 
 // lettere da usare (come Sorgenti) + limitazione con groupsCount
 const lettersReal = useMemo(() => {
