@@ -40,6 +40,8 @@ export async function GET(req: NextRequest) {
     assign: st.assign ?? {},
     times: st.times ?? {},
     gField: st.gField ?? {},
+    matchFields: st.matchFields ?? {},
+    matchOrder: st.matchOrder ?? {},
     scores: st.scores ?? {},
     labels: st.labels ?? {},
   }
