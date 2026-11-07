@@ -194,7 +194,6 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
   } catch (error) {
     throw error
   }
-  return (token: string): string | undefined => resolveOne(token,new Set<string>())
 }
 
 
