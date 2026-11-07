@@ -574,7 +574,7 @@ function commitTimeUncontrolled(
   }
 
   // ---- UI: cards gironi
-  function GroupCard({ L }: { L: string }) {
+  function renderGroupCard(L: string) {
     const color = colorFor(L)
      const m = meta[L] ?? { capacity: 0, format: 'pool', bestOf: 1 }
     const cap = m.capacity ?? 0
@@ -883,7 +883,7 @@ function commitTimeUncontrolled(
 
          {/* griglia gironi (responsive, niente chunk) */}
 <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
- {letters.map(L => <GroupCard key={`${tId}-${L}`} L={L} />)}
+ {letters.map(L => renderGroupCard(L))}
 </div>
 
           
