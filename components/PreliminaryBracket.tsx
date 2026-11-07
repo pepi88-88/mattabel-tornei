@@ -174,6 +174,72 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
       })
     })}
   </svg>
+  // PDE uses the SAME DE manual layout: R/Z/Y on top, X/Q/W below,
+  // crossovers and final on the right. Only a P column is added on the left.
+  const pdePositions: Record<string,{x:number;y:number}> = {}
+  if(type==='PDE'){
+    const off=20, dx=cardW+160, step=cardH+28
+    ;['P','R'].forEach((prefix,col)=>Array.from({length:4},(_,i)=>pdePositions[`${prefix}${i+1}`]={x:off+col*dx,y:45+i*step}))
+    pdePositions.Z1={x:off+dx*2,y:45+step/2}
+    pdePositions.Z2={x:off+dx*2,y:45+step*2.5}
+    pdePositions.Y1={x:off+dx*3,y:45+step/2}
+    pdePositions.Y2={x:off+dx*3,y:45+step*2.5}
+    const loserBase=830
+    pdePositions.X1={x:off+dx,y:loserBase+150}
+    pdePositions.X2={x:off+dx,y:loserBase+560}
+    pdePositions.Q1={x:off+dx*2,y:loserBase-20}
+    pdePositions.Q2={x:off+dx*2,y:loserBase+390}
+    pdePositions.X3={x:off+dx*2,y:loserBase+150}
+    pdePositions.X4={x:off+dx*2,y:loserBase+560}
+    pdePositions.W1={x:off+dx*3,y:loserBase+65}
+    pdePositions.W2={x:off+dx*3,y:loserBase+475}
+    pdePositions.CO1={x:off+dx*4,y:250}
+    pdePositions.CO2={x:off+dx*4,y:250+step}
+    pdePositions.F={x:off+dx*5,y:250+step/2}
+    pdePositions.WIN={x:off+dx*6,y:250+step/2}
+    pdePositions.THIRD={x:off+dx*5,y:250+step/2+cardH+48}
+  }
+  const pdeGames=type==='PDE'
+    ? new Map(rounds.flatMap(round=>round.games).map(m=>[m.code,m]))
+    : new Map<string,Game>()
+  const pdePassthrough:Record<string,string>={
+    Y1:winner('Z1',pdeGames.get('Z1')?.A||'',pdeGames.get('Z1')?.B||''),
+    Y2:winner('Z2',pdeGames.get('Z2')?.A||'',pdeGames.get('Z2')?.B||''),
+    Q1:(()=>{const m=pdeGames.get('Z1');return m ? (winners.Z1==='A'?m.B:winners.Z1==='B'?m.A:'Perdente Z1'):''})(),
+    Q2:(()=>{const m=pdeGames.get('Z2');return m ? (winners.Z2==='A'?m.B:winners.Z2==='B'?m.A:'Perdente Z2'):''})(),
+    X3:(()=>{const m=pdeGames.get('X1');return m?winner('X1',m.A,m.B):''})(),
+    X4:(()=>{const m=pdeGames.get('X2');return m?winner('X2',m.A,m.B):''})(),
+    WIN:(()=>{const m=pdeGames.get('F');return m?winner('F',m.A,m.B):''})(),
+  }
+  const pdeLinks:Array<[string,string]>=[
+    ...Array.from({length:4},(_,i)=>[`P${i+1}`,`R${i+1}`] as [string,string]),
+    ['R1','Z1'],['R2','Z1'],['R3','Z2'],['R4','Z2'],
+    ['Z1','Y1'],['Z2','Y2'],['X1','X3'],['X2','X4'],
+    ['Q1','W1'],['X3','W1'],['Q2','W2'],['X4','W2'],
+    ['Y1','CO1'],['Y2','CO2'],['CO1','F'],['CO2','F'],['F','WIN'],
+  ]
+  const pdeWidth=20+7*(cardW+160)+20
+  const pdeHeight=830+560+cardH+80
+  const pdeLine=(from:string,to:string)=>{
+    const a=pdePositions[from],b=pdePositions[to]
+    if(!a||!b)return null
+    const mini=(['Y1','Y2','Q1','Q2','X3','X4','WIN'] as string[])
+    const hA=mini.includes(from)?90:cardH
+    const hB=mini.includes(to)?90:cardH
+    const y1=a.y+hA/2,y2=b.y+hB/2
+    const start=a.x+cardW,end=b.x
+    const mid=(start+end)/2
+    return <path key={`${from}-${to}`} d={`M ${start} ${y1} H ${mid} V ${y2} H ${end}`}
+      stroke={color} strokeWidth={3} fill="none"/>
+  }
+  const pdeSmall=(code:string)=>{
+    const pos=pdePositions[code]
+    if(!pos)return null
+    return <div key={code} className="absolute card p-3 shadow-lg" style={{left:pos.x,top:pos.y,width:cardW,height:90}}>
+      <div className="text-[11px] uppercase opacity-70 mb-2">{code==='WIN'?'VINCITORE TORNEO':code}</div>
+      <div className="text-sm font-mono truncate" title={pdePassthrough[code]}>{pdePassthrough[code]||'—'}</div>
+    </div>
+  }
   return <div className="card p-4 space-y-4">
     <h3 className="font-semibold text-sm">{type} — {count===8?'16+8':'8+4'} <span className="text-xs text-neutral-400">{editable&&onWinner?'Doppio clic sul nome per confermare la vincitrice':''}</span></h3>
     <div className="overflow-x-auto pb-4">
@@ -183,25 +249,18 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
           {drawLines(upperNodes,upper)}
           {upperNodes.map(renderCard)}
         </div>
-      </div>:<div className="space-y-5 min-w-[900px]">
-        <div className="relative" style={{height:count*rowH+30,width:2*colW+10}}>
-          {rounds.slice(0,2).map((r,i)=><div key={r.name} className="absolute font-semibold text-xs" style={{left:i*colW+8,top:0,width:cardW,textAlign:'center'}}>{r.name}</div>)}
-          <div className="absolute top-8 left-0">
-            {drawLines(getNodes(rounds.slice(0,2)),rounds.slice(0,2))}
-            {getNodes(rounds.slice(0,2)).map(renderCard)}
-          </div>
-        </div>
-        {[
-          {title:'Ramo vincenti',names:['Semifinali vincenti']},
-          {title:'Ramo perdenti (Losers)',names:['Losers — primo turno','Losers — incroci']},
-          {title:'Finali',names:['Finali incrociate','Finale','3° / 4° posto']}
-        ].map(group=><section key={group.title} className="border-t border-neutral-700 pt-4">
-          <div className="font-bold mb-3" style={{color}}>{group.title}</div>
-          <div className="flex flex-wrap gap-5">{rounds.filter(r=>group.names.includes(r.name)).map(round=><div key={round.name} className="w-[240px]">
-            <div className="font-semibold text-xs mb-2 text-center">{round.name}</div>
-            <div className="space-y-4">{round.games.map(m=><div key={m.code} className="relative" style={{height:cardH}}>{renderCard({m,x:0,y:0,col:0})}</div>)}</div>
-          </div>)}</div>
-        </section>)}
+      </div>: <div className="relative" style={{width:pdeWidth,height:pdeHeight}}>
+        <div className="absolute text-xs font-semibold tracking-widest text-neutral-400" style={{top:15,left:pdePositions.P1.x}}>PRELIMINARI</div>
+        <div className="absolute text-xs font-semibold tracking-widest text-neutral-400" style={{top:15,left:pdePositions.R1.x}}>WINNERS</div>
+        <div className="absolute text-xs font-semibold tracking-widest text-neutral-400" style={{top:800,left:pdePositions.X1.x}}>LOSERS</div>
+        <svg className="absolute inset-0 pointer-events-none" width={pdeWidth} height={pdeHeight} aria-hidden="true">
+          {pdeLinks.map(([from,to])=>pdeLine(from,to))}
+        </svg>
+        {Array.from(pdeGames.values()).map(m=>{
+          const p=pdePositions[m.code]
+          return p?renderCard({m,x:p.x,y:p.y,col:0}):null
+        })}
+        {['Y1','Y2','X3','X4','Q1','Q2','WIN'].map(pdeSmall)}
       </div>}
     </div>
     {type==='PDE'&&<p className="text-xs text-neutral-400">Le perdenti P1–P4 passano alle categorie successive. Il ramo Losers riceve soltanto le perdenti R1–R4.</p>}
