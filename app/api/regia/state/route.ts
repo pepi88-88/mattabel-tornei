@@ -648,12 +648,19 @@ if (prefix === 'M') prefix = 'R'
     const code = `${prefix}${num}`
 
     const labelsForCode = (code: string): { A: string; B: string } | null => {
+      if (/^P\d+$/i.test(code)) {
+        const idx = Number(code.slice(1)) - 1
+        const pair = br.prelims?.[idx]
+        if (!pair) return null
+        return { A: baseResolve(pair.A), B: baseResolve(pair.B) }
+      }
       if (/^R\d+$/i.test(code)) {
         const idx = Number(code.slice(1)) - 1
         const pair = br.r1?.[idx]
         if (!pair) return null
+        const fromPrelim = br.type === 'PSE' || br.type === 'PDE'
         return {
-          A: baseResolve(String(pair.A || '').trim()),
+          A: fromPrelim ? winnerOfCode(`P${idx + 1}`) : baseResolve(String(pair.A || '').trim()),
           B: baseResolve(String(pair.B || '').trim()),
         }
       }
