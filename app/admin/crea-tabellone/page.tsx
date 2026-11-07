@@ -944,6 +944,7 @@ useEffect(() => {
             const code = `P${i+1}`
             const local = winnersById[id]?.[code]
             if (local === 'A' || local === 'B') merged[code] = local
+            else delete merged[code] // Allow clearing a preliminary winner
           }
           return [id, merged]
         })),
