@@ -93,7 +93,12 @@ export default function GironiPage() {
   const { data: tappeRes } = useSWR(tourId ? `/api/tournaments?tour_id=${tourId}` : '/api/tournaments', fetcher)
   const tappe: Tournament[] = tappeRes?.items ?? []
   const [tId, setTId] = useState('')
-  useEffect(() => { if (!tourId && tours.length) setTourId(tours[0].id) }, [tours, tourId])
+  useEffect(() => {
+  if (!tourId && tours.length) {
+    const saved=localStorage.getItem('selectedTourId')
+    setTourId(tours.find(t=>t.id===saved)?.id || tours[0].id)
+  }
+}, [tours, tourId])
  // max squadre della tappa selezionata (normalizzato a numero >= 0)
 const maxTeamsRaw = (tappeRes?.items ?? []).find((t: any) => t.id === tId)?.max_teams
 const maxTeams = Number.isFinite(+maxTeamsRaw) ? Math.max(0, +maxTeamsRaw) : 0
@@ -108,12 +113,15 @@ const tappeVisibili = useMemo(() => {
 
 // Se non c'è tId, seleziona la prima tappa VISIBILE
 useEffect(() => {
-  if (!tId && tappeVisibili.length) setTId(tappeVisibili[0].id)
+  if (!tId && tappeVisibili.length) {
+    const saved = localStorage.getItem('selectedTournamentId')
+    setTId(tappeVisibili.find(t => t.id === saved)?.id || tappeVisibili[0].id)
+  }
 }, [tappeVisibili, tId])
 
 // Se la tappa selezionata diventa non visibile (chiusa), resetta
 useEffect(() => {
-  if (!tId) return
+  if (!tId || !tappeRes) return
   const ok = tappeVisibili.some(t => t.id === tId)
   if (!ok) setTId('')
 }, [tId, tappeVisibili])
@@ -869,13 +877,13 @@ function commitTimeUncontrolled(
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <div className="text-xs text-neutral-400 mb-1">Tour</div>
-              <select className="input w-full" value={tourId} onChange={e => { setTourId(e.target.value); setTId('') }}>
+              <select className="input w-full" value={tourId} onChange={e => {localStorage.setItem('selectedTourId',e.target.value);localStorage.removeItem('selectedTournamentId');setTourId(e.target.value);setTId('')}}>
                 {tours.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
             <div>
               <div className="text-xs text-neutral-400 mb-1">Tappa</div>
-             <select className="input w-full" value={tId} onChange={e => setTId(e.target.value)}>
+             <select className="input w-full" value={tId} onChange={e => {localStorage.setItem('selectedTournamentId',e.target.value);setTId(e.target.value)}}>
   {tappeVisibili.map((t:any) => (
     <option key={t.id} value={t.id}>
       {t.name}{t.date ? ` — ${new Date(t.date).toLocaleDateString()}` : ''}
