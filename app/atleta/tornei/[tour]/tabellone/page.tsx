@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import BracketCanvas, { type Bracket as BracketType, type WinnerMap } from '../../../../../components/BracketCanvas'
+import PreliminaryBracket from '../../../../../components/PreliminaryBracket'
 
 /* ============== Helpers comuni ============== */
 
@@ -895,6 +896,12 @@ export default function AthleteTabellonePage() {
                     tId={tId}
                     resolve={resolve}
                     serverScores={itaScoresById[resolvedActive.id]}
+                  />
+                ) : (resolvedActive.type === 'PSE' || resolvedActive.type === 'PDE') ? (
+                  <PreliminaryBracket title={resolvedActive.title} color={resolvedActive.color}
+                    type={resolvedActive.type} nTeams={resolvedActive.nTeams}
+                    prelims={resolvedActive.prelims} r1={active?.r1 || []}
+                    winners={winnersById[resolvedActive.id] || {}} resolve={resolve}
                   />
                 ) : (
                   <>
