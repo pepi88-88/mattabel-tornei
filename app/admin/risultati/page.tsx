@@ -243,13 +243,13 @@ function ItaRRTable({
                style={{ gridTemplateColumns: '74px 40px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)', columnGap: '.35rem' }}>
             <input type="time" className="input h-8 pl-1 pr-0 text-sm text-white w-[78px]"
                    value={times[idx] ?? ''} onChange={e => setTime(idx, e.target.value)}/>
-            <div className="min-w-0 truncate text-sm text-right pr-0.5">{labels[a-1] || `S${a}`}</div>
-            <input className="input h-8 w-12 px-1 text-sm text-center" maxLength={2}
+            <div className="min-w-0 truncate text-xs text-right pr-0.5">{labels[a-1] || `S${a}`}</div>
+            <input className="input h-8 w-[44px] px-1 text-sm text-center" maxLength={2}
                    defaultValue={scores[idx]?.a ?? ''} onBlur={e => setScore(idx,'a',e.currentTarget.value)}/>
-            <div className="w-6 text-center text-[13px] text-neutral-400">vs</div>
+            <div className="w-4 text-center text-xs text-neutral-400">vs</div>
             <input className="input h-8 w-12 px-1 text-sm text-center" maxLength={2}
                    defaultValue={scores[idx]?.b ?? ''} onBlur={e => setScore(idx,'b',e.currentTarget.value)}/>
-            <div className="min-w-0 truncate text-sm pl-1">{labels[b-1] || `S${b}`}</div>
+            <div className="min-w-0 truncate text-xs pl-1">{labels[b-1] || `S${b}`}</div>
           </div>
         ))}
       </div>
@@ -876,7 +876,7 @@ function MobileGroupsCarousel({
           onChange={(e) => setTime(L, r.matchIdx, e.target.value)}
         />
       ) : (
-        <div className="w-[92px] h-8 flex items-center text-xs text-neutral-500">
+        <div className="w-[60px] h-8 flex items-center text-xs text-neutral-500">
           Set {r.setNo}
         </div>
       )}
@@ -1928,14 +1928,14 @@ return (
         lastOfMatch ? 'pb-2 border-b border-neutral-800' : '',
       ].join(' ')}
       style={{
-        gridTemplateColumns: '96px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
+        gridTemplateColumns: '62px 40px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
         columnGap: '.35rem',
       }}
     >
       {firstSet ? (
         <input
           type="time"
-          className="input h-8 pl-1 pr-0 text-sm text-white w-[92px] tabular-nums"
+          className="input h-8 pl-1 pr-0 text-xs text-white w-[60px] tabular-nums"
           value={(times[L] ?? [])[r.matchIdx] ?? ''}
           onChange={(e) => setTime(L, r.matchIdx, e.target.value)}
         />
