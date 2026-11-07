@@ -26,11 +26,12 @@ type Bracket = {
   id: string
   title: string
   color: string
-  type: 'SE' | 'DE' | 'ITA'
+  type: 'SE' | 'DE' | 'ITA' | 'PSE' | 'PDE'
   nTeams: number
   source: 'gironi' | 'avulsa' | 'eliminati' | 'gironi+eliminati' | 'avulsa+eliminati'
   fromTableId?: string
   r1: { A: string; B: string }[]
+  prelims?: { A: string; B: string }[]
   slots: string[]
 }
 
@@ -40,6 +41,8 @@ type BracketState = {
   items?: Bracket[]
   winnersById?: Record<string, WinnerMap>
   itaScoresById?: Record<string, any[]>
+  courtsByBracket?: Record<string, Record<string,string>>
+  bracketScoresById?: Record<string, Record<string, { A: number | null; B: number | null }>>
   regia?: {
     items?: Record<string, RegiaItemState>
   }
@@ -105,7 +108,7 @@ function nextPow2(n: number) {
 
 function normalizeBracket(b: any): Bracket {
   const n = Math.max(2, Number(b?.nTeams) || 8)
-  const r1 = Array.from({ length: nextPow2(n) / 2 }, (_, i) => ({
+  const r1 = Array.from({ length: b?.type === 'PSE' || b?.type === 'PDE' ? (b?.type === 'PSE' && n === 24 ? 8 : 4) : nextPow2(n) / 2 }, (_, i) => ({
     A: b?.r1?.[i]?.A ?? '-',
     B: b?.r1?.[i]?.B ?? '-',
   }))
@@ -119,6 +122,7 @@ function normalizeBracket(b: any): Bracket {
     source: (b?.source as Bracket['source']) || 'gironi',
     fromTableId: b?.fromTableId || undefined,
     r1,
+    prelims: b?.type === 'PSE' || b?.type === 'PDE' ? Array.from({length:b?.type === 'PSE' && n === 24 ? 8 : 4}, (_,i)=>({A:b?.prelims?.[i]?.A??'-',B:b?.prelims?.[i]?.B??'-'})) : undefined,
     slots,
   }
 }
@@ -1202,6 +1206,8 @@ async function loadStates(s: ReturnType<typeof supabaseAdmin>, tournament_id: st
         items: Array.isArray(rawBracketState?.items) ? rawBracketState.items.map(normalizeBracket) : [],
         winnersById: rawBracketState?.winnersById || {},
         itaScoresById: rawBracketState?.itaScoresById || {},
+        courtsByBracket: rawBracketState?.courtsByBracket || {},
+        bracketScoresById: rawBracketState?.bracketScoresById || {},
         regia: rawBracketState?.regia || { items: {} },
       }
 
@@ -1310,6 +1316,8 @@ async function persistStates(
       items: bracketState.items || [],
       winnersById: bracketState.winnersById || {},
       itaScoresById: bracketState.itaScoresById || {},
+      courtsByBracket: bracketState.courtsByBracket || {},
+      bracketScoresById: bracketState.bracketScoresById || {},
       regia: bracketState.regia || { items: {} },
     },
     is_public: Boolean(bData?.is_public ?? false),
