@@ -26,6 +26,7 @@ function normalizeBracket(b: any): BracketType {
     source: (b?.source as BracketType['source']) || 'gironi',
     fromTableId: b?.fromTableId || undefined,
     r1,
+    prelims: b?.prelims,
     slots,
   }
 }
