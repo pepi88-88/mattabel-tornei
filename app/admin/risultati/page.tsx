@@ -1934,8 +1934,11 @@ return (
     >
       {firstSet ? (
         <input
-          type="time"
-          className="input h-8 pl-1 pr-0 text-xs text-white w-[60px] tabular-nums"
+          type="text"
+          inputMode="numeric"
+          placeholder="hh:mm"
+          maxLength={5}
+          className="input h-8 px-1 text-xs text-white w-[60px] tabular-nums"
           value={(times[L] ?? [])[r.matchIdx] ?? ''}
           onChange={(e) => setTime(L, r.matchIdx, e.target.value)}
         />
