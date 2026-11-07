@@ -194,6 +194,7 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
   } catch (error) {
     throw error
   }
+  return (token: string): string | undefined => resolveOne(token,new Set<string>())
 }
 
 
@@ -754,7 +755,10 @@ function makeExternalResolver(
   tId?: string,
 ) {
   const byTitle = new Map(brackets.map(b => [b.title.trim().toUpperCase(), b]))
-  return (token: string): string | undefined => {
+  const resolveOne = (token: string, seen: Set<string>): string | undefined => {
+    const raw = String(token || '').trim()
+    if (seen.has(raw)) return undefined
+    seen.add(raw)
     const m = String(token || '').trim().match(/^(Perdente|Loser|Vincente|Winner)\s+(.+?)\s+([A-Za-z])?(\d+)$/i)
     if (!m) return undefined
     const br = byTitle.get(m[2].trim().toUpperCase())
@@ -779,7 +783,8 @@ function makeExternalResolver(
     const winningSide=w[`${letter}${idx+1}`]
     if (!winningSide || !actualA || !actualB) return undefined
     const wantsLoser=/^(Perdente|Loser)$/i.test(m[1])
-    return (winningSide === 'A') !== wantsLoser ? actualA : actualB
+    const selected = (winningSide === 'A') !== wantsLoser ? actualA : actualB
+    return resolveOne(selected,seen) || selected
   }
 }
 function MobileGroupsCarousel({
