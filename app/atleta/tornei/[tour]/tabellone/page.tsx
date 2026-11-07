@@ -897,7 +897,23 @@ export default function AthleteTabellonePage() {
                     serverScores={itaScoresById[resolvedActive.id]}
                   />
                 ) : (
-                  <BracketCanvas
+                  <>
+                    {(resolvedActive.type === 'PSE' || resolvedActive.type === 'PDE') && (
+                      <div className="card p-4 mb-4">
+                        <h3 className="font-bold mb-3">Preliminari {resolvedActive.type}</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {(resolvedActive.prelims ?? []).map((m, i) => (
+                            <div key={i} className="rounded-lg border border-neutral-700 p-3">
+                              <div className="font-bold mb-2">P{i+1} → R{i+1}</div>
+                              <div>{resolve(String(m.A || '-'))}</div>
+                              <div className="text-xs opacity-60 my-1">VS</div>
+                              <div>{resolve(String(m.B || '-'))}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <BracketCanvas
                     bracket={resolvedActive}
                     interactive={false}
                     confirmOnPick={false}
@@ -907,6 +923,7 @@ export default function AthleteTabellonePage() {
                     tId={tId}
                     externalResolver={external}
                   />
+                  </>
                 )
               )}
             </div>
