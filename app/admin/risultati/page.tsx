@@ -154,6 +154,9 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
   labels: Record<string, string>
   times: Record<string, string[]>
   scores: Record<string, { a: string; b: string }[]>
+  gField: Record<string, string>
+  matchFields: Record<string, string[]>
+  matchOrder: Record<string, number[]>
   groupsConfirmed: boolean
 }> {
   if (!tId) {
@@ -164,6 +167,7 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
       labels: {},
       times: {},
       scores: {},
+      gField: {}, matchFields: {}, matchOrder: {},
       groupsConfirmed: false,
     }
   }
@@ -183,6 +187,7 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
       labels: st?.labels || {},
       times: st?.times || {},
       scores: st?.scores || {},
+      gField: st?.gField || {}, matchFields: st?.matchFields || {}, matchOrder: st?.matchOrder || {},
       groupsConfirmed: !!st?.groupsConfirmed,
     }
   } catch (error) {
@@ -235,16 +240,16 @@ function ItaRRTable({
       <div className="p-3 space-y-2">
         {matches.map(([a,b], idx) => (
           <div key={`match-${a}-${b}-${idx}`} className="grid items-center"
-               style={{ gridTemplateColumns: '96px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)', columnGap: '.35rem' }}>
+               style={{ gridTemplateColumns: '74px 40px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)', columnGap: '.35rem' }}>
             <input type="time" className="input h-8 pl-1 pr-0 text-sm text-white w-[78px]"
                    value={times[idx] ?? ''} onChange={e => setTime(idx, e.target.value)}/>
-            <div className="min-w-0 truncate text-sm text-right pr-0.5">{labels[a-1] || `S${a}`}</div>
-            <input className="input h-8 w-12 px-1 text-sm text-center" maxLength={2}
+            <div className="min-w-0 truncate text-xs text-right pr-0.5">{labels[a-1] || `S${a}`}</div>
+            <input className="input h-8 w-[44px] px-1 text-sm text-center" maxLength={2}
                    defaultValue={scores[idx]?.a ?? ''} onBlur={e => setScore(idx,'a',e.currentTarget.value)}/>
-            <div className="w-6 text-center text-[13px] text-neutral-400">vs</div>
+            <div className="w-4 text-center text-xs text-neutral-400">vs</div>
             <input className="input h-8 w-12 px-1 text-sm text-center" maxLength={2}
                    defaultValue={scores[idx]?.b ?? ''} onBlur={e => setScore(idx,'b',e.currentTarget.value)}/>
-            <div className="min-w-0 truncate text-sm pl-1">{labels[b-1] || `S${b}`}</div>
+            <div className="min-w-0 truncate text-xs pl-1">{labels[b-1] || `S${b}`}</div>
           </div>
         ))}
       </div>
@@ -527,6 +532,7 @@ type Persist = {
   meta: Record<string, Meta>
   assign: Record<string, string>
   times?: Record<string, string[]>
+  gField?: Record<string, string>
   labels?: Record<string, string>
 }
 type Score = { a: string; b: string }
@@ -802,6 +808,9 @@ function MobileGroupsCarousel({
   colorFor,
   times,
   scores,
+  matchFields,
+  setMatchFields,
+  gField,
 }: {
   letters: string[]
   tId: string
@@ -812,6 +821,9 @@ function MobileGroupsCarousel({
   colorFor: (L: string) => string
   times: Record<string, string[]>
   scores: Record<string, { a: string; b: string }[]>
+  matchFields: Record<string,string[]>
+  setMatchFields: React.Dispatch<React.SetStateAction<Record<string,string[]>>>
+  gField: Record<string,string>
 }) {
   // ogni slide = 1 girone, ‚Äúingrandito‚Äù
   return (
@@ -851,7 +863,7 @@ function MobileGroupsCarousel({
         firstSet ? 'border border-neutral-800' : 'border-x border-b border-neutral-800 rounded-t-none',
       ].join(' ')}
       style={{
-        gridTemplateColumns: '110px minmax(0,1fr) 64px 18px 64px minmax(0,1fr)',
+        gridTemplateColumns: '90px 44px minmax(0,1fr) 64px 18px 64px minmax(0,1fr)',
         columnGap: '.5rem',
         marginTop: firstSet ? 0 : -1,
       }}
@@ -859,16 +871,17 @@ function MobileGroupsCarousel({
       {firstSet ? (
         <input
           type="time"
-          className="input h-8 pl-1 pr-0 text-sm text-white w-[92px] tabular-nums"
+          className="input h-8 pl-1 pr-0 text-xs text-white w-[72px] tabular-nums"
           value={(times[L] ?? [])[r.matchIdx] ?? ''}
           onChange={(e) => setTime(L, r.matchIdx, e.target.value)}
         />
       ) : (
-        <div className="w-[92px] h-8 flex items-center text-xs text-neutral-500">
+        <div className="w-[60px] h-8 flex items-center text-xs text-neutral-500">
           Set {r.setNo}
         </div>
       )}
 
+      {firstSet ? <input className="input h-8 w-[40px] px-1 text-center" placeholder="C." title="Campo partita" inputMode="numeric" maxLength={2} value={matchFields[L]?.[r.matchIdx] ?? gField[L] ?? ''} onChange={e=>setMatchFields(prev=>{const arr=[...(prev[L]||[])];arr[r.matchIdx]=e.target.value.replace(/\D/g,'').slice(0,2);return {...prev,[L]:arr}})}/> : <div/>}
       <div className="min-w-0 truncate text-[15px] text-right pr-1 font-medium">
         {firstSet ? r.labelA : ''}
       </div>
@@ -899,7 +912,7 @@ function MobileGroupsCarousel({
         {firstSet ? r.labelB : ''}
       </div>
 
-      {lastOfMatch && <div className="col-span-6 h-1" />}
+      {lastOfMatch && <div className="col-span-7 h-1" />}
     </div>
   )
 })
@@ -960,6 +973,8 @@ useEffect(() => {
   const [store, setStore] = useState<Persist | null>(null)
   const [times, setTimes] = useState<Record<string, string[]>>({})
   const [scores, setScores] = useState<Record<string, Score[]>>({})
+  const [matchFields, setMatchFields] = useState<Record<string,string[]>>({})
+  const [matchOrder, setMatchOrder] = useState<Record<string,number[]>>({})
   const [groupsConfirmed, setGroupsConfirmed] = useState(false)
 // controllo caricamento per evitare cross-save fra tappe
 const [isLoadingState, setIsLoadingState] = useState(false)
@@ -973,6 +988,8 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato √
   setLoadedFor('')
   setTimes({})
   setScores({})
+  setMatchFields({})
+  setMatchOrder({})
 
   if (!tId) {
     setStore(null)
@@ -992,25 +1009,30 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato √
   labels: gm.labels,
   times: gm.times,
 })
-    lastResultsSnapshot.current = JSON.stringify({ times: gm.times, scores: gm.scores })
+    const fields = gm.matchFields || {}
+    lastResultsSnapshot.current = JSON.stringify({ times: gm.times, scores: gm.scores, matchFields: fields })
     let restoredTimes = gm.times
     let restoredScores = gm.scores
+    let restoredFields = fields
     try {
       const pending = localStorage.getItem('mattabel:risultati:pending:' + tId)
       if (pending) {
         const parsed = JSON.parse(pending)
         if (parsed?.times && parsed?.scores) {
-          if (JSON.stringify({ times: parsed.times, scores: parsed.scores }) === lastResultsSnapshot.current) {
+          if (JSON.stringify({ times: parsed.times, scores: parsed.scores, matchFields: parsed.matchFields ?? {} }) === lastResultsSnapshot.current) {
             localStorage.removeItem('mattabel:risultati:pending:' + tId)
           } else if (window.confirm('Esistono risultati non sincronizzati. Vuoi recuperarli?')) {
             restoredTimes = parsed.times
             restoredScores = parsed.scores
+            restoredFields = parsed.matchFields ?? fields
           }
         }
       }
     } catch {}
     setTimes(restoredTimes)
     setScores(restoredScores)
+    setMatchFields(restoredFields)
+    setMatchOrder(gm.matchOrder || {})
     setGroupsConfirmed(gm.groupsConfirmed)
 
     // stato coerente ora √® riferito a QUESTO tId
@@ -1163,12 +1185,15 @@ function scheduleRows(L: string): ScheduleRow[] {
     const m2 = { key: 'F12', a: wSlot0, b: wSlot1, labelA: wSlot0 ? labelBySlot(L, wSlot0) : 'Vincente G1', labelB: wSlot1 ? labelBySlot(L, wSlot1) : 'Vincente G2' }
     const m3 = { key: 'F34', a: lSlot0, b: lSlot1, labelA: lSlot0 ? labelBySlot(L, lSlot0) : 'Perdente G1', labelB: lSlot1 ? labelBySlot(L, lSlot1) : 'Perdente G2' }
 
-    return [
+    const rows = [
       ...explodeMatch(m0, 0),
       ...explodeMatch(m1, 1),
       ...explodeMatch(m2, 2),
       ...explodeMatch(m3, 3),
     ]
+    const order = matchOrder[L] || []
+    const rank = (i:number) => { const p=order.indexOf(i); return p<0?order.length+i:p }
+    return rows.sort((a,b)=>rank(a.matchIdx)-rank(b.matchIdx)||a.setNo-b.setNo)
   }
 
   // Round-robin classico
@@ -1182,7 +1207,9 @@ function scheduleRows(L: string): ScheduleRow[] {
 
   const out: ScheduleRow[] = []
   baseMatches.forEach((m, matchIdx) => out.push(...explodeMatch(m, matchIdx)))
-  return out
+  const order = matchOrder[L] || []
+  const rank = (i: number) => { const p = order.indexOf(i); return p < 0 ? order.length + i : p }
+  return out.sort((a,b) => rank(a.matchIdx)-rank(b.matchIdx) || a.setNo-b.setNo)
 }
 
  
@@ -1192,11 +1219,11 @@ const [resultsSaveError, setResultsSaveError] = useState('')
 const resultsDraftKey = (id: string) => 'mattabel:risultati:pending:' + id
 useEffect(() => {
   if (!tId || isLoadingState || loadedFor !== tId) return
-  const snapshot = JSON.stringify({ times, scores })
+  const snapshot = JSON.stringify({ times, scores, matchFields })
   if (snapshot === lastResultsSnapshot.current) return
   const id = tId
   try {
-    localStorage.setItem(resultsDraftKey(id), JSON.stringify({ times, scores, savedAt: Date.now() }))
+    localStorage.setItem(resultsDraftKey(id), JSON.stringify({ times, scores, matchFields, savedAt: Date.now() }))
   } catch {
     setResultsSaveError('Impossibile conservare i risultati nel browser.')
   }
@@ -1215,7 +1242,8 @@ useEffect(() => {
           method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
           body: JSON.stringify({ tournament_id: id, base_updated_at: current.updated_at,
             changes: { times: { ...(current.state?.times || {}), ...times },
-                       scores: { ...(current.state?.scores || {}), ...scores } } })
+                       scores: { ...(current.state?.scores || {}), ...scores },
+                        matchFields: { ...(current.state?.matchFields || {}), ...matchFields } } })
         })
         if (res.status === 409) continue
         if (!res.ok) throw new Error('Salvataggio fallito')
@@ -1225,7 +1253,7 @@ useEffect(() => {
             const pending = localStorage.getItem(resultsDraftKey(id))
             if (pending) {
               const parsed = JSON.parse(pending)
-              if (JSON.stringify({ times: parsed.times, scores: parsed.scores }) === snapshot) {
+              if (JSON.stringify({ times: parsed.times, scores: parsed.scores, matchFields: parsed.matchFields ?? {} }) === snapshot) {
                 localStorage.removeItem(resultsDraftKey(id))
               }
             }
@@ -1240,7 +1268,7 @@ useEffect(() => {
     }
   }, 450)
   return () => { cancelled = true; clearTimeout(timer) }
-}, [tId, times, scores, isLoadingState, loadedFor])
+}, [tId, times, scores, matchFields, isLoadingState, loadedFor])
 
   // ---------- Classifica + avulsa: salvataggi ----------
   type TeamStat = {
@@ -1862,6 +1890,9 @@ return (
   colorFor={colorFor}
   times={times}
   scores={scores}
+  matchFields={matchFields}
+  setMatchFields={setMatchFields}
+  gField={store?.gField || {}}
 />
 
 {/* DESKTOP/TABLET: layout originale a griglia (immutato) */}
@@ -1897,14 +1928,17 @@ return (
         lastOfMatch ? 'pb-2 border-b border-neutral-800' : '',
       ].join(' ')}
       style={{
-        gridTemplateColumns: '96px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
+        gridTemplateColumns: '62px 40px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
         columnGap: '.35rem',
       }}
     >
       {firstSet ? (
         <input
-          type="time"
-          className="input h-8 pl-1 pr-0 text-sm text-white w-[92px] tabular-nums"
+          type="text"
+          inputMode="numeric"
+          placeholder="hh:mm"
+          maxLength={5}
+          className="input h-8 px-1 text-xs text-white w-[60px] tabular-nums"
           value={(times[L] ?? [])[r.matchIdx] ?? ''}
           onChange={(e) => setTime(L, r.matchIdx, e.target.value)}
         />
@@ -1914,6 +1948,7 @@ return (
         </div>
       )}
 
+      {firstSet ? <input className="input h-8 w-[38px] px-1 text-xs text-center" inputMode="numeric" maxLength={2} placeholder="C." title="Campo partita" value={matchFields[L]?.[r.matchIdx] ?? store?.gField?.[L] ?? ''} onChange={e => setMatchFields(prev => { const arr=[...(prev[L]||[])]; arr[r.matchIdx]=e.target.value.replace(/\D/g,'').slice(0,2); return {...prev,[L]:arr} })}/> : <div/>}
       <div className="min-w-0 truncate text-sm text-right pr-0.5">
         {firstSet ? r.labelA : ''}
       </div>

@@ -58,7 +58,7 @@ export async function PATCH(req: NextRequest) {
   if (!tournament_id || !changes || typeof changes !== 'object' || Array.isArray(changes)) {
     return NextResponse.json({ error: 'Invalid patch' }, { status: 400 })
   }
-  const allowed = new Set(['groupsCount','meta','assign','labels','gField','times','scores','isPublic','groupsConfirmed','regia'])
+  const allowed = new Set(['groupsCount','meta','assign','labels','gField','matchFields','matchOrder','times','scores','isPublic','groupsConfirmed','regia'])
   if (Object.keys(changes).some(k => !allowed.has(k))) {
     return NextResponse.json({ error: 'Unknown state field' }, { status: 400 })
   }

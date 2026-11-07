@@ -22,6 +22,8 @@ type Persist = {
   assign: Record<string, string>
   times:  Record<string, string[]>
   gField: Record<string, string>
+  matchFields?: Record<string, string[]>
+  matchOrder?: Record<string, number[]>
   scores: Record<string, Score[]>
   labels: Record<string, string>
 }
@@ -136,12 +138,12 @@ function scheduleRows(L: string, data: Persist): ScheduleRow[] {
       t2: lSlot1 ? labelBySlot(data, L, lSlot1) : 'Perdente G2',
     }
 
-    return [
+    return sortScheduleRows(L, data, [
       ...explodeMatch(m0, 0),
       ...explodeMatch(m1, 1),
       ...explodeMatch(m2, 2),
       ...explodeMatch(m3, 3),
-    ]
+    ])
   }
 
   // RR normale
@@ -153,7 +155,18 @@ function scheduleRows(L: string, data: Persist): ScheduleRow[] {
 
   const out: ScheduleRow[] = []
   base.forEach((m, matchIdx) => out.push(...explodeMatch(m, matchIdx)))
-  return out
+  return sortScheduleRows(L, data, out)
+}
+function sortScheduleRows(L: string, data: Persist, rows: ScheduleRow[]): ScheduleRow[] {
+  const order = data.matchOrder?.[L] || []
+  const rank = (idx: number) => {
+    const position = order.indexOf(idx)
+    return position >= 0 ? position : order.length + idx
+  }
+  return rows.sort((a,b) => rank(a.matchIdx)-rank(b.matchIdx) || a.setNo-b.setNo)
+}
+function matchCourt(data: Persist, L: string, idx: number): string {
+  return data.matchFields?.[L]?.[idx] ?? data.gField?.[L] ?? ''
 }
 
 // --- Pool4: mapping G1/G2 ---
@@ -340,13 +353,16 @@ export default function AthleteGironiPage(){
       ].join(' ')}
       style={{
         gridTemplateColumns:
-          '70px minmax(170px,1fr) 44px 18px 44px minmax(170px,1fr)',
+          '70px 40px minmax(170px,1fr) 44px 18px 44px minmax(170px,1fr)',
         columnGap: '.45rem',
       }}
     >
       <div className={showHeader ? 'input h-8 pl-1 pr-0 text-sm tabular-nums' : 'h-8'}>
   {showHeader ? ((data.times?.[L]?.[r.matchIdx] ?? '') || '—') : ''}
 </div>
+      <div className={showHeader ? 'h-8 flex items-center justify-center text-xs text-amber-300' : 'h-8'}>
+        {showHeader ? 'C.' + (matchCourt(data,L,r.matchIdx) || '—') : ''}
+      </div>
 
      <div className="min-w-0 truncate text-sm text-right">
   {showHeader ? displayTeamLabel(L, r.t1, data) : `SET ${r.setNo}`}
@@ -443,13 +459,16 @@ export default function AthleteGironiPage(){
         newMatch ? 'border-t border-neutral-800 pt-2 mt-2 first:border-t-0 first:pt-0 first:mt-0' : ''
       ].join(' ')}
       style={{
-        gridTemplateColumns: '72px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
+        gridTemplateColumns: '70px 40px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
         columnGap: '.35rem',
       }}
     >
     <div className={showHeader ? 'input h-8 pl-1 pr-0 text-sm tabular-nums' : 'h-8'}>
   {showHeader ? ((data.times?.[L]?.[r.matchIdx] ?? '') || '—') : ''}
 </div>
+    <div className={showHeader ? 'h-8 flex items-center justify-center text-xs text-amber-300' : 'h-8'}>
+      {showHeader ? 'C.' + (matchCourt(data,L,r.matchIdx) || '—') : ''}
+    </div>
 
     <div className="min-w-0 truncate whitespace-nowrap text-sm text-right">
   {showHeader ? displayTeamLabel(L, r.t1, data) : `SET ${r.setNo}`}
