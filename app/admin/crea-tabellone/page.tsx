@@ -1358,6 +1358,17 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
                   <option value="-">—</option><option value="BYE">BYE</option>
                   {slotOptions.map(op => <option key={op} value={op} disabled={usedCodesGlobal.has(op) && m[side] !== op}>{op}</option>)}
                 </select>)}
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-neutral-400">Vincente P{i+1}</span>
+                  <select className="input flex-1" disabled={locked} value={winnersById[active.id]?.[`P${i+1}`] || ''} onChange={e => {
+                    const side = e.target.value as 'A' | 'B' | ''
+                    setWinnersById(prev => ({...prev,[active.id]: {...(prev[active.id] || {}), [`P${i+1}`]: side || undefined}}))
+                  }}>
+                    <option value="">Da decidere</option>
+                    <option value="A" disabled={m.A === '-'}>Squadra A: {m.A}</option>
+                    <option value="B" disabled={m.B === '-'}>Squadra B: {m.B}</option>
+                  </select>
+                </div>
               </div>
             })}
           </div>
