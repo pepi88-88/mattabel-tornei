@@ -30,17 +30,46 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
     return {code:`R${i+1}`,A:winner(p.code,p.A,p.B),B:resolve(m.B)}
   })
   rounds.push({name:'Tabellone principale',games:current})
-  let level=0
-  while(current.length>1){
-    const label = current.length===2?'Semifinali':current.length===4?'Quarti di finale':'Turno successivo'
-    const next = Array.from({length:current.length/2},(_,i)=>{
-      const a=current[i*2],b=current[i*2+1]
-      const code=current.length===2?`Y${i+1}`:current.length===4?`Z${i+1}`:`T${level+1}_${i+1}`
-      return {code,A:winner(a.code,a.A,a.B),B:winner(b.code,b.A,b.B)}
-    })
-    rounds.push({name:current.length===2?'Finale':label,games:next})
-    current=next
-    level++
+  // PDE: i quattro R sono il primo turno ufficiale DE. Le perdenti P
+  // escono dal tabellone e NON entrano nel ramo Losers.
+  if (type === 'PDE') {
+    const r = current
+    const z = [
+      {code:'Z1', A:winner('R1',r[0].A,r[0].B), B:winner('R2',r[1].A,r[1].B)},
+      {code:'Z2', A:winner('R3',r[2].A,r[2].B), B:winner('R4',r[3].A,r[3].B)},
+    ]
+    rounds.push({name:'Semifinali vincenti',games:z})
+    const loser=(code:string,a:string,b:string)=>winners[code]==='A'?b:winners[code]==='B'?a:`Perdente ${code}`
+    const x=[
+      {code:'X1',A:loser('R1',r[0].A,r[0].B),B:loser('R2',r[1].A,r[1].B)},
+      {code:'X2',A:loser('R3',r[2].A,r[2].B),B:loser('R4',r[3].A,r[3].B)},
+    ]
+    const w=[
+      {code:'W1',A:loser('Z1',z[0].A,z[0].B),B:winner('X1',x[0].A,x[0].B)},
+      {code:'W2',A:loser('Z2',z[1].A,z[1].B),B:winner('X2',x[1].A,x[1].B)},
+    ]
+    const co=[
+      {code:'CO1',A:winner('Z1',z[0].A,z[0].B),B:winner('W2',w[1].A,w[1].B)},
+      {code:'CO2',A:winner('Z2',z[1].A,z[1].B),B:winner('W1',w[0].A,w[0].B)},
+    ]
+    rounds.push({name:'Losers — primo turno',games:x})
+    rounds.push({name:'Losers — incroci',games:w})
+    rounds.push({name:'Finali incrociate',games:co})
+    rounds.push({name:'Finale',games:[{code:'F',A:winner('CO1',co[0].A,co[0].B),B:winner('CO2',co[1].A,co[1].B)}]})
+    rounds.push({name:'3° / 4° posto',games:[{code:'THIRD',A:loser('CO1',co[0].A,co[0].B),B:loser('CO2',co[1].A,co[1].B)}]})
+  } else {
+    let level=0
+    while(current.length>1){
+      const label = current.length===2?'Semifinali':current.length===4?'Quarti di finale':'Turno successivo'
+      const next = Array.from({length:current.length/2},(_,i)=>{
+        const a=current[i*2],b=current[i*2+1]
+        const code=current.length===2?`Y${i+1}`:current.length===4?`Z${i+1}`:`T${level+1}_${i+1}`
+        return {code,A:winner(a.code,a.A,a.B),B:winner(b.code,b.A,b.B)}
+      })
+      rounds.push({name:current.length===2?'Finale':label,games:next})
+      current=next
+      level++
+    }
   }
   const card=(m:{code:string;A:string;B:string})=><div key={m.code} className="rounded-lg border border-neutral-600 bg-neutral-900/60 p-3 min-w-[210px]">
     <div className="text-xs font-bold mb-2" style={{color}}>{m.code} — {title}</div>
@@ -62,6 +91,6 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
         </div>)}
       </div>
     </div>
-    {type==='PDE'&&<p className="text-xs text-amber-300 mt-3">Ramo Losers della doppia eliminazione ancora da completare: non usare per un torneo reale.</p>}
+    {type==='PDE'&&<p className="text-xs text-neutral-400 mt-3">Le perdenti P sono escluse dal ramo Losers; X1/X2 partono esclusivamente dalle perdenti R1–R4. La gestione dei punteggi e dei campi è ancora da integrare.</p>}
   </div>
 }
