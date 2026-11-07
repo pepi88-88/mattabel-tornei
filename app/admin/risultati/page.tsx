@@ -786,6 +786,7 @@ function makeExternalResolver(
     const selected = (winningSide === 'A') !== wantsLoser ? actualA : actualB
     return resolveOne(selected,seen) || selected
   }
+  return (token: string): string | undefined => resolveOne(token,new Set<string>())
 }
 function MobileGroupsCarousel({
   letters,
