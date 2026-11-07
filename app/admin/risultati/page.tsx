@@ -748,56 +748,38 @@ function loadBrackets(tour: string, tId: string): BracketType[] {
 }
 
 function makeExternalResolver(
-  brackets: Array<{ id: string; title: string; r1?: { A: string; B: string }[] }>,
-  winnersById: Record<string, Record<string, 'A' | 'B' | undefined>>,
+  brackets: Array<{ id:string; title:string; type?:string; r1?:{A:string;B:string}[]; prelims?:{A:string;B:string}[] }>,
+  winnersById: Record<string, Record<string,'A'|'B'|undefined>>,
   tourId?: string,
   tId?: string,
 ) {
-  const byTitle = new Map(brackets.map(b => [b.title.toUpperCase(), b]))
-
-  // normalizza lettera turno -> 'R'
-  const normLetter = (L?: string) => {
-    const u = String(L || '').toUpperCase()
-    // accettiamo R, M (match), G (gara), S (semi/fase), F (finale) -> tutte come "R"
-    return ['R','M','G','S','F'].includes(u) ? 'R' : ''
-  }
-
+  const byTitle = new Map(brackets.map(b => [b.title.trim().toUpperCase(), b]))
   return (token: string): string | undefined => {
-    if (!token) return undefined
-    const t = token.trim()
-
-    // supporta:
-    //  - Perdente|Loser|Vincente|Winner <Titolo> <Lettera?> <Num>
-    //    es: "Vincente Tabellone Oro G1", "Perdente Tabellone Argento 3"
-    const m = t.match(/^(Perdente|Loser|Vincente|Winner)\s+(.+?)\s+([A-Za-z])?(\d+)$/i)
+    const m = String(token || '').trim().match(/^(Perdente|Loser|Vincente|Winner)\s+(.+?)\s+([A-Za-z])?(\d+)$/i)
     if (!m) return undefined
-
-    const kind = m[1].toLowerCase()                       // vincente/perdente
-    const titleU = m[2].toUpperCase()                     // titolo tabellone
-    const letterRaw = m[3] || ''                          // R / M / G / S / F / '' 
-    const num = Number(m[4])                              // indice match
-
-    const br = byTitle.get(titleU)
-    if (!br || !Number.isFinite(num) || num < 1) return undefined
-
-    // normalizza lettera -> 'R'; se non c'è lettera, trattiamo comunque come 'R'
-    const L = normLetter(letterRaw)
-    if (L !== 'R' && letterRaw) return undefined           // se lettera c'è ma non è tra quelle ammesse
-
-    const pair = br.r1?.[num - 1]
+    const br = byTitle.get(m[2].trim().toUpperCase())
+    if (!br) return undefined
+    let letter = String(m[3] || 'R').toUpperCase()
+    if (['M','G','S','F'].includes(letter)) letter='R'
+    if (letter!=='R' && letter!=='P') return undefined
+    const idx = Number(m[4])-1
+    if (!Number.isInteger(idx) || idx<0) return undefined
+    const w = winnersById[br.id] || {}
+    const preliminary = br.type==='PSE' || br.type==='PDE'
+    const pair = letter==='P' ? br.prelims?.[idx] : br.r1?.[idx]
     if (!pair) return undefined
-
-    const side = (winnersById[br.id] || {})[`R${num}`]     // 'A' | 'B' | undefined
-    if (!side) return undefined
-
-    if (kind === 'vincente' || kind === 'winner') {
-      return side === 'A' ? pair.A : pair.B
-    }
-    if (kind === 'perdente' || kind === 'loser') {
-      const loserSide = side === 'A' ? 'B' : 'A'
-      return loserSide === 'A' ? pair.A : pair.B
-    }
-    return undefined
+    const preliminaryPair=br.prelims?.[idx]
+    const preliminarySide=w[`P${idx+1}`]
+    const actualA = letter==='R' && preliminary
+      ? preliminarySide === 'A' ? preliminaryPair?.A
+        : preliminarySide === 'B' ? preliminaryPair?.B
+        : undefined
+      : pair.A
+    const actualB=pair.B
+    const winningSide=w[`${letter}${idx+1}`]
+    if (!winningSide || !actualA || !actualB) return undefined
+    const wantsLoser=/^(Perdente|Loser)$/i.test(m[1])
+    return (winningSide === 'A') !== wantsLoser ? actualA : actualB
   }
 }
 function MobileGroupsCarousel({
