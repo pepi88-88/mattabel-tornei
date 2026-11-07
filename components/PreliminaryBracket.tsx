@@ -13,9 +13,13 @@ type Props = {
   resolve?: (token: string) => string
   editable?: boolean
   onWinner?: (code: string, side: 'A' | 'B' | undefined) => void
+  courts?: Record<string, string>
+  onCourtChange?: (code: string, court: string) => void
+  scores?: Record<string, { A: number | null; B: number | null }>
+  onScoreChange?: (code: string, side: 'A' | 'B', value: number | null) => void
 }
 
-export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r1,winners={},resolve=(s)=>s,editable=false,onWinner}:Props) {
+export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r1,winners={},resolve=(s)=>s,editable=false,onWinner,courts={},onCourtChange,scores={},onScoreChange}:Props) {
   const count = nTeams === 24 && type === 'PSE' ? 8 : 4
   const rounds: { name: string; games: {code:string; A:string; B:string}[] }[] = []
   const winner = (code:string,a:string,b:string) => winners[code] === 'A' ? a : winners[code] === 'B' ? b : `Vincente ${code}`
@@ -77,6 +81,21 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
       <span className={winners[m.code]===side?'font-bold':''}>{side==='A'?m.A:m.B}</span>
       {winners[m.code]===side&&<span className="text-green-400 text-xs">✓</span>}
     </div>)}
+    <div className="flex flex-wrap gap-2 items-center mt-2">
+      <span className="text-xs text-neutral-400">Campo:</span>
+      {editable && onCourtChange ? (
+        <input type="number" min="1" className="input w-16 h-9" placeholder="—"
+          value={courts[m.code] || ''} onChange={e => onCourtChange(m.code,e.target.value)} />
+      ) : <span className="text-sm">{courts[m.code] || '—'}</span>}
+      <span className="text-xs text-neutral-400 ml-2">Punti:</span>
+      {(['A','B'] as const).map((side,i)=><React.Fragment key={side}>
+        {i===1&&<span className="text-xs">–</span>}
+        {editable && onScoreChange ? (
+          <input type="number" min="0" className="input w-16 h-9" aria-label={`Punti ${side} ${m.code}`}
+            value={scores[m.code]?.[side] ?? ''} onChange={e => onScoreChange(m.code,side,e.target.value===''?null:Number(e.target.value))} />
+        ) : <span className="text-sm">{scores[m.code]?.[side] ?? '—'}</span>}
+      </React.Fragment>)}
+    </div>
     {editable&&onWinner&&<select className="input w-full mt-2" value={winners[m.code]||''} onChange={e=>onWinner(m.code,e.target.value===''?undefined:e.target.value as 'A'|'B')}>
       <option value="">Risultato da inserire</option><option value="A">Vince A</option><option value="B">Vince B</option>
     </select>}
