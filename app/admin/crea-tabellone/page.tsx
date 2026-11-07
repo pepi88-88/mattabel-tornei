@@ -935,7 +935,7 @@ useEffect(() => {
 
       const next = {
         items: brackets,
-        winnersById: Object.fromEntries(Object.entries(prev?.winnersById || {}).map(([id, values]) => {
+        winnersById: Object.fromEntries(Object.entries({...Object.fromEntries(brackets.map(b => [b.id, {}])), ...(prev?.winnersById || {})}).map(([id, values]) => {
           const b = brackets.find(x => x.id === id)
           if (!b || (b.type !== 'PSE' && b.type !== 'PDE')) return [id, values]
           const merged = {...(values as Record<string, 'A' | 'B' | undefined>)}
