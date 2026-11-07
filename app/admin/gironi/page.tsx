@@ -826,10 +826,7 @@ function commitTimeUncontrolled(
                           <div className="min-w-0 truncate text-xs pl-1">
                             {isFirstSet ? r.t2 : ''}
                           </div>
-                          {isFirstSet ? <div className="flex flex-col text-[10px] leading-3">
-                            <button type="button" title="Sposta sopra" onClick={() => moveMatch([...new Set(rows.map(x => x.matchIdx))].indexOf(r.matchIdx),-1)}>▲</button>
-                            <button type="button" title="Sposta sotto" onClick={() => moveMatch([...new Set(rows.map(x => x.matchIdx))].indexOf(r.matchIdx),1)}>▼</button>
-                          </div> : <div/>}
+
                         </div>
 
                         {!isLastSetOfMatch && <div className="h-1" />}
