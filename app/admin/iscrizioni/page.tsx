@@ -22,7 +22,7 @@ export default function IscrizioniPage() {
   const { data: toursList } = useSWR('/api/tours', fetcher)
   const [tourId, setTourId] = useState<string>('')
   useEffect(() => { const s = localStorage.getItem('selectedTourId'); if (s) setTourId(s) }, [])
-  function onPickTour(id: string) { setTourId(id); localStorage.setItem('selectedTourId', id); setTId('') }
+  function onPickTour(id: string) { setTourId(id); localStorage.setItem('selectedTourId', id); localStorage.removeItem('selectedTournamentId'); setTId('') }
 
   // TAPPA
   const { data: tournaments } = useSWR(tourId ? `/api/tournaments?tour_id=${tourId}` : null, fetcher)
@@ -40,7 +40,7 @@ const tappeVisibili = useMemo(() => {
 
 // se la tappa salvata è chiusa o non più in elenco → reset
 useEffect(() => {
-  if (!tId) return
+  if (!tId || !tournaments) return
   const cur = (tournaments?.items ?? []).find((t:any) => t.id === tId)
   const stillVisible = tappeVisibili.some(t => t.id === tId)
   if (!cur || cur?.status === 'closed' || !stillVisible) {
