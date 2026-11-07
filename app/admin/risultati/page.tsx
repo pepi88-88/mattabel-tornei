@@ -945,18 +945,24 @@ const tappeVisibili = useMemo(() => {
 // Se non c'è tId, prova a selezionare la prima tappa VISIBILE
 useEffect(() => {
   if (!tId && tappeVisibili.length) {
-    setTId(tappeVisibili[0].id)
+    const saved = localStorage.getItem('selectedTournamentId')
+    setTId(tappeVisibili.find(t => t.id === saved)?.id || tappeVisibili[0].id)
   }
 }, [tappeVisibili, tId])
 
 // Se la tappa selezionata diventa non visibile (chiusa), resetta
 useEffect(() => {
-  if (!tId) return
+  if (!tId || !tappeRes) return
   const ok = tappeVisibili.some(t => t.id === tId)
   if (!ok) setTId('')
 }, [tId, tappeVisibili])
 
-  useEffect(() => { if (!tourId && tours.length) setTourId(tours[0].id) }, [tours, tourId])
+  useEffect(() => {
+  if (!tourId && tours.length) {
+    const saved=localStorage.getItem('selectedTourId')
+    setTourId(tours.find(t=>t.id===saved)?.id || tours[0].id)
+  }
+}, [tours, tourId])
   
   // Store gironi + conferma
   const [store, setStore] = useState<Persist | null>(null)
@@ -1756,7 +1762,7 @@ return (
         <select
   className="input w-64"
   value={tId}
-  onChange={(e) => setTId(e.target.value)}
+  onChange={(e) => {localStorage.setItem('selectedTournamentId',e.target.value);setTId(e.target.value)}}
 >
   {tappeVisibili.map((t) => (
     <option key={t.id} value={t.id}>
