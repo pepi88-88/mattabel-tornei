@@ -1691,6 +1691,18 @@ useEffect(() => {
         courtsByBracket: { ...(Array.isArray(previous) ? {} : previous?.courtsByBracket || {}), ...courtsByBracket },
         bracketScoresById: { ...(Array.isArray(previous) ? {} : previous?.bracketScoresById || {}), ...bracketScoresById },
       }
+      // Map court changes from the result editor onto the same Regia match keys.
+      // Preserve live/queued status and sequence already selected in Regia.
+      const regiaItems = { ...((Array.isArray(previous) ? {} : previous?.regia?.items) || {}) } as Record<string, any>
+      brackets.filter(b => b.type === 'PSE' || b.type === 'PDE').forEach(b => {
+        Object.entries(courtsByBracket[b.id] || {}).forEach(([code, value]) => {
+          const key = `bracket:${b.id}:${code}`
+          const old = regiaItems[key] || {}
+          const n = Number(value)
+          regiaItems[key] = { ...old, court: String(value).trim() !== '' && Number.isInteger(n) && n > 0 ? n : null }
+        })
+      })
+      next.regia = { ...(Array.isArray(previous) ? {} : previous?.regia || {}), items: regiaItems }
       if (cancelled || request !== bracketsRequestRef.current) return
       const saved = await fetch('/api/brackets/state', {
         method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
