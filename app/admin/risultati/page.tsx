@@ -1438,11 +1438,51 @@ useEffect(() => {
   return arr
 }
 
-  type AvulsaRow = { letter:string; pos:number; label:string; W:number; PF:number; PS:number; QP:number }
+  // Evidenzia solo le coppie che hanno concluso tutte le proprie partite.
+  // Per un best-of-3 bastano due set vinti: il terzo può restare vuoto.
+  function matchIsCompleted(L: string, matchIdx: number): boolean {
+    const bestOf = bestOfOf(L)
+    const need = setsToWin(bestOf)
+    const rows = scores[L] ?? []
+    let wonA = 0
+    let wonB = 0
+    for (let si = 0; si < bestOf; si++) {
+      if (wonA >= need || wonB >= need) return true
+      const row = rows[matchIdx * bestOf + si]
+      const rawA = String(row?.a ?? '').trim()
+      const rawB = String(row?.b ?? '').trim()
+      if (!rawA || !rawB) return false
+      const a = Number(rawA), b = Number(rawB)
+      if (!Number.isFinite(a) || !Number.isFinite(b) || a === b || a < 0 || b < 0) return false
+      if (a > b) wonA++
+      else wonB++
+    }
+    return wonA >= need || wonB >= need
+  }
+
+  function completedSlotsFor(L: string): Set<number> {
+    const rows = scheduleRows(L).filter(r => r.setNo === 1)
+    const complete = new Set<number>()
+    for (let slot = 1; slot <= capOf(L); slot++) {
+      const matches = rows.filter(r => r.a === slot || r.b === slot)
+      if (matches.length && matches.every(r => r.a && r.b && matchIsCompleted(L, r.matchIdx))) {
+        complete.add(slot)
+      }
+    }
+    return complete
+  }
+
+  type AvulsaRow = { letter:string; pos:number; label:string; W:number; PF:number; PS:number; QP:number; completed:boolean }
   const avulsa: AvulsaRow[] = useMemo(() => {
     if (!store) return []
     const out: AvulsaRow[] = []
-    for (const L of letters) computeStatsFor(L).forEach((s,i) => out.push({ letter:L, pos:i+1, label:s.label, W:s.W, PF:s.PF, PS:s.PS, QP:s.QP }))
+    for (const L of letters) {
+      const complete = completedSlotsFor(L)
+      computeStatsFor(L).forEach((s,i) => out.push({
+        letter:L, pos:i+1, label:s.label, W:s.W, PF:s.PF, PS:s.PS, QP:s.QP,
+        completed:complete.has(s.slot)
+      }))
+    }
     out.sort((a,b) => (a.pos-b.pos) || (b.W-a.W) || (b.QP-a.QP) || a.letter.localeCompare(b.letter))
     return out
   }, [store, letters, scores])
@@ -1957,7 +1997,10 @@ return (
 
         {/* Avulsa */}
         <div className="card p-3">
-          <div className="text-lg font-semibold mb-3">Classifica Avulsa</div>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="text-lg font-semibold">Classifica Avulsa</div>
+            <span className="text-xs text-emerald-400">● Verde = tutte le partite concluse</span>
+          </div>
           <table className="w-full text-sm">
             <thead className="text-xs text-neutral-400">
               <tr>
@@ -1972,7 +2015,7 @@ return (
             </thead>
             <tbody>
               {avulsa.map((r, i) => (
-                <tr key={i} className="border-t border-neutral-800">
+                <tr key={i} className={`border-t border-neutral-800 ${r.completed ? 'bg-emerald-950/50 text-emerald-200' : ''}`} title={r.completed ? 'Tutte le partite della coppia sono concluse' : 'Partite ancora da completare'}>
                   <td className="py-1">{r.pos}</td>
                   <td>{r.letter}</td>
                   <td className="truncate">{r.label}</td>
