@@ -64,7 +64,7 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
   } else {
     let level=0
     while(current.length>1){
-      const label = current.length===2?'Semifinali':current.length===4?'Quarti di finale':'Turno successivo'
+      const label = current.length===8 ? 'Quarti di finale' : current.length===4 ? 'Semifinali' : 'Finale'
       const next = Array.from({length:current.length/2},(_,i)=>{
         const a=current[i*2],b=current[i*2+1]
         const code=current.length===2?`Y${i+1}`:current.length===4?`Z${i+1}`:`T${level+1}_${i+1}`
