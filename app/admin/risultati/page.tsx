@@ -999,8 +999,24 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato Ã
   times: gm.times,
 })
     lastResultsSnapshot.current = JSON.stringify({ times: gm.times, scores: gm.scores })
-    setTimes(gm.times)
-    setScores(gm.scores)
+    let restoredTimes = gm.times
+    let restoredScores = gm.scores
+    try {
+      const pending = localStorage.getItem('mattabel:risultati:pending:' + tId)
+      if (pending) {
+        const parsed = JSON.parse(pending)
+        if (parsed?.times && parsed?.scores) {
+          if (JSON.stringify({ times: parsed.times, scores: parsed.scores }) === lastResultsSnapshot.current) {
+            localStorage.removeItem('mattabel:risultati:pending:' + tId)
+          } else if (window.confirm('Esistono risultati non sincronizzati. Vuoi recuperarli?')) {
+            restoredTimes = parsed.times
+            restoredScores = parsed.scores
+          }
+        }
+      }
+    } catch {}
+    setTimes(restoredTimes)
+    setScores(restoredScores)
     setGroupsConfirmed(gm.groupsConfirmed)
 
     // stato coerente ora Ã¨ riferito a QUESTO tId
@@ -1173,11 +1189,17 @@ function scheduleRows(L: string): ScheduleRow[] {
 // Risultati: aggiornamento parziale. Non riscrivere mai gruppi, assegnazioni o conferme.
 const lastResultsSnapshot = useRef<string>('')
 const [resultsSaveError, setResultsSaveError] = useState('')
+const resultsDraftKey = (id: string) => 'mattabel:risultati:pending:' + id
 useEffect(() => {
   if (!tId || isLoadingState || loadedFor !== tId) return
   const snapshot = JSON.stringify({ times, scores })
   if (snapshot === lastResultsSnapshot.current) return
   const id = tId
+  try {
+    localStorage.setItem(resultsDraftKey(id), JSON.stringify({ times, scores, savedAt: Date.now() }))
+  } catch {
+    setResultsSaveError('Impossibile conservare i risultati nel browser.')
+  }
   let cancelled = false
   const timer = setTimeout(async () => {
     try {
@@ -1197,12 +1219,24 @@ useEffect(() => {
         })
         if (res.status === 409) continue
         if (!res.ok) throw new Error('Salvataggio fallito')
-        if (!cancelled) { lastResultsSnapshot.current = snapshot; setResultsSaveError('') }
+        if (!cancelled) {
+          lastResultsSnapshot.current = snapshot
+          try {
+            const pending = localStorage.getItem(resultsDraftKey(id))
+            if (pending) {
+              const parsed = JSON.parse(pending)
+              if (JSON.stringify({ times: parsed.times, scores: parsed.scores }) === snapshot) {
+                localStorage.removeItem(resultsDraftKey(id))
+              }
+            }
+          } catch {}
+          setResultsSaveError('')
+        }
         return
       }
       throw new Error('Conflitto salvataggi')
     } catch {
-      if (!cancelled) setResultsSaveError('Risultati non sincronizzati: non chiudere questa pagina.')
+      if (!cancelled) setResultsSaveError('Risultati conservati nel browser, non ancora sincronizzati.')
     }
   }, 450)
   return () => { cancelled = true; clearTimeout(timer) }
