@@ -547,7 +547,7 @@ function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
 
 /* ============== External “Vincente/Perdente …” ============== */
 function makeExternalResolver(
-  brackets: Array<{ id: string; title: string; r1?: { A: string; B: string }[] }>,
+  brackets: Array<{ id: string; title: string; r1?: { A: string; B: string }[]; prelims?: { A: string; B: string }[] }>,
   winnersById: Record<string, Record<string, 'A' | 'B' | undefined>>
 ) {
   const byTitle = new Map(brackets.map(b => [b.title.toUpperCase(), b]))
@@ -567,12 +567,12 @@ function makeExternalResolver(
     const br = byTitle.get(titleU)
     if (!br || !Number.isFinite(num) || num < 1) return undefined
     if (letter === 'M') letter = 'R'   // compat vecchia “M” per “R”
-    if (letter !== 'R') return undefined
+    if (letter !== 'R' && letter !== 'P') return undefined
 
-    const pair = br.r1?.[num - 1]
+    const pair = letter === 'P' ? br.prelims?.[num - 1] : br.r1?.[num - 1]
     if (!pair) return undefined
 
-    const side = (winnersById[br.id] || {})[`R${num}`] // 'A' | 'B'
+    const side = (winnersById[br.id] || {})[`${letter}${num}`] // 'A' | 'B'
     if (!side) return undefined
 
     if (kind === 'vincente' || kind === 'winner') return side === 'A' ? pair.A : pair.B
@@ -838,13 +838,13 @@ export default function AthleteTabellonePage() {
     if (!active) return null
     return {
       ...active,
-      r1: (active.r1 || []).map(m => ({
-        A: resolve(m.A),
+      r1: (active.r1 || []).map((m, i) => ({
+        A: (active.type === 'PSE' || active.type === 'PDE') ? (winnersById[active.id]?.[`P${i+1}`] === 'A' ? resolve(active.prelims?.[i]?.A || '-') : winnersById[active.id]?.[`P${i+1}`] === 'B' ? resolve(active.prelims?.[i]?.B || '-') : `Vincente P${i+1}`) : resolve(m.A),
         B: resolve(m.B),
       })),
       slots: (active.slots || []).map(s => resolve(s)),
     }
-  }, [active, resolve])
+  }, [active, resolve, winnersById])
 
   return (
     <div className="min-h-screen px-4 sm:px-6 lg:px-8">
