@@ -16,6 +16,7 @@ export default function Page() {
   function onPickTour(id: string) {
     setTourId(id)
     localStorage.setItem('selectedTourId', id)
+    localStorage.removeItem('selectedTournamentId')
     setTId('')
   }
 
@@ -27,7 +28,7 @@ export default function Page() {
     if (s) setTId(s)
   }, [])
   useEffect(() => {
-    if (taps?.items?.length && !tId) setTId(taps.items[0].id)
+    if (taps?.items?.length) setTId(old => taps.items.some((t:any)=>t.id===old) ? old : (taps.items.find((t:any)=>t.id===localStorage.getItem('selectedTournamentId'))?.id || taps.items[0].id))
   }, [taps, tId])
 
   function onPickTappa(id: string) {
