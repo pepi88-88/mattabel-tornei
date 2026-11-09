@@ -1594,7 +1594,7 @@ useEffect(() => {
   const [brackets, setBrackets] = useState<BracketType[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [smartDraft, setSmartDraft] = useState<{bracketId:string; rows:{A:string;B:string}[]; prelims?:{A:string;B:string}[]} | null>(null)
-  const [smartShowNumbers, setSmartShowNumbers] = useState(false)
+  const [smartShowNumbers, setSmartShowNumbers] = useState(true)
   const [smartEdit, setSmartEdit] = useState(false)
   const [smartPicked, setSmartPicked] = useState<number | null>(null)
   const [smartSaving, setSmartSaving] = useState(false)
@@ -1866,7 +1866,7 @@ const activeForDisplay = useMemo(() => {
     const mapSlot = (s: string) => {
       const token=String(s || '').trim()
       const name=resolveToken(token)
-      return smartShowNumbers && (active.source==='avulsa' || active.source==='avulsa-intelligente') && /^\\d+$/.test(token)
+      return smartShowNumbers && (active.source==='avulsa' || active.source==='avulsa-intelligente') && /^\d+$/.test(token)
         ? `#${token} · ${name}` : name
     }
     return {
