@@ -1808,7 +1808,8 @@ useEffect(() => {
       if(!Array.isArray(items))throw new Error('Dati tabellone non validi')
       const current=items.find((b:any)=>b.id===id)
       if(!current || JSON.stringify(current.r1)!==JSON.stringify(active.r1))throw new Error('Il tabellone è cambiato su un altro dispositivo: ricarica prima di salvare')
-      if(Object.values((Array.isArray(previous)?{}:previous?.winnersById?.[id])||{}).some(Boolean))
+      if(Object.values((Array.isArray(previous)?{}:previous?.winnersById?.[id])||{}).some(Boolean) ||
+        Object.values((Array.isArray(previous)?{}:previous?.bracketScoresById?.[id])||{}).some((v:any)=>v?.A!=null || v?.B!=null))
         throw new Error('Il tabellone contiene già risultati')
       const nextItems=items.map((b:any)=>b.id===id?{...b,r1:rows}:b)
       const next=Array.isArray(previous)?{items:nextItems}:{...previous,items:nextItems}
@@ -1839,13 +1840,13 @@ const activeForDisplay = useMemo(() => {
     return {
       ...active,
       // r1: risolvo A e B
-      r1: (active.r1 || []).map(m => ({ A: mapSlot(m.A), B: mapSlot(m.B) })),
+      r1: (smartDraft?.bracketId===active.id ? smartDraft.rows : active.r1 || []).map(m => ({ A: mapSlot(m.A), B: mapSlot(m.B) })),
       // slots lineari (per gli schemi che li mostrano)
       slots: (active.slots || []).map(mapSlot),
     } as BracketType
   }
   return active
-}, [active, resolveToken, smartShowNumbers])
+}, [active, resolveToken, smartShowNumbers, smartDraft])
 
   // ------------------------------------------------------------
 // UI
