@@ -737,6 +737,55 @@ function normalizeBracket(b: any): BracketType {
     slots,
   }
 }
+
+// Avulsa intelligente: i numeri sono identità delle coppie, non posizioni nel tabellone.
+// Le teste di serie sul lato A rimangono fisse; si permutano soltanto gli ingressi B.
+// La classifica avulsa e l'insieme delle qualificate non vengono mai alterati.
+function smartAvulsaPairs(rows: {A:string;B:string}[], groupForSeed: (seed:number)=>string | undefined) {
+  const original = rows.map(m=>({...m}))
+  const movable = original.map((m,i)=>/^\\d+$/.test(m.B.trim()) ? i : -1).filter(i=>i>=0)
+  const seeds = movable.map(i=>original[i].B)
+  if (movable.length < 2 || new Set(seeds).size !== seeds.length) return original
+  const penalty = (draft: typeof original) => draft.reduce((total,m) => {
+    const a = Number(m.A), b = Number(m.B)
+    const ga = /^\\d+$/.test(m.A.trim()) ? groupForSeed(a) : undefined
+    const gb = /^\\d+$/.test(m.B.trim()) ? groupForSeed(b) : undefined
+    return total + (ga && gb && ga===gb ? 100000 : 0)
+  },0)
+  // Unisci il minor numero di rivincite al minor spostamento rispetto all'ordine iniziale.
+  const score = (arr:string[]) => {
+    const candidate=original.map(m=>({...m}))
+    movable.forEach((i,j)=>{ candidate[i].B=arr[j] })
+    return penalty(candidate) + arr.reduce((n,seed,i)=>n+Math.abs(Number(seed)-Number(seeds[i])),0)
+  }
+  let best=[...seeds], bestScore=score(best)
+  if (movable.length <= 8) {
+    const used=new Set<string>(), perm:string[]=[]
+    const search=()=>{
+      if (perm.length===seeds.length) {
+        const current=score(perm)
+        if(current<bestScore){best=[...perm];bestScore=current}
+        return
+      }
+      for(const value of seeds){if(used.has(value))continue;used.add(value);perm.push(value);search();perm.pop();used.delete(value)}
+    }
+    search()
+  } else {
+    // Tornei grandi: miglioramenti locali deterministici senza esplosione combinatoria.
+    let improved=true
+    while(improved){improved=false
+      for(let i=0;i<best.length;i++)for(let j=i+1;j<best.length;j++){
+        const next=[...best];[next[i],next[j]]=[next[j],next[i]]
+        const val=score(next);if(val<bestScore){best=next;bestScore=val;improved=true}
+      }
+    }
+  }
+  return original.map((m,i)=>{
+    const index=movable.indexOf(i)
+    return index<0?m:{...m,B:best[index]}
+  })
+}
+
 const keyBr = (tour: string, tId: string) => `brackets:${tour}:${tId}`
 function loadBrackets(tour: string, tId: string): BracketType[] {
   if (!tour || !tId) return []
@@ -1541,6 +1590,13 @@ useEffect(() => {
   const bracketsRequestRef = useRef(0)
   const [brackets, setBrackets] = useState<BracketType[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [smartDraft, setSmartDraft] = useState<{bracketId:string; rows:{A:string;B:string}[]} | null>(null)
+  const [smartShowNumbers, setSmartShowNumbers] = useState(false)
+  const [smartEdit, setSmartEdit] = useState(false)
+  const [smartPicked, setSmartPicked] = useState<number | null>(null)
+  const [smartSaving, setSmartSaving] = useState(false)
+  const [smartMessage, setSmartMessage] = useState('')
+  
   const [winnersById, setWinnersById] = useState<Record<string, WinnerMap>>({})
 const [itaScoresById, setItaScoresById] = useState<Record<string, ItaScore[]>>({})
 
@@ -1712,13 +1768,74 @@ useEffect(() => {
 }, [tourId, tId, bracketsLoadKey, bracketsLoadError, winnersById, itaScoresById, courtsByBracket, bracketScoresById])
 
   const active = useMemo(() => brackets.find(b => b.id === activeId) || null, [activeId, brackets])
+
+  const avulsaGroupForSeed = (seed:number) => avulsa[seed-1]?.letter
+  const smartRows = smartDraft?.bracketId===activeId ? smartDraft.rows : (active?.r1 || [])
+  const smartSupported = !!active && (active.type==='SE' || active.type==='DE') && (active.source==='avulsa' || active.source==='avulsa+eliminati')
+  const smartLocked = !!active && (
+    Object.values(winnersById[active.id] || {}).some(Boolean) ||
+    Object.values(bracketScoresById[active.id] || {}).some(s=>s?.A!=null || s?.B!=null)
+  )
+  const smartWarnings = smartRows.filter(m=>{
+    const a=Number(m.A),b=Number(m.B)
+    return /^\\d+$/.test(m.A) && /^\\d+$/.test(m.B) &&
+      !!avulsaGroupForSeed(a) && avulsaGroupForSeed(a)===avulsaGroupForSeed(b)
+  }).length
+  const smartSwap = (index:number) => {
+    if(smartPicked===null){setSmartPicked(index);return}
+    if(smartPicked===index){setSmartPicked(null);return}
+    const first=Math.floor(smartPicked/2), second=Math.floor(index/2)
+    const firstSide=smartPicked%2===0?'A':'B', secondSide=index%2===0?'A':'B'
+    const draft=smartRows.map(m=>({...m}))
+    const a=draft[first][firstSide], b=draft[second][secondSide]
+    if(!/^\\d+$/.test(a) || !/^\\d+$/.test(b)){setSmartMessage('Puoi scambiare solo le coppie con numero avulsa.');setSmartPicked(null);return}
+    draft[first][firstSide]=b;draft[second][secondSide]=a
+    setSmartDraft({bracketId:active!.id,rows:draft})
+    setSmartPicked(null);setSmartMessage('')
+  }
+  const smartSave = async () => {
+    if(!active || !smartDraft || smartDraft.bracketId!==active.id || smartLocked || smartSaving)return
+    const id=active.id, rows=smartDraft.rows.map(m=>({...m}))
+    setSmartSaving(true);setSmartMessage('')
+    try{
+      const response=await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`,{
+        headers:{'x-role':'admin'},cache:'no-store'
+      })
+      if(!response.ok)throw new Error('Impossibile rileggere il tabellone')
+      const json=await response.json()
+      const previous=json?.state
+      const items=Array.isArray(previous)?previous:previous?.items
+      if(!Array.isArray(items))throw new Error('Dati tabellone non validi')
+      const current=items.find((b:any)=>b.id===id)
+      if(!current || JSON.stringify(current.r1)!==JSON.stringify(active.r1))throw new Error('Il tabellone è cambiato su un altro dispositivo: ricarica prima di salvare')
+      if(Object.values((Array.isArray(previous)?{}:previous?.winnersById?.[id])||{}).some(Boolean))
+        throw new Error('Il tabellone contiene già risultati')
+      const nextItems=items.map((b:any)=>b.id===id?{...b,r1:rows}:b)
+      const next=Array.isArray(previous)?{items:nextItems}:{...previous,items:nextItems}
+      const saved=await fetch('/api/brackets/state',{
+        method:'PUT',headers:{'Content-Type':'application/json','x-role':'admin'},
+        body:JSON.stringify({tournament_id:tId,state:next})
+      })
+      if(!saved.ok)throw new Error('Salvataggio non riuscito')
+      setBrackets(prev=>prev.map(b=>b.id===id?{...b,r1:rows}:b))
+      setSmartDraft(null);setSmartEdit(false);setSmartPicked(null)
+      setSmartMessage('Accoppiamenti salvati.')
+    }catch(e:any){setSmartMessage(e?.message||'Salvataggio non riuscito')}
+    finally{setSmartSaving(false)}
+  }
+
 // Bracket "per display": per SE/DE risolvo A1/B2/avulsa(1..N) -> cognomi
 const activeForDisplay = useMemo(() => {
   if (!active) return null
 
   // solo SE/DE hanno il problema (ITA usa già ItaEditor con resolve)
   if (String(active.type).toUpperCase() === 'SE' || String(active.type).toUpperCase() === 'DE') {
-    const mapSlot = (s: string) => resolveToken(String(s || '').trim())
+    const mapSlot = (s: string) => {
+      const token=String(s || '').trim()
+      const name=resolveToken(token)
+      return smartShowNumbers && (active.source==='avulsa'||active.source==='avulsa+eliminati') && /^\\d+$/.test(token)
+        ? `#${token} · ${name}` : name
+    }
     return {
       ...active,
       // r1: risolvo A e B
@@ -1728,7 +1845,7 @@ const activeForDisplay = useMemo(() => {
     } as BracketType
   }
   return active
-}, [active, resolveToken])
+}, [active, resolveToken, smartShowNumbers])
 
   // ------------------------------------------------------------
 // UI
@@ -1833,7 +1950,7 @@ return (
                 <button
                   key={b.id}
                   className={`btn ${b.id === activeId ? '' : 'opacity-80'}`}
-                  onClick={() => setActiveId(b.id)}
+                  onClick={() => {setActiveId(b.id);setSmartDraft(null);setSmartPicked(null);setSmartEdit(false);setSmartMessage('')}}
                   title={b.title}
                   style={
                     b.id === activeId
@@ -1851,6 +1968,43 @@ return (
             {/* Canvas / Editor */}
             {active ? (
   <div className="p-4">
+    {smartSupported && <div className="mb-4 rounded-xl border border-amber-600/50 bg-neutral-900 p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><div className="font-semibold">Avulsa intelligente · Anti-rivincita</div>
+          <div className="text-xs text-neutral-400">La classifica non cambia. Il numero avulsa segue sempre la coppia.</div></div>
+        <span className={smartWarnings?'text-amber-400 text-sm':'text-emerald-400 text-sm'}>{smartWarnings} rivincite possibili al primo turno</span>
+      </div>
+      <div className="flex flex-wrap gap-4 items-center">
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={smartShowNumbers} onChange={e=>setSmartShowNumbers(e.target.checked)}/> Mostra numeri avulsa</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={smartEdit} disabled={smartLocked} onChange={e=>{setSmartEdit(e.target.checked);setSmartPicked(null)}}/> Sposta squadre (tablet)</label>
+        <button type="button" className="btn" disabled={smartLocked||smartSaving||!!smartDraft} onClick={()=>{
+          if(!active)return
+          const next=smartAvulsaPairs(active.r1,avulsaGroupForSeed)
+          setSmartDraft({bracketId:active.id,rows:next});setSmartEdit(true);setSmartMessage('')
+        }}>Proponi anti-rivincite</button>
+      </div>
+      {smartLocked && <div className="text-sm text-amber-400">Spostamenti bloccati: sono già stati inseriti risultati.</div>}
+      {(smartEdit||smartDraft?.bracketId===active.id) && <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {smartRows.map((m,i)=><div key={i} className="rounded-lg border border-neutral-700 p-2">
+          <div className="text-xs text-neutral-400 mb-1">Incontro {i+1}</div>
+          {(['A','B'] as const).map((side,j)=>{
+            const index=i*2+j,token=m[side],seed=Number(token)
+            return <button key={side} type="button" disabled={!smartEdit||smartLocked||!/^\\d+$/.test(token)}
+              onClick={()=>smartSwap(index)}
+              className={`w-full text-left rounded-lg p-3 my-1 min-h-[54px] border ${smartPicked===index?'border-amber-400 bg-amber-900/30':'border-neutral-700 bg-neutral-800'}`}>
+              <strong>{/^\\d+$/.test(token)?`#${token} · `:''}</strong>{resolveToken(token)}
+              {Number.isInteger(seed)&&avulsaGroupForSeed(seed)?` · Girone ${avulsaGroupForSeed(seed)}`:''}
+            </button>
+          })}
+        </div>)}
+      </div>}
+      {smartEdit && !smartLocked && <p className="text-xs text-neutral-400">Tocca una coppia e poi un'altra per scambiarle. Gli scambi restano in anteprima fino al salvataggio.</p>}
+      {smartDraft?.bracketId===active.id && <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn" disabled={smartSaving||smartLocked} onClick={smartSave}>{smartSaving?'Salvataggio...':'Conferma e salva'}</button>
+        <button type="button" className="btn" disabled={smartSaving} onClick={()=>{setSmartDraft(null);setSmartPicked(null);setSmartEdit(false);setSmartMessage('Modifiche annullate')}}>Annulla</button>
+      </div>}
+      {smartMessage && <div role="status" className="text-sm text-amber-300">{smartMessage}</div>}
+    </div>}
     {active.type === 'ITA' ? (
       <ItaEditor
         bracket={active}
