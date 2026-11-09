@@ -57,7 +57,7 @@ type Bracket = {
   color: string
   type: 'SE' | 'DE' | 'ITA' | 'PSE' | 'PDE'
   nTeams: number
-  source: 'gironi' | 'avulsa' | 'eliminati' | 'gironi+eliminati'| 'avulsa+eliminati'
+  source: 'gironi' | 'avulsa' | 'avulsa-intelligente' | 'eliminati' | 'gironi+eliminati'| 'avulsa+eliminati'
   fromTableId?: string
   prelims?: { A: string; B: string }[] // P1..P4/P8; separate from official R round
   r1: { A: string; B: string }[]   // usato da SE e anche da DE (R1..R4)
@@ -1077,6 +1077,7 @@ const avulsaOps = Array.from(
   switch (active?.source) {
     case 'gironi':            return gironiOps
     case 'avulsa':            return avulsaOps
+    case 'avulsa-intelligente': return avulsaOps
     case 'eliminati':         return elimOps
     case 'gironi+eliminati':  return [...gironiOps, ...elimOps]
 case 'avulsa+eliminati':  return [...avulsaOps, ...elimOps]
@@ -1309,6 +1310,7 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
             <select className="input w-56 h-12 text-base" value={active.source} onChange={(e)=>patchActive({ source: e.target.value as Bracket['source'] })}disabled={locked}>
               <option value="gironi">Gironi (A1, A2, …)</option>
               <option value="avulsa">Classifica avulsa (1, 2, …)</option>
+              <option value="avulsa-intelligente">Avulsa intelligente (anti-rivincite)</option>
               <option value="eliminati">Eliminati da tabellone</option>
               <option value="gironi+eliminati">Gironi + Eliminati</option>
 <option value="avulsa+eliminati">Avulsa + Eliminati</option> 
