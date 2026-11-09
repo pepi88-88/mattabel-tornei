@@ -1771,7 +1771,7 @@ useEffect(() => {
 
   const avulsaGroupForSeed = (seed:number) => avulsa[seed-1]?.letter
   const smartRows = smartDraft?.bracketId===activeId ? smartDraft.rows : (active?.r1 || [])
-  const smartSupported = !!active && (active.type==='SE' || active.type==='DE') && (active.source==='avulsa' || active.source==='avulsa+eliminati')
+  const smartSupported = !!active && (active.type==='SE' || active.type==='DE') && active.source==='avulsa'
   const smartLocked = !!active && (
     Object.values(winnersById[active.id] || {}).some(Boolean) ||
     Object.values(bracketScoresById[active.id] || {}).some(s=>s?.A!=null || s?.B!=null)
@@ -1834,7 +1834,7 @@ const activeForDisplay = useMemo(() => {
     const mapSlot = (s: string) => {
       const token=String(s || '').trim()
       const name=resolveToken(token)
-      return smartShowNumbers && (active.source==='avulsa'||active.source==='avulsa+eliminati') && /^\\d+$/.test(token)
+      return smartShowNumbers && active.source==='avulsa' && /^\\d+$/.test(token)
         ? `#${token} · ${name}` : name
     }
     return {
