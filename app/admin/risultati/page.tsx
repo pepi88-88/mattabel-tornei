@@ -742,48 +742,51 @@ function normalizeBracket(b: any): BracketType {
 // Le teste di serie sul lato A rimangono fisse; si permutano soltanto gli ingressi B.
 // La classifica avulsa e l'insieme delle qualificate non vengono mai alterati.
 function smartAvulsaPairs(rows: {A:string;B:string}[], groupForSeed: (seed:number)=>string | undefined) {
-  const original = rows.map(m=>({...m}))
-  const movable = original.map((m,i)=>/^\\d+$/.test(m.B.trim()) ? i : -1).filter(i=>i>=0)
-  const seeds = movable.map(i=>original[i].B)
-  if (movable.length < 2 || new Set(seeds).size !== seeds.length) return original
-  const penalty = (draft: typeof original) => draft.reduce((total,m) => {
-    const a = Number(m.A), b = Number(m.B)
-    const ga = /^\\d+$/.test(m.A.trim()) ? groupForSeed(a) : undefined
-    const gb = /^\\d+$/.test(m.B.trim()) ? groupForSeed(b) : undefined
-    return total + (ga && gb && ga===gb ? 100000 : 0)
-  },0)
-  // Unisci il minor numero di rivincite al minor spostamento rispetto all'ordine iniziale.
-  const score = (arr:string[]) => {
-    const candidate=original.map(m=>({...m}))
-    movable.forEach((i,j)=>{ candidate[i].B=arr[j] })
-    return penalty(candidate) + arr.reduce((n,seed,i)=>n+Math.abs(Number(seed)-Number(seeds[i])),0)
+  const original=rows.map(m=>({...m}))
+  // Lato A protetto: solo gli avversari B si possono permutare automaticamente.
+  const movable=original.map((m,i)=>/^\d+$/.test(m.B.trim()) ? i : -1).filter(i=>i>=0)
+  const seeds=movable.map(i=>original[i].B)
+  if(movable.length<2 || new Set(seeds).size!==seeds.length)return original
+  const score=(arr:string[])=>{
+    let collisions=0,shift=0
+    movable.forEach((i,j)=>{
+      const a=original[i].A,b=arr[j]
+      const ga=/^\d+$/.test(a)?groupForSeed(Number(a)):undefined
+      const gb=groupForSeed(Number(b))
+      if(ga && gb && ga===gb)collisions++
+      shift+=Math.abs(Number(b)-Number(seeds[j]))
+    })
+    return collisions*100000 + shift
   }
-  let best=[...seeds], bestScore=score(best)
-  if (movable.length <= 8) {
-    const used=new Set<string>(), perm:string[]=[]
-    const search=()=>{
-      if (perm.length===seeds.length) {
-        const current=score(perm)
-        if(current<bestScore){best=[...perm];bestScore=current}
+  let best=[...seeds],bestScore=score(best)
+  if(seeds.length<=8){
+    const used=new Set<string>(),current:string[]=[]
+    const visit=()=>{
+      if(current.length===seeds.length){
+        const val=score(current)
+        if(val<bestScore){best=[...current];bestScore=val}
         return
       }
-      for(const value of seeds){if(used.has(value))continue;used.add(value);perm.push(value);search();perm.pop();used.delete(value)}
+      for(const seed of seeds){
+        if(used.has(seed))continue
+        used.add(seed);current.push(seed);visit();current.pop();used.delete(seed)
+      }
     }
-    search()
-  } else {
-    // Tornei grandi: miglioramenti locali deterministici senza esplosione combinatoria.
+    visit()
+  }else{
     let improved=true
-    while(improved){improved=false
+    while(improved){
+      improved=false
       for(let i=0;i<best.length;i++)for(let j=i+1;j<best.length;j++){
-        const next=[...best];[next[i],next[j]]=[next[j],next[i]]
-        const val=score(next);if(val<bestScore){best=next;bestScore=val;improved=true}
+        const swapped=[...best];[swapped[i],swapped[j]]=[swapped[j],swapped[i]]
+        const val=score(swapped)
+        if(val<bestScore){best=swapped;bestScore=val;improved=true}
       }
     }
   }
-  return original.map((m,i)=>{
-    const index=movable.indexOf(i)
-    return index<0?m:{...m,B:best[index]}
-  })
+  const answer=original.map(m=>({...m}))
+  movable.forEach((i,j)=>{answer[i].B=best[j]})
+  return answer
 }
 
 const keyBr = (tour: string, tId: string) => `brackets:${tour}:${tId}`
@@ -1590,7 +1593,7 @@ useEffect(() => {
   const bracketsRequestRef = useRef(0)
   const [brackets, setBrackets] = useState<BracketType[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [smartDraft, setSmartDraft] = useState<{bracketId:string; rows:{A:string;B:string}[]} | null>(null)
+  const [smartDraft, setSmartDraft] = useState<{bracketId:string; rows:{A:string;B:string}[]; prelims?:{A:string;B:string}[]} | null>(null)
   const [smartShowNumbers, setSmartShowNumbers] = useState(false)
   const [smartEdit, setSmartEdit] = useState(false)
   const [smartPicked, setSmartPicked] = useState<number | null>(null)
@@ -1770,55 +1773,84 @@ useEffect(() => {
   const active = useMemo(() => brackets.find(b => b.id === activeId) || null, [activeId, brackets])
 
   const avulsaGroupForSeed = (seed:number) => avulsa[seed-1]?.letter
-  const smartRows = smartDraft?.bracketId===activeId ? smartDraft.rows : (active?.r1 || [])
-  const smartSupported = !!active && (active.type==='SE' || active.type==='DE') && active.source==='avulsa'
-  const smartLocked = !!active && (
+  const isPreliminarySmart=active?.type==='PSE' || active?.type==='PDE'
+  const smartRows=smartDraft?.bracketId===activeId ? smartDraft.rows : (active?.r1 || [])
+  const smartPrelims=smartDraft?.bracketId===activeId ? (smartDraft.prelims || []) : (active?.prelims || [])
+  const smartSupported=!!active && ['SE','DE','PSE','PDE'].includes(active.type) &&
+    (active.source==='avulsa' || active.source==='avulsa-intelligente')
+  const smartLocked=!!active && (
     Object.values(winnersById[active.id] || {}).some(Boolean) ||
-    Object.values(bracketScoresById[active.id] || {}).some(s=>s?.A!=null || s?.B!=null)
+    Object.values(bracketScoresById[active.id] || {}).some(v=>v?.A!=null || v?.B!=null)
   )
-  const smartWarnings = smartRows.filter(m=>{
-    const a=Number(m.A),b=Number(m.B)
-    return /^\\d+$/.test(m.A) && /^\\d+$/.test(m.B) &&
-      !!avulsaGroupForSeed(a) && avulsaGroupForSeed(a)===avulsaGroupForSeed(b)
+  // Le R dei PSE/PDE hanno un ingresso A dinamico (vincitrice P): non è un posto spostabile.
+  const smartSlots: Array<{section:'prelims'|'r1';index:number;side:'A'|'B';token:string;match:string}> =
+    isPreliminarySmart
+      ? [...smartPrelims.flatMap((m,i)=>[
+          {section:'prelims' as const,index:i,side:'A' as const,token:m.A,match:`P${i+1}`},
+          {section:'prelims' as const,index:i,side:'B' as const,token:m.B,match:`P${i+1}`}
+        ]),...smartRows.map((m,i)=>({
+          section:'r1' as const,index:i,side:'B' as const,token:m.B,match:`R${i+1}`
+        }))]
+      : smartRows.flatMap((m,i)=>[
+          {section:'r1' as const,index:i,side:'A' as const,token:m.A,match:`M${i+1}`},
+          {section:'r1' as const,index:i,side:'B' as const,token:m.B,match:`M${i+1}`}
+        ])
+  const smartWarnings=(isPreliminarySmart?smartPrelims:smartRows).filter(m=>{
+    const ga=/^\d+$/.test(m.A) ? avulsaGroupForSeed(Number(m.A)) : undefined
+    const gb=/^\d+$/.test(m.B) ? avulsaGroupForSeed(Number(m.B)) : undefined
+    return !!ga && ga===gb
   }).length
-  const smartSwap = (index:number) => {
+  const smartSwap=(index:number)=>{
+    if(!active || smartLocked)return
     if(smartPicked===null){setSmartPicked(index);return}
     if(smartPicked===index){setSmartPicked(null);return}
-    const first=Math.floor(smartPicked/2), second=Math.floor(index/2)
-    const firstSide=smartPicked%2===0?'A':'B', secondSide=index%2===0?'A':'B'
-    const draft=smartRows.map(m=>({...m}))
-    const a=draft[first][firstSide], b=draft[second][secondSide]
-    if(!/^\\d+$/.test(a) || !/^\\d+$/.test(b)){setSmartMessage('Puoi scambiare solo le coppie con numero avulsa.');setSmartPicked(null);return}
-    draft[first][firstSide]=b;draft[second][secondSide]=a
-    setSmartDraft({bracketId:active!.id,rows:draft})
+    const first=smartSlots[smartPicked],second=smartSlots[index]
+    if(!first || !second || !/^\d+$/.test(first.token) || !/^\d+$/.test(second.token)){
+      setSmartMessage('Puoi scambiare soltanto coppie con numero avulsa.')
+      setSmartPicked(null);return
+    }
+    const rows=smartRows.map(m=>({...m})),prelims=smartPrelims.map(m=>({...m}))
+    const data={r1:rows,prelims}
+    data[first.section][first.index][first.side]=second.token
+    data[second.section][second.index][second.side]=first.token
+    setSmartDraft({bracketId:active.id,rows,prelims})
     setSmartPicked(null);setSmartMessage('')
   }
-  const smartSave = async () => {
+  const smartPropose=()=>{
+    if(!active || smartLocked)return
+    const rows=smartRows.map(m=>({...m})),prelims=smartPrelims.map(m=>({...m}))
+    const proposal=isPreliminarySmart ? smartAvulsaPairs(prelims,avulsaGroupForSeed) : smartAvulsaPairs(rows,avulsaGroupForSeed)
+    setSmartDraft({bracketId:active.id,rows:isPreliminarySmart?rows:proposal,prelims:isPreliminarySmart?proposal:prelims})
+    setSmartEdit(true);setSmartPicked(null);setSmartMessage('')
+  }
+  const smartSave=async()=>{
     if(!active || !smartDraft || smartDraft.bracketId!==active.id || smartLocked || smartSaving)return
-    const id=active.id, rows=smartDraft.rows.map(m=>({...m}))
+    const id=active.id,rows=smartDraft.rows.map(m=>({...m}))
+    const prelims=smartDraft.prelims?.map(m=>({...m}))
     setSmartSaving(true);setSmartMessage('')
     try{
       const response=await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`,{
         headers:{'x-role':'admin'},cache:'no-store'
       })
       if(!response.ok)throw new Error('Impossibile rileggere il tabellone')
-      const json=await response.json()
-      const previous=json?.state
+      const json=await response.json(),previous=json?.state
       const items=Array.isArray(previous)?previous:previous?.items
       if(!Array.isArray(items))throw new Error('Dati tabellone non validi')
       const current=items.find((b:any)=>b.id===id)
-      if(!current || JSON.stringify(current.r1)!==JSON.stringify(active.r1))throw new Error('Il tabellone è cambiato su un altro dispositivo: ricarica prima di salvare')
+      if(!current || JSON.stringify(current.r1)!==JSON.stringify(active.r1) ||
+         (isPreliminarySmart && JSON.stringify(current.prelims)!==JSON.stringify(active.prelims)))
+        throw new Error('Il tabellone è cambiato su un altro dispositivo: ricarica prima di salvare')
       if(Object.values((Array.isArray(previous)?{}:previous?.winnersById?.[id])||{}).some(Boolean) ||
-        Object.values((Array.isArray(previous)?{}:previous?.bracketScoresById?.[id])||{}).some((v:any)=>v?.A!=null || v?.B!=null))
+        Object.values((Array.isArray(previous)?{}:previous?.bracketScoresById?.[id])||{}).some((v:any)=>v?.A!=null||v?.B!=null))
         throw new Error('Il tabellone contiene già risultati')
-      const nextItems=items.map((b:any)=>b.id===id?{...b,r1:rows}:b)
+      const nextItems=items.map((b:any)=>b.id===id?{...b,r1:rows,...(isPreliminarySmart?{prelims}:{} )}:b)
       const next=Array.isArray(previous)?{items:nextItems}:{...previous,items:nextItems}
       const saved=await fetch('/api/brackets/state',{
         method:'PUT',headers:{'Content-Type':'application/json','x-role':'admin'},
         body:JSON.stringify({tournament_id:tId,state:next})
       })
       if(!saved.ok)throw new Error('Salvataggio non riuscito')
-      setBrackets(prev=>prev.map(b=>b.id===id?{...b,r1:rows}:b))
+      setBrackets(prev=>prev.map(b=>b.id===id?{...b,r1:rows,...(isPreliminarySmart?{prelims}:{} )}:b))
       setSmartDraft(null);setSmartEdit(false);setSmartPicked(null)
       setSmartMessage('Accoppiamenti salvati.')
     }catch(e:any){setSmartMessage(e?.message||'Salvataggio non riuscito')}
@@ -1834,7 +1866,7 @@ const activeForDisplay = useMemo(() => {
     const mapSlot = (s: string) => {
       const token=String(s || '').trim()
       const name=resolveToken(token)
-      return smartShowNumbers && active.source==='avulsa' && /^\\d+$/.test(token)
+      return smartShowNumbers && (active.source==='avulsa' || active.source==='avulsa-intelligente') && /^\\d+$/.test(token)
         ? `#${token} · ${name}` : name
     }
     return {
@@ -1980,23 +2012,26 @@ return (
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={smartEdit} disabled={smartLocked} onChange={e=>{setSmartEdit(e.target.checked);setSmartPicked(null)}}/> Sposta squadre (tablet)</label>
         <button type="button" className="btn" disabled={smartLocked||smartSaving||!!smartDraft} onClick={()=>{
           if(!active)return
-          const next=smartAvulsaPairs(active.r1,avulsaGroupForSeed)
-          setSmartDraft({bracketId:active.id,rows:next});setSmartEdit(true);setSmartMessage('')
+          smartPropose()
         }}>Proponi anti-rivincite</button>
       </div>
       {smartLocked && <div className="text-sm text-amber-400">Spostamenti bloccati: sono già stati inseriti risultati.</div>}
       {(smartEdit||smartDraft?.bracketId===active.id) && <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {smartRows.map((m,i)=><div key={i} className="rounded-lg border border-neutral-700 p-2">
-          <div className="text-xs text-neutral-400 mb-1">Incontro {i+1}</div>
-          {(['A','B'] as const).map((side,j)=>{
-            const index=i*2+j,token=m[side],seed=Number(token)
-            return <button key={side} type="button" disabled={!smartEdit||smartLocked||!/^\\d+$/.test(token)}
+        {(isPreliminarySmart ? [
+          ...smartPrelims.map((_,i)=>({match:`P${i+1}`,index:i,section:'prelims' as const})),
+          ...smartRows.map((_,i)=>({match:`R${i+1}`,index:i,section:'r1' as const}))
+        ] : smartRows.map((_,i)=>({match:`M${i+1}`,index:i,section:'r1' as const}))).map(row=><div key={row.match} className="rounded-lg border border-neutral-700 p-2">
+          <div className="text-xs text-neutral-400 mb-1">Incontro {row.match}</div>
+          {smartSlots.map((entry,index)=>({entry,index})).filter(({entry})=>entry.match===row.match).map(({entry,index})=>{
+            const token=entry.token,seed=Number(token)
+            return <button key={entry.side} type="button" disabled={!smartEdit||smartLocked||!/^\d+$/.test(token)}
               onClick={()=>smartSwap(index)}
               className={`w-full text-left rounded-lg p-3 my-1 min-h-[54px] border ${smartPicked===index?'border-amber-400 bg-amber-900/30':'border-neutral-700 bg-neutral-800'}`}>
-              <strong>{/^\\d+$/.test(token)?`#${token} · `:''}</strong>{resolveToken(token)}
+              <strong>{/^\d+$/.test(token)?`#${token} · `:''}</strong>{resolveToken(token)}
               {Number.isInteger(seed)&&avulsaGroupForSeed(seed)?` · Girone ${avulsaGroupForSeed(seed)}`:''}
             </button>
           })}
+          {isPreliminarySmart && row.section==='r1' && <div className="text-xs text-neutral-500 mt-1">Altra coppia: vincitrice del preliminare {row.match.replace('R','P')}</div>}
         </div>)}
       </div>}
       {smartEdit && !smartLocked && <p className="text-xs text-neutral-400">Tocca una coppia e poi un'altra per scambiarle. Gli scambi restano in anteprima fino al salvataggio.</p>}
@@ -2020,7 +2055,10 @@ return (
     ) : (active.type === 'PSE' || active.type === 'PDE') ? (
       <PreliminaryBracket
         title={active.title} color={active.color} type={active.type} nTeams={active.nTeams}
-        prelims={active.prelims} r1={active.r1} resolve={resolveToken}
+        prelims={smartDraft?.bracketId===active.id ? smartPrelims : active.prelims} r1={smartRows} resolve={(token)=>{
+          const name=resolveToken(token)
+          return smartShowNumbers && (active.source==='avulsa'||active.source==='avulsa-intelligente') && /^\d+$/.test(token) ? `#${token} · ${name}` : name
+        }}
         editable
         winners={winnersById[active.id] || {}}
         onWinner={(code,side) => setWinnersById(prev => ({
