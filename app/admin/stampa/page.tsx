@@ -18,8 +18,8 @@ export default function StampaPage(){
  const [state,setState]=useState<State|null>(null)
  const [error,setError]=useState('')
  const [mode,setMode]=useState<'all'|'groups'|'schedule'>('all')
- useEffect(()=>{if(!tourId&&tours.length)setTourId(tours[0].id)},[tours,tourId])
- useEffect(()=>{setTId(old=>tappe.some((t:any)=>t.id===old)?old:(tappe[0]?.id||''))},[tappeData,tourId])
+ useEffect(()=>{if(!tourId&&tours.length){const saved=localStorage.getItem('selectedTourId');setTourId(tours.find((t:any)=>t.id===saved)?.id||tours[0].id)}},[tours,tourId])
+ useEffect(()=>{if(!tappeData)return;setTId(old=>{const saved=localStorage.getItem('selectedTournamentId');return tappe.some((t:any)=>t.id===old)?old:(tappe.find((t:any)=>t.id===saved)?.id||tappe[0]?.id||'')})},[tappeData,tourId])
  useEffect(()=>{let cancelled=false;setState(null);setError('');if(!tId)return;fetch('/api/groups/state?tournament_id='+encodeURIComponent(tId),{headers:{'x-role':'admin'},cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Impossibile leggere i gironi');return r.json()}).then(j=>{if(!cancelled)setState(j.state||null)}).catch(e=>{if(!cancelled)setError(e.message)});return()=>{cancelled=true}},[tId])
  const letters=LETTERS.slice(0,Math.max(0,Math.min(16,state?.groupsCount||0)))
  const label=(L:string,n:number)=>{const id=state?.assign?.[L+'-'+n];return id?(state?.labels?.[id]||'Slot '+n):'Slot '+n}
@@ -107,8 +107,8 @@ export default function StampaPage(){
  }
  return <div className="p-4 space-y-5">
   <div className="card p-4 flex flex-wrap items-end gap-3 print:hidden">
-   <label className="text-sm">Tour<select className="input block mt-1" value={tourId} onChange={e=>{setTourId(e.target.value);setTId('')}}>{tours.map((t:any)=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
-   <label className="text-sm">Tappa<select className="input block mt-1" value={tId} onChange={e=>setTId(e.target.value)}>{tappe.map((t:any)=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+   <label className="text-sm">Tour<select className="input block mt-1" value={tourId} onChange={e=>{localStorage.setItem('selectedTourId',e.target.value);localStorage.removeItem('selectedTournamentId');setTourId(e.target.value);setTId('')}}>{tours.map((t:any)=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+   <label className="text-sm">Tappa<select className="input block mt-1" value={tId} onChange={e=>{localStorage.setItem('selectedTournamentId',e.target.value);setTId(e.target.value)}}>{tappe.map((t:any)=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
    <div className="flex flex-wrap gap-2 items-center">
     {([['all','Completa'],['groups','Solo gironi'],['schedule','Solo calendari']] as const).map(([v,t])=><button type="button" key={v} onClick={()=>setMode(v)} className={'px-3 py-2 rounded border text-sm '+(mode===v?'bg-blue-700 border-amber-500 text-white':'bg-neutral-900 border-neutral-700 text-neutral-200')}>{t}</button>)}
    </div>

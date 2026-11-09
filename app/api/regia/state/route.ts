@@ -26,11 +26,12 @@ type Bracket = {
   id: string
   title: string
   color: string
-  type: 'SE' | 'DE' | 'ITA'
+  type: 'SE' | 'DE' | 'ITA' | 'PSE' | 'PDE'
   nTeams: number
   source: 'gironi' | 'avulsa' | 'eliminati' | 'gironi+eliminati' | 'avulsa+eliminati'
   fromTableId?: string
   r1: { A: string; B: string }[]
+  prelims?: { A: string; B: string }[]
   slots: string[]
 }
 
@@ -40,6 +41,8 @@ type BracketState = {
   items?: Bracket[]
   winnersById?: Record<string, WinnerMap>
   itaScoresById?: Record<string, any[]>
+  courtsByBracket?: Record<string, Record<string,string>>
+  bracketScoresById?: Record<string, Record<string, { A: number | null; B: number | null }>>
   regia?: {
     items?: Record<string, RegiaItemState>
   }
@@ -105,7 +108,7 @@ function nextPow2(n: number) {
 
 function normalizeBracket(b: any): Bracket {
   const n = Math.max(2, Number(b?.nTeams) || 8)
-  const r1 = Array.from({ length: nextPow2(n) / 2 }, (_, i) => ({
+  const r1 = Array.from({ length: b?.type === 'PSE' || b?.type === 'PDE' ? (b?.type === 'PSE' && n === 24 ? 8 : 4) : nextPow2(n) / 2 }, (_, i) => ({
     A: b?.r1?.[i]?.A ?? '-',
     B: b?.r1?.[i]?.B ?? '-',
   }))
@@ -119,6 +122,7 @@ function normalizeBracket(b: any): Bracket {
     source: (b?.source as Bracket['source']) || 'gironi',
     fromTableId: b?.fromTableId || undefined,
     r1,
+    prelims: b?.type === 'PSE' || b?.type === 'PDE' ? Array.from({length:b?.type === 'PSE' && n === 24 ? 8 : 4}, (_,i)=>({A:b?.prelims?.[i]?.A??'-',B:b?.prelims?.[i]?.B??'-'})) : undefined,
     slots,
   }
 }
@@ -644,13 +648,20 @@ if (prefix === 'M') prefix = 'R'
     const code = `${prefix}${num}`
 
     const labelsForCode = (code: string): { A: string; B: string } | null => {
+      if (/^P\d+$/i.test(code)) {
+        const idx = Number(code.slice(1)) - 1
+        const pair = br.prelims?.[idx]
+        if (!pair) return null
+        return { A: resolveNested(pair.A), B: resolveNested(pair.B) }
+      }
       if (/^R\d+$/i.test(code)) {
         const idx = Number(code.slice(1)) - 1
         const pair = br.r1?.[idx]
         if (!pair) return null
+        const fromPrelim = br.type === 'PSE' || br.type === 'PDE'
         return {
-          A: baseResolve(String(pair.A || '').trim()),
-          B: baseResolve(String(pair.B || '').trim()),
+          A: fromPrelim ? winnerOfCode(`P${idx + 1}`) : resolveNested(String(pair.A || '').trim()),
+          B: resolveNested(String(pair.B || '').trim()),
         }
       }
 
@@ -809,11 +820,22 @@ if (code === 'THIRD') {
     return undefined
   }
 
-  return (token: string): string => {
-    const ext = externalResolve(token)
-    if (ext) return baseResolve(ext)
-    return baseResolve(token)
+  // Resolve a chain of elimination references (e.g. Bronze <- Silver <- Gold)
+  // while preventing accidental circular bracket sources from recursing forever.
+  const resolvingNested = new Set<string>()
+  const resolveNested = (token: string): string => {
+    const raw = String(token || '').trim()
+    if (!/^(Perdente|Loser|Vincente|Winner)\s+/i.test(raw)) return baseResolve(raw)
+    if (resolvingNested.has(raw)) return baseResolve(raw)
+    resolvingNested.add(raw)
+    try {
+      const result = externalResolve(raw)
+      return baseResolve(result || raw)
+    } finally {
+      resolvingNested.delete(raw)
+    }
   }
+  return (token: string): string => resolveNested(token)
 }
 
 function phaseLabelSE(round: number, totalRounds: number, idx: number, title: string) {
@@ -1125,6 +1147,81 @@ teamB: labels.b || '—',
   })
 }
 
+// PSE/PDE: preliminari separati, turno R ufficiale e per PDE ramo Losers
+// coerente con il tabellone Risultati. I perdenti P non vanno nel ramo Losers.
+function buildPreliminaryRows(
+  bracket: Bracket,
+  allBrackets: Bracket[],
+  gs: GroupState,
+  winnersById: Record<string, WinnerMap>,
+  regiaItems: Record<string, RegiaItemState>,
+  courts: Record<string, string>,
+): RegiaRow[] {
+  const resolve = makeBracketResolver(gs, allBrackets, winnersById)
+  const w = winnersById[bracket.id] || {}
+  const count = bracket.type === 'PSE' && bracket.nTeams === 24 ? 8 : 4
+  type Match = {code: string; A: string; B: string; phase: string}
+  const games: Match[] = []
+  const win = (m: Match) => w[m.code] === 'A' ? m.A : w[m.code] === 'B' ? m.B : `Vincente ${m.code}`
+  const lose = (m: Match) => w[m.code] === 'A' ? m.B : w[m.code] === 'B' ? m.A : `Perdente ${m.code}`
+  const p = Array.from({length:count},(_,i)=>{
+    const m=bracket.prelims?.[i] || {A:'-',B:'-'}
+    return {code:`P${i+1}`, A:resolve(m.A), B:resolve(m.B),phase:`Preliminari ${bracket.title}`}
+  })
+  games.push(...p)
+  const r = Array.from({length:count},(_,i)=>{
+    const m=bracket.r1?.[i]||{A:'-',B:'-'}
+    return {code:`R${i+1}`,A:win(p[i]),B:resolve(m.B),phase:`Turno principale ${bracket.title}`}
+  })
+  games.push(...r)
+  if (bracket.type === 'PDE') {
+    const z = [
+      {code:'Z1',A:win(r[0]),B:win(r[1]),phase:`Semifinali vincenti ${bracket.title}`},
+      {code:'Z2',A:win(r[2]),B:win(r[3]),phase:`Semifinali vincenti ${bracket.title}`},
+    ]
+    const x = [
+      {code:'X1',A:lose(r[0]),B:lose(r[1]),phase:`Losers ${bracket.title}`},
+      {code:'X2',A:lose(r[2]),B:lose(r[3]),phase:`Losers ${bracket.title}`},
+    ]
+    const wGames = [
+      {code:'W1',A:lose(z[0]),B:win(x[0]),phase:`Losers ${bracket.title}`},
+      {code:'W2',A:lose(z[1]),B:win(x[1]),phase:`Losers ${bracket.title}`},
+    ]
+    const co = [
+      {code:'CO1',A:win(z[0]),B:win(wGames[1]),phase:`Semifinali ${bracket.title}`},
+      {code:'CO2',A:win(z[1]),B:win(wGames[0]),phase:`Semifinali ${bracket.title}`},
+    ]
+    games.push(...z,...x,...wGames,...co)
+    games.push({code:'F',A:win(co[0]),B:win(co[1]),phase:`Finale ${bracket.title}`})
+    games.push({code:'THIRD',A:lose(co[0]),B:lose(co[1]),phase:`3° / 4° ${bracket.title}`})
+  } else {
+    let current=r
+    let level=0
+    while(current.length>1) {
+      const next=Array.from({length:current.length/2},(_,i)=>{
+        const a=current[i*2],b=current[i*2+1]
+        const code=current.length===2?`Y${i+1}`:current.length===4?`Z${i+1}`:`T${level+1}_${i+1}`
+        return {code,A:win(a),B:win(b),phase:`${current.length===2?'Finale':current.length===4?'Semifinali':'Quarti'} ${bracket.title}`}
+      })
+      games.push(...next)
+      current=next
+      level++
+    }
+  }
+  return games.map(m=>{
+    const key=`bracket:${bracket.id}:${m.code}`
+    const state=regiaItems[key] || {court:null,sequence:null,status:'waiting' as RegiaStatus}
+    const fromEditor = courts[m.code]
+    const editorCourt = /^\\d+$/.test(String(fromEditor ?? '')) && Number(fromEditor)>0 ? Number(fromEditor) : null
+    return {
+      key, sourceType:'bracket' as const,tournament_id:'',
+      phase:m.phase,teamA:m.A || '—',teamB:m.B || '—',
+      scheduledTime:state.scheduledTimeManual || '',
+      court:state.court ?? editorCourt,sequence:state.sequence ?? null,status:state.status ?? 'waiting',
+    }
+  })
+}
+
 function sortRows(rows: RegiaRow[]) {
   return [...rows].sort((a, b) => {
     // PRIORITÀ STATUS
@@ -1183,6 +1280,16 @@ function applyRowsBackToStates(rows: RegiaRow[], groupState: GroupState, bracket
 
   groupState.regia = { items: gMap }
   bracketState.regia = { items: bMap }
+  // Keep the results editor's field numbers in sync with Regia for PSE/PDE.
+  const byId = bracketState.courtsByBracket || {}
+  rows.filter(row => row.sourceType === 'bracket').forEach(row => {
+    const match = row.key.match(/^bracket:([^:]+):(.+)$/)
+    if (!match) return
+    const bracket = bracketState.items?.find(b => b.id === match[1])
+    if (!bracket || (bracket.type !== 'PSE' && bracket.type !== 'PDE')) return
+    byId[bracket.id] = { ...(byId[bracket.id] || {}), [match[2]]: row.court == null ? '' : String(row.court) }
+  })
+  bracketState.courtsByBracket = byId
 }
 
 async function loadStates(s: ReturnType<typeof supabaseAdmin>, tournament_id: string) {
@@ -1202,6 +1309,8 @@ async function loadStates(s: ReturnType<typeof supabaseAdmin>, tournament_id: st
         items: Array.isArray(rawBracketState?.items) ? rawBracketState.items.map(normalizeBracket) : [],
         winnersById: rawBracketState?.winnersById || {},
         itaScoresById: rawBracketState?.itaScoresById || {},
+        courtsByBracket: rawBracketState?.courtsByBracket || {},
+        bracketScoresById: rawBracketState?.bracketScoresById || {},
         regia: rawBracketState?.regia || { items: {} },
       }
 
@@ -1279,6 +1388,7 @@ rows.push({
     let list: RegiaRow[] = []
     if (b.type === 'SE') list = buildSERows(b, brackets, groupState, winnersById, bracketRegia)
     else if (b.type === 'DE') list = buildDERows(b, brackets, groupState, winnersById, bracketRegia)
+    else if (b.type === 'PSE' || b.type === 'PDE') list = buildPreliminaryRows(b, brackets, groupState, winnersById, bracketRegia, bracketState?.courtsByBracket?.[b.id] || {})
     else list = []
 
     list.forEach((r) => {
@@ -1310,6 +1420,8 @@ async function persistStates(
       items: bracketState.items || [],
       winnersById: bracketState.winnersById || {},
       itaScoresById: bracketState.itaScoresById || {},
+      courtsByBracket: bracketState.courtsByBracket || {},
+      bracketScoresById: bracketState.bracketScoresById || {},
       regia: bracketState.regia || { items: {} },
     },
     is_public: Boolean(bData?.is_public ?? false),

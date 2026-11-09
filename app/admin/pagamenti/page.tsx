@@ -15,6 +15,7 @@ export default function PagamentiPage() {
   function onPickTour(id: string) {
     setTourId(id)
     localStorage.setItem('selectedTourId', id)
+    localStorage.removeItem('selectedTournamentId')
     setTId('')
   }
 
@@ -47,7 +48,7 @@ export default function PagamentiPage() {
 
   // se la tappa salvata è chiusa/non più visibile → reset
   useEffect(() => {
-    if (!tId) return
+    if (!tId || !taps) return
     const stillVisible = tappeVisibili.some(t => t.id === tId)
     if (!stillVisible) {
       setTId('')

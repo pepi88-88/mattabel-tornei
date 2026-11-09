@@ -9,6 +9,7 @@
 ============================================================================ */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import PreliminaryBracket from '../../../components/PreliminaryBracket'
 
 /* =========================
    COSTANTI UI
@@ -54,22 +55,24 @@ type Bracket = {
   id: string
   title: string
   color: string
-  type: 'SE' | 'DE' | 'ITA'
+  type: 'SE' | 'DE' | 'ITA' | 'PSE' | 'PDE'
   nTeams: number
   source: 'gironi' | 'avulsa' | 'eliminati' | 'gironi+eliminati'| 'avulsa+eliminati'
   fromTableId?: string
+  prelims?: { A: string; B: string }[] // P1..P4/P8; separate from official R round
   r1: { A: string; B: string }[]   // usato da SE e anche da DE (R1..R4)
   slots: string[]                   // usato da ITA
 }
 const keyLS = (tour: string, tappa: string) => `brackets:${tour}:${tappa}`
 function normalizeBracket(b: any): Bracket {
   const nTeams = Math.max(2, Number(b?.nTeams) || 8)
-  const needR1 = nextPow2(nTeams) / 2
+  const needR1 = b?.type === 'PSE' || b?.type === 'PDE' ? (nTeams === 24 && b?.type === 'PSE' ? 8 : 4) : nextPow2(nTeams) / 2
   const r1 = Array.from({ length: needR1 }, (_, i) => ({
     A: b?.r1?.[i]?.A ?? '-',
     B: b?.r1?.[i]?.B ?? '-',
   }))
   const slots = Array.from({ length: nextPow2(nTeams) }, (_, i) => b?.slots?.[i] ?? '')
+  const prelims = (b?.type === 'PSE' || b?.type === 'PDE') ? Array.from({length: b?.type === 'PSE' && nTeams === 24 ? 8 : 4}, (_, i) => ({A: b?.prelims?.[i]?.A ?? '-', B: b?.prelims?.[i]?.B ?? '-'})) : undefined
   return {
     id: String(b?.id || uid()),
     title: String(b?.title || 'TABELLONE 1'),
@@ -79,6 +82,7 @@ function normalizeBracket(b: any): Bracket {
     source: (b?.source as Bracket['source']) || 'gironi',
     fromTableId: b?.fromTableId || undefined,
     r1,
+    prelims,
     slots,
   }
 }
@@ -688,20 +692,25 @@ export default function CreaTabellonePage() {
   const [tId, setTId]       = useState<string>('')
 const [loadedRemote, setLoadedRemote] = useState(false)
 
-  useEffect(() => { (async()=>{ const ts = await fetchTours(); setTours(ts); if (!tourId && ts[0]?.id) setTourId(ts[0].id) })() }, [])
+  useEffect(() => { (async()=>{
+    const ts = await fetchTours()
+    setTours(ts)
+    const saved = localStorage.getItem('selectedTourId')
+    setTourId(ts.find((t:any)=>t.id===saved)?.id || ts[0]?.id || '')
+  })() }, [])
   useEffect(() => {
-  (async () => {
-    if (!tourId) { setTappe([]); setTId(''); return }
-    const { items } = await fetchTappe(tourId)
-    const vis = (items || []).filter((x: any) => String(x?.status || '').toLowerCase() !== 'closed')
-    setTappe(vis)
-    if (!tId && vis[0]?.id) setTId(vis[0].id)
-  })()
-}, [tourId])
-
-useEffect(() => {
-  if (tId && !tappe.some(t => t.id === tId)) setTId('')
-}, [tappe, tId])
+    let cancelled = false
+    if (!tourId) { setTappe([]); return }
+    ;(async () => {
+      const { items } = await fetchTappe(tourId)
+      if(cancelled)return
+      const vis = (items || []).filter((x: any) => String(x?.status || '').toLowerCase() !== 'closed')
+      setTappe(vis)
+      const saved=localStorage.getItem('selectedTournamentId')
+      setTId(old => vis.some((t:any)=>t.id===old) ? old : (vis.find((t:any)=>t.id===saved)?.id || vis[0]?.id || ''))
+    })()
+    return ()=>{cancelled=true}
+  }, [tourId])
 
   /* 2) Meta/iscritti + nominativi */
   const [groups, setGroups] = useState<GroupMeta[]>([])
@@ -795,11 +804,11 @@ function migrateParentsByTitle(brs: Bracket[]): Bracket[] {
     patchActive({ type: newType })
     return
   }
-  const nn    = clamp(active.nTeams, 2, 16)
-  const needR1 = nextPow2(nn) / 2
+  const nn    = newType === 'PSE' ? 12 : newType === 'PDE' ? 12 : clamp(active.nTeams, 2, 16)
+  const needR1 = newType === 'PSE' || newType === 'PDE' ? 4 : nextPow2(nn) / 2
   const clearedR1   = Array.from({ length: needR1 }, () => ({ A: '-', B: '-' }))
   const clearedSlot = Array.from({ length: nextPow2(nn) }, () => '')
-  patchActive({ type: newType, r1: clearedR1, slots: clearedSlot })
+  patchActive({ type: newType, nTeams: nn, prelims: newType === 'PSE' || newType === 'PDE' ? Array.from({length:4},()=>({A:'-',B:'-'})) : undefined, r1: clearedR1, slots: clearedSlot })
 }
 
 
@@ -931,8 +940,20 @@ useEffect(() => {
       const prev = (js?.state || {}) as any
 
       const next = {
+        ...(Array.isArray(prev) ? {} : prev),
         items: brackets,
-        winnersById: prev?.winnersById || {},
+        winnersById: Object.fromEntries(Object.entries({...Object.fromEntries(brackets.map(b => [b.id, {}])), ...(prev?.winnersById || {})}).map(([id, values]) => {
+          const b = brackets.find(x => x.id === id)
+          if (!b || (b.type !== 'PSE' && b.type !== 'PDE')) return [id, values]
+          const merged = {...(values as Record<string, 'A' | 'B' | undefined>)}
+          for (let i = 0; i < (b.prelims?.length || 0); i++) {
+            const code = `P${i+1}`
+            const local = winnersById[id]?.[code]
+            if (local === 'A' || local === 'B') merged[code] = local
+            else delete merged[code] // Allow clearing a preliminary winner
+          }
+          return [id, merged]
+        })),
         itaScoresById: prev?.itaScoresById || {},
         isPublic: typeof prev?.isPublic === 'boolean' ? prev.isPublic : false,
         regia: prev?.regia ?? { items: {} }, // <-- IMPORTANTE: preserva la regia
@@ -963,7 +984,7 @@ useEffect(() => {
   }, 300)
 
   return () => clearTimeout(timer)
-}, [tId, loadedRemote, brackets])
+}, [tId, loadedRemote, brackets, winnersById])
 
 // lettere da usare (come Sorgenti) + limitazione con groupsCount
 const lettersReal = useMemo(() => {
@@ -1044,8 +1065,14 @@ const avulsaOps = Array.from(
 )
   // Eliminati
   const loser = active?.fromTableId ? brackets.find(b => b.id === active.fromTableId) : null
-  const mCount = loser ? nextPow2(loser.nTeams) / 2 : 0
-  const elimOps = loser ? Array.from({ length: mCount }, (_, i) => `Perdente ${loser.title.toUpperCase()} M${i + 1}`) : []
+  // I preliminari PSE/PDE liberano esclusivamente le loro perdenti verso
+  // la categoria seguente. Le perdenti R del PDE restano nel ramo Losers.
+  const isPreliminary = loser?.type === 'PSE' || loser?.type === 'PDE'
+  const mCount = loser && !isPreliminary ? nextPow2(loser.nTeams) / 2 : 0
+  const elimOps = loser ? [
+    ...(isPreliminary ? Array.from({ length: loser.prelims?.length ?? (loser.nTeams === 24 ? 8 : 4) }, (_, i) => `Perdente ${loser.title.toUpperCase()} P${i + 1}`) : []),
+    ...Array.from({ length: mCount }, (_, i) => `Perdente ${loser.title.toUpperCase()} M${i + 1}`),
+  ] : []
 
   switch (active?.source) {
     case 'gironi':            return gironiOps
@@ -1064,6 +1091,7 @@ case 'avulsa+eliminati':  return [...avulsaOps, ...elimOps]
     const add = (code?:string) => { if (!code) return; if (code==='-'||code==='BYE') return; s.add(code) }
     for (const b of brackets) {
       for (const r of b.r1 ?? []) { add(r?.A); add(r?.B) }
+      for (const r of b.prelims ?? []) { add(r?.A); add(r?.B) }
       for (const c of b.slots ?? []) add(c)
     }
     return s
@@ -1152,7 +1180,7 @@ return (
       <select
         className="input w-56 h-12 text-base"
         value={tourId}
-        onChange={e=>{ setTourId(e.target.value); setTId('') }}
+        onChange={e=>{ localStorage.setItem('selectedTourId',e.target.value);localStorage.removeItem('selectedTournamentId');setTourId(e.target.value);setTId('');setTappe([]) }}
       >
         {tours.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
       </select>
@@ -1164,7 +1192,7 @@ return (
       <select
         className="input w-56 h-12 text-base"
         value={tId}
-        onChange={e=>setTId(e.target.value)}
+        onChange={e=>{localStorage.setItem('selectedTournamentId',e.target.value);setTId(e.target.value)}}
       >
         {tappe.map(t => (
           <option key={t.id} value={t.id}>
@@ -1267,12 +1295,14 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
   <option value="SE">Singola eliminazione</option>
   <option value="ITA">Girone all’italiana</option>
   <option value="DE">Doppia eliminazione (manuale)</option>
+  <option value="PSE">PSE — Pre-turno + singola eliminazione</option>
+  <option value="PDE">PDE 8+4 — Pre-turno + doppia eliminazione</option>
 </select>
 
           </div>
           <div>
             <div className="text-xs text-neutral-400 mb-1"># Squadre</div>
-            <input className="input w-28 h-12 text-base" type="number" min={2} max={16} step={1} value={active.nTeams} onChange={(e)=>ensureR1For(Math.max(2, Number(e.target.value)||2))} disabled={locked}/>
+            {active.type === "PSE" ? <select className="input w-36 h-12" value={active.nTeams} disabled={locked} onChange={e => {const n=Number(e.target.value); patchActive({nTeams:n,prelims:Array.from({length:n===24?8:4},()=>({A:"-",B:"-"})),r1:Array.from({length:n===24?8:4},()=>({A:"-",B:"-"}))})}}><option value={12}>8+4 (12)</option><option value={24}>16+8 (24)</option></select> : active.type === "PDE" ? <input className="input w-28 h-12" value="12 (8+4)" disabled readOnly/> : <input className="input w-28 h-12 text-base" type="number" min={2} max={16} step={1} value={active.nTeams} onChange={(e)=>ensureR1For(Math.max(2, Number(e.target.value)||2))} disabled={locked}/>}
           </div>
           <div>
             <div className="text-xs text-neutral-400 mb-1">Provenienza</div>
@@ -1332,6 +1362,34 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
         </div>
       </div>
 
+      {(active.type === 'PSE' || active.type === 'PDE') && <PreliminaryBracket
+        title={active.title} color={active.color} type={active.type} nTeams={active.nTeams}
+        prelims={active.prelims} r1={active.r1} winners={winnersById[active.id] || {}}
+        editable={!locked}
+        slotOptions={slotOptions}
+        isSlotTaken={(value,code,side) => {
+          if (!value || value === '-' || value === 'BYE') return false
+          const match = code.match(/^([PR])(\d+)$/)
+          if (!match) return false
+          const index = Number(match[2])-1
+          const current = match[1] === 'P'
+            ? active.prelims?.[index]?.[side]
+            : active.r1?.[index]?.[side]
+          return value !== current && usedCodesGlobal.has(value)
+        }}
+        onSlotChange={(code,side,value) => {
+          const match = code.match(/^([PR])(\d+)$/)
+          if (!match) return
+          const index = Number(match[2])-1
+          if (match[1] === 'P') {
+            const prelims = Array.from({length:active.nTeams === 24 ? 8 : 4}, (_,i)=>({
+              A:active.prelims?.[i]?.A??'-', B:active.prelims?.[i]?.B??'-'
+            }))
+            prelims[index] = {...prelims[index],[side]:value}
+            patchActive({prelims})
+          } else if (side === 'B') setSlot(index,1,value)
+        }}
+      />}
       {/* === SE === */}
       {active.type === 'SE' && (
         <div className="relative card overflow-x-auto overflow-y-hidden" style={{ height: seLayout.height + 120 }}>

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import BracketCanvas, { type Bracket as BracketType, type WinnerMap } from '../../../../../components/BracketCanvas'
+import PreliminaryBracket from '../../../../../components/PreliminaryBracket'
 
 /* ============== Helpers comuni ============== */
 
@@ -26,6 +27,7 @@ function normalizeBracket(b: any): BracketType {
     source: (b?.source as BracketType['source']) || 'gironi',
     fromTableId: b?.fromTableId || undefined,
     r1,
+    prelims: b?.prelims,
     slots,
   }
 }
@@ -546,41 +548,38 @@ function buildAvulsaPublic(pub?: PublicPersist | null): string[] {
 
 /* ============== External “Vincente/Perdente …” ============== */
 function makeExternalResolver(
-  brackets: Array<{ id: string; title: string; r1?: { A: string; B: string }[] }>,
-  winnersById: Record<string, Record<string, 'A' | 'B' | undefined>>
+  brackets: Array<{ id:string; title:string; type?:string; r1?:{A:string;B:string}[]; prelims?:{A:string;B:string}[] }>,
+  winnersById: Record<string, Record<string,'A'|'B'|undefined>>,
 ) {
-  const byTitle = new Map(brackets.map(b => [b.title.toUpperCase(), b]))
-  return (token: string): string | undefined => {
-    if (!token) return undefined
-    const t = token.trim()
-
-    // es. "Vincente Tabellone 1 R2" | "Perdente Main Draw R3" ecc.
-    const m = t.match(/^(Perdente|Loser|Vincente|Winner)\s+(.+?)\s+([A-Za-z])(\d+)$/i)
+  const byTitle = new Map(brackets.map(b => [b.title.trim().toUpperCase(), b]))
+  const resolveOne = (token: string, seen: Set<string>): string | undefined => {
+    const raw = String(token || '').trim()
+    if (seen.has(raw)) return undefined
+    seen.add(raw)
+    const m=String(token || '').trim().match(/^(Perdente|Loser|Vincente|Winner)\s+(.+?)\s+([A-Za-z])?(\d+)$/i)
     if (!m) return undefined
-
-    const kind = m[1].toLowerCase()
-    const titleU = m[2].toUpperCase()
-    let letter = m[3].toUpperCase()
-    const num = Number(m[4])
-
-    const br = byTitle.get(titleU)
-    if (!br || !Number.isFinite(num) || num < 1) return undefined
-    if (letter === 'M') letter = 'R'   // compat vecchia “M” per “R”
-    if (letter !== 'R') return undefined
-
-    const pair = br.r1?.[num - 1]
+    const br=byTitle.get(m[2].trim().toUpperCase())
+    if (!br) return undefined
+    let letter=String(m[3] || 'R').toUpperCase()
+    if (['M','G','S','F'].includes(letter)) letter='R'
+    if (letter!=='P' && letter!=='R') return undefined
+    const idx=Number(m[4])-1
+    const pair=letter==='P' ? br.prelims?.[idx] : br.r1?.[idx]
     if (!pair) return undefined
-
-    const side = (winnersById[br.id] || {})[`R${num}`] // 'A' | 'B'
-    if (!side) return undefined
-
-    if (kind === 'vincente' || kind === 'winner') return side === 'A' ? pair.A : pair.B
-    if (kind === 'perdente' || kind === 'loser') {
-      const loserSide = side === 'A' ? 'B' : 'A'
-      return loserSide === 'A' ? pair.A : pair.B
-    }
-    return undefined
+    const w=winnersById[br.id] || {}
+    const p=br.prelims?.[idx]
+    const pw=w[`P${idx+1}`]
+    const actualA=letter==='R' && (br.type==='PSE' || br.type==='PDE')
+      ? pw==='A' ? p?.A : pw==='B' ? p?.B : undefined
+      : pair.A
+    const actualB=pair.B
+    const side=w[`${letter}${idx+1}`]
+    if (!side || !actualA || !actualB) return undefined
+    const loser=/^(Perdente|Loser)$/i.test(m[1])
+    const selected = (side==='A') !== loser ? actualA : actualB
+    return resolveOne(selected,seen) || selected
   }
+  return (token: string): string | undefined => resolveOne(token,new Set<string>())
 }
 
 /* ============== ITA viewer (read-only) ============== */
@@ -752,6 +751,8 @@ export default function AthleteTabellonePage() {
   const [brackets, setBrackets] = useState<BracketType[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [winnersById, setWinnersById] = useState<Record<string, WinnerMap>>({})
+  const [courtsByBracket, setCourtsByBracket] = useState<Record<string, Record<string, string>>>({})
+  const [bracketScoresById, setBracketScoresById] = useState<Record<string, Record<string, {A:number|null;B:number|null}>>>({})
   const [itaScoresById, setItaScoresById] = useState<Record<string, ItaScore[]>>({})
 
   useEffect(() => {
@@ -789,6 +790,8 @@ export default function AthleteTabellonePage() {
         const items   = Array.isArray(raw) ? raw : (raw?.items || [])
         const winners = Array.isArray(raw) ? {}   : (raw?.winnersById   || {})
         const ita     = Array.isArray(raw) ? {}   : (raw?.itaScoresById || {})
+        const courts = Array.isArray(raw) ? {} : (raw?.courtsByBracket || {})
+        const bracketScores = Array.isArray(raw) ? {} : (raw?.bracketScoresById || {})
 
         const normalized = items.map(normalizeBracket)
 
@@ -796,6 +799,8 @@ export default function AthleteTabellonePage() {
         setBrackets(normalized)
         setActiveId(normalized[0]?.id ?? null)
         setWinnersById(winners)
+        setCourtsByBracket(courts)
+        setBracketScoresById(bracketScores)
         setItaScoresById(ita)
         setIsPublic(Boolean(js?.is_public))
       } catch {
@@ -837,13 +842,13 @@ export default function AthleteTabellonePage() {
     if (!active) return null
     return {
       ...active,
-      r1: (active.r1 || []).map(m => ({
-        A: resolve(m.A),
+      r1: (active.r1 || []).map((m, i) => ({
+        A: (active.type === 'PSE' || active.type === 'PDE') ? (winnersById[active.id]?.[`P${i+1}`] === 'A' ? resolve(active.prelims?.[i]?.A || '-') : winnersById[active.id]?.[`P${i+1}`] === 'B' ? resolve(active.prelims?.[i]?.B || '-') : `Vincente P${i+1}`) : resolve(m.A),
         B: resolve(m.B),
       })),
       slots: (active.slots || []).map(s => resolve(s)),
     }
-  }, [active, resolve])
+  }, [active, resolve, winnersById])
 
   return (
     <div className="min-h-screen px-4 sm:px-6 lg:px-8">
@@ -895,8 +900,17 @@ export default function AthleteTabellonePage() {
                     resolve={resolve}
                     serverScores={itaScoresById[resolvedActive.id]}
                   />
+                ) : (resolvedActive.type === 'PSE' || resolvedActive.type === 'PDE') ? (
+                  <PreliminaryBracket title={resolvedActive.title} color={resolvedActive.color}
+                    type={resolvedActive.type} nTeams={resolvedActive.nTeams}
+                    prelims={resolvedActive.prelims} r1={active?.r1 || []}
+                    winners={winnersById[resolvedActive.id] || {}} resolve={resolve}
+                    courts={courtsByBracket[resolvedActive.id] || {}}
+                    scores={bracketScoresById[resolvedActive.id] || {}}
+                  />
                 ) : (
-                  <BracketCanvas
+                  <>
+                    <BracketCanvas
                     bracket={resolvedActive}
                     interactive={false}
                     confirmOnPick={false}
@@ -906,6 +920,7 @@ export default function AthleteTabellonePage() {
                     tId={tId}
                     externalResolver={external}
                   />
+                  </>
                 )
               )}
             </div>
