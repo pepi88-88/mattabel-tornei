@@ -39,6 +39,31 @@ export function itaRoundRobinPairs(n: number): Array<[number, number]> {
   }
   return out
 }
+/** ITA source is final only when every scheduled match has two recorded scores.
+ * An empty input must not count as 0-0, and all participant slots must be set.
+ */
+export function isItaStandingsComplete(
+  bracket: ItaSourceBracket,
+  scores: ItaSourceScore[] | undefined,
+): boolean {
+  if (bracket.type !== 'ITA') return false
+  const n = Math.max(2, Number(bracket.nTeams) || 2)
+  const slots = (bracket.slots || []).slice(0, n)
+  if (slots.length !== n || slots.some(raw => {
+    const value = String(raw || '').trim()
+    return !value || value === '-' || value === '—' || value.toUpperCase() === 'BYE'
+  })) return false
+  const pairs = itaRoundRobinPairs(n)
+  return pairs.length > 0 && pairs.every((_, i) => {
+    const row = scores?.[i]
+    if (!row || row.a === null || row.a === undefined ||
+        row.b === null || row.b === undefined) return false
+    // Some older saves use string values: '' is NOT a played score.
+    const a = String(row.a).trim(), b = String(row.b).trim()
+    return a !== '' && b !== '' && Number.isFinite(Number(a)) &&
+      Number.isFinite(Number(b)) && Number(a) >= 0 && Number(b) >= 0
+  })
+}
 /** Match ItaEditor ordering: wins, points ratio, points scored, name.
  * Never modifies results or standings stored elsewhere.
  */
@@ -79,7 +104,9 @@ export function resolveItaPosition(
   const ref = parseItaPositionToken(token)
   if (!ref) return undefined
   const source = brackets.find(b => b.id === ref.id && b.type === 'ITA')
-  if (!source || ref.position > source.nTeams) return itaPositionLabel(token, brackets)
+  if (!source || ref.position > source.nTeams) return '—'
+  // No premature qualifiers: each referenced ITA unblocks independently.
+  if (!isItaStandingsComplete(source, scoresById[source.id])) return '—'
   const name = rankedItaTeams(source, scoresById[source.id], resolveBase)[ref.position - 1]
-  return name && name !== '—' ? name : itaPositionLabel(token, brackets)
+  return name && name !== '—' ? name : '—'
 }
