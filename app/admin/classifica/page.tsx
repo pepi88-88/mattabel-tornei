@@ -461,7 +461,7 @@ const totalsWithComputed = React.useMemo(() => {
 }, [totals, pointsForPlayer])
 
 // La vista filtra soltanto le colonne; non altera i punti o i piazzamenti.
-const visibleStages = React.useMemo(() => stageView === 'all' ? stages : stages.slice(-1), [stages, stageView])
+const visibleStages = React.useMemo(() => stageView === 'all' ? stages : stages.slice(0, 1), [stages, stageView])
 
 const totalsSorted = React.useMemo(() => {
   const best = (pid: string) => {
