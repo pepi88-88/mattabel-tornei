@@ -1784,17 +1784,25 @@ useEffect(() => {
     Object.values(bracketScoresById[active.id] || {}).some(v=>v?.A!=null || v?.B!=null)
   )
   // Le R dei PSE/PDE hanno un ingresso A dinamico (vincitrice P): non è un posto spostabile.
+  // Non mostrare etichette residue di altri tornei nel pannello touch.
+  // Solo i numeri che esistono nella classifica avulsa corrente sono squadre.
+  const validAvulsaToken=(token:string) =>
+    /^\d+$/.test(String(token||'').trim()) && !!avulsa[Number(token)-1]?.label
+  const cleanAvulsaToken=(token:string) =>
+    validAvulsaToken(token) ? token : '-'
+  const cleanAvulsaRows=(rows:{A:string;B:string}[]) =>
+    rows.map(m=>({A:cleanAvulsaToken(m.A),B:cleanAvulsaToken(m.B)}))
   const smartSlots: Array<{section:'prelims'|'r1';index:number;side:'A'|'B';token:string;match:string}> =
     isPreliminarySmart
       ? [...smartPrelims.flatMap((m,i)=>[
-          {section:'prelims' as const,index:i,side:'A' as const,token:m.A,match:`P${i+1}`},
-          {section:'prelims' as const,index:i,side:'B' as const,token:m.B,match:`P${i+1}`}
+          {section:'prelims' as const,index:i,side:'A' as const,token:cleanAvulsaToken(m.A),match:`P${i+1}`},
+          {section:'prelims' as const,index:i,side:'B' as const,token:cleanAvulsaToken(m.B),match:`P${i+1}`}
         ]),...smartRows.map((m,i)=>({
-          section:'r1' as const,index:i,side:'B' as const,token:m.B,match:`R${i+1}`
+          section:'r1' as const,index:i,side:'B' as const,token:cleanAvulsaToken(m.B),match:`R${i+1}`
         }))]
       : smartRows.flatMap((m,i)=>[
-          {section:'r1' as const,index:i,side:'A' as const,token:m.A,match:`M${i+1}`},
-          {section:'r1' as const,index:i,side:'B' as const,token:m.B,match:`M${i+1}`}
+          {section:'r1' as const,index:i,side:'A' as const,token:cleanAvulsaToken(m.A),match:`M${i+1}`},
+          {section:'r1' as const,index:i,side:'B' as const,token:cleanAvulsaToken(m.B),match:`M${i+1}`}
         ])
   // Le rivincite sono verificate tra coppie dello stesso girone. Per PSE/PDE
   // il primo turno disputato e' il preliminare P; per SE/DE e' R1/M.
@@ -1811,11 +1819,12 @@ useEffect(() => {
     if(smartPicked===null){setSmartPicked(index);return}
     if(smartPicked===index){setSmartPicked(null);return}
     const first=smartSlots[smartPicked],second=smartSlots[index]
-    if(!first || !second || !/^\d+$/.test(first.token) || !/^\d+$/.test(second.token)){
-      setSmartMessage('Puoi scambiare soltanto coppie con numero avulsa.')
+    if(!first || !second ||
+      (!validAvulsaToken(first.token) && !validAvulsaToken(second.token))){
+      setSmartMessage('Seleziona almeno una coppia con posizione avulsa valida.')
       setSmartPicked(null);return
     }
-    const rows=smartRows.map(m=>({...m})),prelims=smartPrelims.map(m=>({...m}))
+    const rows=cleanAvulsaRows(smartRows),prelims=cleanAvulsaRows(smartPrelims)
     const data={r1:rows,prelims}
     data[first.section][first.index][first.side]=second.token
     data[second.section][second.index][second.side]=first.token
@@ -1824,7 +1833,7 @@ useEffect(() => {
   }
   const smartPropose=()=>{
     if(!active || smartLocked)return
-    const rows=smartRows.map(m=>({...m})),prelims=smartPrelims.map(m=>({...m}))
+    const rows=cleanAvulsaRows(smartRows),prelims=cleanAvulsaRows(smartPrelims)
     const proposal=isPreliminarySmart ? smartAvulsaPairs(prelims,avulsaGroupForSeed) : smartAvulsaPairs(rows,avulsaGroupForSeed)
     setSmartDraft({bracketId:active.id,rows:isPreliminarySmart?rows:proposal,prelims:isPreliminarySmart?proposal:prelims})
     setSmartEdit(true);setSmartPicked(null);setSmartMessage('')
@@ -2053,18 +2062,20 @@ return (
         ] : smartRows.map((_,i)=>({match:`M${i+1}`,index:i,section:'r1' as const}))).map(row=><div key={row.match} className="rounded-lg border border-neutral-700 p-2">
           <div className="text-xs text-neutral-400 mb-1">Incontro {row.match}</div>
           {smartSlots.map((entry,index)=>({entry,index})).filter(({entry})=>entry.match===row.match).map(({entry,index})=>{
-            const token=entry.token,seed=Number(token)
-            return <button key={entry.side} type="button" disabled={!smartEdit||smartLocked||!/^\d+$/.test(token)}
+            const token=entry.token,seed=Number(token),valid=validAvulsaToken(token)
+            return <button key={entry.side} type="button" disabled={!smartEdit||smartLocked}
               onClick={()=>smartSwap(index)}
               className={`w-full text-left rounded-lg p-3 my-1 min-h-[54px] border ${smartPicked===index?'border-amber-400 bg-amber-900/30':'border-neutral-700 bg-neutral-800'}`}>
-              <strong>{/^\d+$/.test(token)?`#${token} · `:''}</strong>{resolveToken(token)}
-              {Number.isInteger(seed)&&avulsaGroupForSeed(seed)?` · Girone ${avulsaGroupForSeed(seed)}`:''}
+              {valid ? <>
+                <strong>#{token} · </strong>{resolveToken(token)}
+                {avulsaGroupForSeed(seed)?` · Girone ${avulsaGroupForSeed(seed)}`:''}
+              </> : <span className="text-neutral-500">— {smartEdit?'(posto libero)':''}</span>}
             </button>
           })}
           {isPreliminarySmart && row.section==='r1' && <div className="text-xs text-neutral-500 mt-1">Altra coppia: vincitrice del preliminare {row.match.replace('R','P')}</div>}
         </div>)}
       </div>}
-      {smartEdit && !smartLocked && <p className="text-xs text-neutral-400">Tocca una coppia e poi un'altra per scambiarle. Gli scambi restano in anteprima fino al salvataggio.</p>}
+      {smartEdit && !smartLocked && <p className="text-xs text-neutral-400">Tocca una coppia e poi un'altra per scambiarle; puoi anche spostarla in un posto libero. Gli scambi restano in anteprima fino al salvataggio.</p>}
       {smartDraft?.bracketId===active.id && <div className="flex flex-wrap gap-2">
         <button type="button" className="btn" disabled={smartSaving||smartLocked} onClick={smartSave}>{smartSaving?'Salvataggio...':'Conferma e salva'}</button>
         <button type="button" className="btn" disabled={smartSaving} onClick={()=>{setSmartDraft(null);setSmartPicked(null);setSmartEdit(false);setSmartMessage('Modifiche annullate')}}>Annulla</button>
