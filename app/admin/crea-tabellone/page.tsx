@@ -1356,13 +1356,13 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
 <option value="avulsa+eliminati">Avulsa + Eliminati</option> 
             </select>
           </div>
-          <div>
+          {active.source.includes('eliminati') && <div>
             <div className="text-xs text-neutral-400 mb-1">Da tabellone (per “Eliminati”)</div>
-            <select className="input w-72 h-12 text-base" value={active.fromTableId || ''} onChange={(e)=>patchActive({ fromTableId: e.target.value || undefined })}disabled={locked}>
+            <select className="input w-72 h-12 text-base" value={active.fromTableId || ''} onChange={(e)=>patchActive({ fromTableId: e.target.value || undefined })} disabled={locked}>
               <option value="">—</option>
               {brackets.filter((b)=>b.id!==active.id).map((b)=>(<option key={b.id} value={b.id}>{b.title}</option>))}
             </select>
-          </div>
+          </div>}
         </div>
 
         {active.type === 'SE' && active.source === 'avulsa-ita' && (
