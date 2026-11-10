@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseServer'
 import { requireAdmin } from '@/lib/auth'
+import { parseItaPositionToken, resolveItaPosition } from '../../../../lib/itaSources'
 
 type GroupMeta = {
   capacity: number
@@ -28,8 +29,10 @@ type Bracket = {
   color: string
   type: 'SE' | 'DE' | 'ITA' | 'PSE' | 'PDE'
   nTeams: number
-  source: 'gironi' | 'avulsa' | 'avulsa-intelligente' | 'eliminati' | 'gironi+eliminati' | 'avulsa+eliminati'
+  source: 'gironi' | 'avulsa' | 'avulsa-intelligente' | 'eliminati' | 'gironi+eliminati' | 'avulsa+eliminati' | 'avulsa-ita'
   fromTableId?: string
+  itaFromTable1?: string
+  itaFromTable2?: string
   r1: { A: string; B: string }[]
   prelims?: { A: string; B: string }[]
   slots: string[]
@@ -121,6 +124,8 @@ function normalizeBracket(b: any): Bracket {
     nTeams: n,
     source: (b?.source as Bracket['source']) || 'gironi',
     fromTableId: b?.fromTableId || undefined,
+    itaFromTable1: b?.itaFromTable1 || undefined,
+    itaFromTable2: b?.itaFromTable2 || undefined,
     r1,
     prelims: b?.type === 'PSE' || b?.type === 'PDE' ? Array.from({length:b?.type === 'PSE' && n === 24 ? 8 : 4}, (_,i)=>({A:b?.prelims?.[i]?.A??'-',B:b?.prelims?.[i]?.B??'-'})) : undefined,
     slots,
@@ -594,6 +599,7 @@ function makeBracketResolver(
   gs: GroupState,
   brackets: Bracket[],
   winnersById: Record<string, WinnerMap>,
+  itaScoresById: Record<string, any[]> = {},
 ) {
   const { byGroup, avulsa } = buildGroupsRank(gs)
  const byTitle = new Map(brackets.map((b) => [normalizeRefText(b.title), b]))
@@ -604,6 +610,7 @@ function makeBracketResolver(
     
     if (raw === '-' || raw === '—') return '—'
     if (raw.toUpperCase() === 'BYE') return 'BYE'
+    if (parseItaPositionToken(raw)) return lastSurnames(resolveItaPosition(raw,brackets,itaScoresById,baseResolve) || raw)
 
   let m = raw.match(/^([A-Z])(\d{1,2})$/)
 if (m) {
@@ -851,9 +858,10 @@ function buildSERows(
   allBrackets: Bracket[],
   gs: GroupState,
   winnersById: Record<string, WinnerMap>,
-  regiaItems: Record<string, RegiaItemState>
+  regiaItems: Record<string, RegiaItemState>,
+  itaScoresById: Record<string, any[]> = {},
 ): RegiaRow[] {
-  const resolve = makeBracketResolver(gs, allBrackets, winnersById)
+  const resolve = makeBracketResolver(gs, allBrackets, winnersById, itaScoresById)
   const pow = nextPow2(Math.max(2, Number(bracket.nTeams) || 2))
   const rounds = Math.log2(pow)
   const rows: RegiaRow[] = []
@@ -963,9 +971,10 @@ function buildDERows(
   allBrackets: Bracket[],
   gs: GroupState,
   winnersById: Record<string, WinnerMap>,
-  regiaItems: Record<string, RegiaItemState>
+  regiaItems: Record<string, RegiaItemState>,
+  itaScoresById: Record<string, any[]> = {},
 ): RegiaRow[] {
-  const resolve = makeBracketResolver(gs, allBrackets, winnersById)
+  const resolve = makeBracketResolver(gs, allBrackets, winnersById, itaScoresById)
   const W = winnersById[bracket.id] || {}
 
   const rLabel = (i: 0 | 1 | 2 | 3) => {
@@ -1156,8 +1165,9 @@ function buildPreliminaryRows(
   winnersById: Record<string, WinnerMap>,
   regiaItems: Record<string, RegiaItemState>,
   courts: Record<string, string>,
+  itaScoresById: Record<string, any[]> = {},
 ): RegiaRow[] {
-  const resolve = makeBracketResolver(gs, allBrackets, winnersById)
+  const resolve = makeBracketResolver(gs, allBrackets, winnersById, itaScoresById)
   const w = winnersById[bracket.id] || {}
   const count = bracket.type === 'PSE' && bracket.nTeams === 24 ? 8 : 4
   type Match = {code: string; A: string; B: string; phase: string}
@@ -1386,9 +1396,9 @@ rows.push({
 
   brackets.forEach((b) => {
     let list: RegiaRow[] = []
-    if (b.type === 'SE') list = buildSERows(b, brackets, groupState, winnersById, bracketRegia)
-    else if (b.type === 'DE') list = buildDERows(b, brackets, groupState, winnersById, bracketRegia)
-    else if (b.type === 'PSE' || b.type === 'PDE') list = buildPreliminaryRows(b, brackets, groupState, winnersById, bracketRegia, bracketState?.courtsByBracket?.[b.id] || {})
+    if (b.type === 'SE') list = buildSERows(b, brackets, groupState, winnersById, bracketRegia, bracketState.itaScoresById || {})
+    else if (b.type === 'DE') list = buildDERows(b, brackets, groupState, winnersById, bracketRegia, bracketState.itaScoresById || {})
+    else if (b.type === 'PSE' || b.type === 'PDE') list = buildPreliminaryRows(b, brackets, groupState, winnersById, bracketRegia, bracketState?.courtsByBracket?.[b.id] || {}, bracketState.itaScoresById || {})
     else list = []
 
     list.forEach((r) => {

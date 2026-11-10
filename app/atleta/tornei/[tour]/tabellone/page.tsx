@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import BracketCanvas, { type Bracket as BracketType, type WinnerMap } from '../../../../../components/BracketCanvas'
+import { parseItaPositionToken, resolveItaPosition } from '../../../../../lib/itaSources'
 import PreliminaryBracket from '../../../../../components/PreliminaryBracket'
 
 /* ============== Helpers comuni ============== */
@@ -830,7 +831,12 @@ export default function AthleteTabellonePage() {
 
   // resolver per Vincente/Perdente e nomi
   const external = useMemo(() => makeExternalResolver(brackets, winnersById), [brackets, winnersById])
-  const resolve  = useMemo(() => makeSlotResolver(tourId, tId, external, publicGroups), [tourId, tId, external, publicGroups])
+  const resolve  = useMemo(() => {
+    const base=makeSlotResolver(tourId, tId, external, publicGroups)
+    return (token:string) => parseItaPositionToken(token)
+      ? lastSurnames(resolveItaPosition(token,brackets,itaScoresById,base) || token)
+      : base(token)
+  }, [tourId, tId, external, publicGroups, brackets, itaScoresById])
 
   const active = useMemo(
     () => brackets.find((b) => b.id === activeId) || null,
