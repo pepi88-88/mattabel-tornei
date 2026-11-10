@@ -124,9 +124,13 @@ html,body{
    controllato dal gesto pinch o dai pulsanti (+/-). */
 @media (max-width: 639px) {
   .ranking-mobile-zoom {
-    min-width: 820px;
+    width: max-content;
+    min-width: 0;
     zoom: var(--ranking-zoom, 0.65);
     touch-action: pan-x pan-y;
+  }
+  .ranking-mobile-zoom.ranking-mobile-expanded {
+    min-width: 820px;
   }
 }
 @media (min-width: 640px) {
