@@ -1871,8 +1871,16 @@ const activeForDisplay = useMemo(() => {
   if (String(active.type).toUpperCase() === 'SE' || String(active.type).toUpperCase() === 'DE') {
     const mapSlot = (s: string) => {
       const token=String(s || '').trim()
+      const avulsaSource=active.source==='avulsa' || active.source==='avulsa-intelligente'
+      if (!token || token==='-' || token==='—') return '—'
+      if(token.toUpperCase()==='BYE')return 'BYE'
+      // Nelle provenienze avulsa soltanto un numero identifica una coppia.
+      // Una vecchia etichetta letterale (es. dal torneo precedente) non deve
+      // riapparire come partecipante a un ingresso lasciato vuoto.
+      if(avulsaSource && !/^\d+$/.test(token))return '—'
       const name=resolveToken(token)
-      return smartShowNumbers && (active.source==='avulsa' || active.source==='avulsa-intelligente') && /^\d+$/.test(token)
+      if(avulsaSource && /^\d+$/.test(token) && !avulsa[Number(token)-1]?.label)return '—'
+      return smartShowNumbers && avulsaSource && /^\d+$/.test(token)
         ? `#${token} · ${name}` : name
     }
     return {
@@ -1884,7 +1892,7 @@ const activeForDisplay = useMemo(() => {
     } as BracketType
   }
   return active
-}, [active, resolveToken, smartShowNumbers, smartDraft])
+}, [active, resolveToken, smartShowNumbers, smartDraft, avulsa])
 
   // ------------------------------------------------------------
 // UI
@@ -2079,8 +2087,13 @@ return (
       <PreliminaryBracket
         title={active.title} color={active.color} type={active.type} nTeams={active.nTeams}
         prelims={smartDraft?.bracketId===active.id ? smartPrelims : active.prelims} r1={smartRows} resolve={(token)=>{
-          const name=resolveToken(token)
-          return smartShowNumbers && (active.source==='avulsa'||active.source==='avulsa-intelligente') && /^\d+$/.test(token) ? `#${token} · ${name}` : name
+          const raw=String(token||'').trim()
+          const avulsaSource=active.source==='avulsa'||active.source==='avulsa-intelligente'
+          if(!raw || raw==='-' || raw==='—')return '—'
+          if(avulsaSource && !/^\d+$/.test(raw))return '—'
+          if(avulsaSource && /^\d+$/.test(raw) && !avulsa[Number(raw)-1]?.label)return '—'
+          const name=resolveToken(raw)
+          return smartShowNumbers && avulsaSource && /^\d+$/.test(raw) ? `#${raw} · ${name}` : name
         }}
         editable
         winners={winnersById[active.id] || {}}
