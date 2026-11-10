@@ -814,7 +814,13 @@ function migrateParentsByTitle(brs: Bracket[]): Bracket[] {
   const needR1 = newType === 'PSE' || newType === 'PDE' ? 4 : nextPow2(nn) / 2
   const clearedR1   = Array.from({ length: needR1 }, () => ({ A: '-', B: '-' }))
   const clearedSlot = Array.from({ length: nextPow2(nn) }, () => '')
-  patchActive({ ...sourcePatch, type: newType, nTeams: nn, prelims: newType === 'PSE' || newType === 'PDE' ? Array.from({length:4},()=>({A:'-',B:'-'})) : undefined, r1: clearedR1, slots: clearedSlot })
+  // Cambiando formato azzera INSIEME tutti gli ingressi del vecchio formato,
+  // compresi quelli non visibili. Niente codici 'occupati' fantasma.
+  patchActive({ ...sourcePatch, type: newType, nTeams: nn,
+    prelims: newType === 'PSE' || newType === 'PDE'
+      ? Array.from({ length: newType === 'PSE' && nn === 24 ? 8 : 4 }, () => ({ A:'-', B:'-' }))
+      : undefined,
+    r1: clearedR1, slots: clearedSlot })
 }
 
 
@@ -1126,21 +1132,29 @@ case 'avulsa+eliminati':  return [...avulsaOps, ...elimOps]
 
 
 
-  // Una coppia può avanzare tra tabelloni/fasi diverse, ma non può
-  // occupare due caselle dello STESSO tabellone.
-  const usedCodesCurrent = useMemo(()=>{
+  // Una provenienza può essere assegnata una sola volta in TUTTI i tabelloni
+  // della tappa. Leggiamo però solo gli ingressi del tipo attuale: i vecchi
+  // slot ITA non devono tenere occupate le coppie dopo il cambio ITA -> SE/DE,
+  // né vecchi R1 dopo il cambio verso ITA.
+  const usedCodesGlobal = useMemo(()=>{
     const used = new Set<string>()
     const add = (code?:string) => {
-      if (!code || code==='-' || code==='—' || code==='BYE') return
-      used.add(code)
+      const value = String(code || '').trim()
+      if (!value || value==='-' || value==='—' || value.toUpperCase()==='BYE') return
+      used.add(value)
     }
-    if (active) {
-      for (const row of active.r1 ?? []) { add(row?.A); add(row?.B) }
-      for (const row of active.prelims ?? []) { add(row?.A); add(row?.B) }
-      for (const code of active.slots ?? []) add(code)
+    for (const bracket of brackets) {
+      if (bracket.type === 'ITA') {
+        for (const code of (bracket.slots ?? []).slice(0, bracket.nTeams)) add(code)
+      } else {
+        for (const row of bracket.r1 ?? []) { add(row?.A); add(row?.B) }
+        if (bracket.type === 'PSE' || bracket.type === 'PDE') {
+          for (const row of bracket.prelims ?? []) { add(row?.A); add(row?.B) }
+        }
+      }
     }
     return used
-  }, [active])
+  }, [brackets])
   const isTakenElsewhere = (code:string, ctx: {pair?:number; side?:0|1; itaIndex?:number} = {}) => {
     if (!code || code==='-' || code==='BYE') return false
     if (ctx.pair!=null && ctx.side!=null) {
@@ -1151,7 +1165,7 @@ case 'avulsa+eliminati':  return [...avulsaOps, ...elimOps]
       const cur = active?.slots?.[ctx.itaIndex]
       if (cur === code) return false
     }
-    return usedCodesCurrent.has(code)
+    return usedCodesGlobal.has(code)
   }
 // Calcolo livelli (profondità) rispetto al PRIMO tabellone dell’array
 // Livelli in sequenza (sinistra→destra): L1, L2, L3...
@@ -1447,7 +1461,7 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
           const current = match[1] === 'P'
             ? active.prelims?.[index]?.[side]
             : active.r1?.[index]?.[side]
-          return value !== current && usedCodesCurrent.has(value)
+          return value !== current && usedCodesGlobal.has(value)
         }}
         onSlotChange={(code,side,value) => {
           const match = code.match(/^([PR])(\d+)$/)
