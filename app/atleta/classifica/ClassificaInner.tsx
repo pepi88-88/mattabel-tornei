@@ -240,7 +240,7 @@ export default function ClassificaInner() {
             Femminile
           </button>
         </div>
-        <select className="input w-80 ml-auto" value={editionId} onChange={e=>setEditionId(e.target.value)}>
+        <select className="input w-full sm:w-80 max-w-full" value={editionId} onChange={e=>setEditionId(e.target.value)}>
           {editions.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
       </div>
