@@ -119,3 +119,19 @@ html,body{
   }
 }
 
+
+/* Classifica pubblica: stesso allineamento desktop su telefono, con zoom
+   controllato dal gesto pinch o dai pulsanti (+/-). */
+@media (max-width: 639px) {
+  .ranking-mobile-zoom {
+    min-width: 820px;
+    zoom: var(--ranking-zoom, 0.65);
+    touch-action: pan-x pan-y;
+  }
+}
+@media (min-width: 640px) {
+  .ranking-mobile-zoom {
+    width: 100%;
+    zoom: 1;
+  }
+}
