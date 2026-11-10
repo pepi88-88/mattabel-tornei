@@ -2062,7 +2062,7 @@ return (
         <button type="button" className="btn" disabled={smartSaving} onClick={()=>{setSmartDraft(null);setSmartPicked(null);setSmartEdit(false);setSmartMessage('Modifiche annullate')}}>Annulla</button>
       </div>}
       {smartMessage && <div role="status" className="text-sm text-amber-300">{smartMessage}</div>}
-      </div>
+      </div>}
     </div>}
     {active.type === 'ITA' ? (
       <ItaEditor
