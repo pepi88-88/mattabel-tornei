@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseServer'
 import { requireAdmin } from '@/lib/auth'
-import { parseItaPositionToken, resolveItaPosition } from '@/lib/itaSources'
+import { parseItaPositionToken, resolveItaPosition } from '../../../../lib/itaSources'
 
 type GroupMeta = {
   capacity: number
