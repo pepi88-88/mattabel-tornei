@@ -52,6 +52,7 @@ function rankBadgeClass(rank: number) {
 export default function ClassificaPage() {
   /* ------------------------ Stato base ------------------------ */
   const [gender, setGender] = React.useState<'M'|'F'>('M')
+  const [stageView, setStageView] = React.useState<'last'|'all'>('last')
 
 // — legend-curve settings (per calcolo punti a video)
 type ScoreCfg = { base:number; minLast:number; curvePercent:number }
@@ -459,6 +460,9 @@ const totalsWithComputed = React.useMemo(() => {
   }))
 }, [totals, pointsForPlayer])
 
+// La vista filtra soltanto le colonne; non altera i punti o i piazzamenti.
+const visibleStages = React.useMemo(() => stageView === 'all' ? stages : stages.slice(-1), [stages, stageView])
+
 const totalsSorted = React.useMemo(() => {
   const best = (pid: string) => {
     let best = Infinity
@@ -600,7 +604,15 @@ const totalsSorted = React.useMemo(() => {
       <div className="card p-0 overflow-hidden">
         <div className="px-3 py-2 border-b border-neutral-800 flex items-center justify-between">
           <div className="text-sm font-semibold">Classifica totale</div>
-          <button className="btn btn-sm" onClick={()=>refetchTotals()}>Aggiorna</button>
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="rank-stage-view" className="text-xs text-neutral-300">Visualizza</label>
+            <select id="rank-stage-view" className="input h-9 text-xs sm:text-sm w-auto"
+              value={stageView} onChange={e => setStageView(e.target.value as 'last'|'all')}>
+              <option value="last">Solo ultima tappa</option>
+              <option value="all">Tutte le tappe</option>
+            </select>
+            <button className="btn btn-sm" onClick={()=>refetchTotals()}>Aggiorna</button>
+          </div>
         </div>
 
         <div className="p-3 overflow-x-auto">
@@ -612,7 +624,7 @@ const totalsSorted = React.useMemo(() => {
                 <th className="text-right w-24 pr-4">Totale</th>
 
                 {/* Colonne TAPPE dinamiche */}
-                {stages.map((st, idx) => (
+                {visibleStages.map((st, idx) => (
                   <th
                     key={st.id}
                     className={`min-w-[160px] align-bottom ${idx >= 0 ? 'border-l border-neutral-800' : ''}`}
@@ -689,7 +701,7 @@ const totalsSorted = React.useMemo(() => {
   )}
 </td>
 
-      {stages.map((st, idx2) => {
+      {visibleStages.map((st, idx2) => {
         const maxPos = Math.max(1, Number(st.total_teams || 0))
         const cur = placementsByStage[st.id]?.[r.player_id] ?? '-'
         const posNum = Number(cur)
@@ -735,7 +747,7 @@ const totalsSorted = React.useMemo(() => {
 
   {totalsSorted.length === 0 && (
     <tr>
-      <td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">
+      <td colSpan={3 + visibleStages.length} className="py-4 text-center text-neutral-500">
         Nessun dato
       </td>
     </tr>
