@@ -10,6 +10,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import PreliminaryBracket from '../../../components/PreliminaryBracket'
+import { itaPositionToken, itaPositionLabel } from '../../../lib/itaSources'
 
 /* =========================
    COSTANTI UI
@@ -57,8 +58,10 @@ type Bracket = {
   color: string
   type: 'SE' | 'DE' | 'ITA' | 'PSE' | 'PDE'
   nTeams: number
-  source: 'gironi' | 'avulsa' | 'avulsa-intelligente' | 'eliminati' | 'gironi+eliminati'| 'avulsa+eliminati'
+  source: 'gironi' | 'avulsa' | 'avulsa-intelligente' | 'eliminati' | 'gironi+eliminati'| 'avulsa+eliminati' | 'avulsa-ita'
   fromTableId?: string
+  itaFromTable1?: string
+  itaFromTable2?: string
   prelims?: { A: string; B: string }[] // P1..P4/P8; separate from official R round
   r1: { A: string; B: string }[]   // usato da SE e anche da DE (R1..R4)
   slots: string[]                   // usato da ITA
@@ -81,6 +84,8 @@ function normalizeBracket(b: any): Bracket {
     nTeams,
     source: (b?.source as Bracket['source']) || 'gironi',
     fromTableId: b?.fromTableId || undefined,
+    itaFromTable1: b?.itaFromTable1 || undefined,
+    itaFromTable2: b?.itaFromTable2 || undefined,
     r1,
     prelims,
     slots,
@@ -804,11 +809,12 @@ function migrateParentsByTitle(brs: Bracket[]): Bracket[] {
     patchActive({ type: newType })
     return
   }
+  const sourcePatch: Partial<Bracket> = active.source === 'avulsa-ita' && newType !== 'SE' ? {source:'gironi'} : {}
   const nn    = newType === 'PSE' ? 12 : newType === 'PDE' ? 12 : clamp(active.nTeams, 2, 16)
   const needR1 = newType === 'PSE' || newType === 'PDE' ? 4 : nextPow2(nn) / 2
   const clearedR1   = Array.from({ length: needR1 }, () => ({ A: '-', B: '-' }))
   const clearedSlot = Array.from({ length: nextPow2(nn) }, () => '')
-  patchActive({ type: newType, nTeams: nn, prelims: newType === 'PSE' || newType === 'PDE' ? Array.from({length:4},()=>({A:'-',B:'-'})) : undefined, r1: clearedR1, slots: clearedSlot })
+  patchActive({ ...sourcePatch, type: newType, nTeams: nn, prelims: newType === 'PSE' || newType === 'PDE' ? Array.from({length:4},()=>({A:'-',B:'-'})) : undefined, r1: clearedR1, slots: clearedSlot })
 }
 
 
@@ -1100,7 +1106,14 @@ const avulsaOps = Array.from(
     ...Array.from({ length: mCount }, (_, i) => `Perdente ${loser.title.toUpperCase()} M${i + 1}`),
   ] : []
 
+  const itaOps = [active?.itaFromTable1, active?.itaFromTable2]
+    .filter((id, i, ids): id is string => !!id && ids.indexOf(id) === i)
+    .flatMap(id => {
+      const bracket = brackets.find(b => b.id === id && b.type === 'ITA')
+      return bracket ? Array.from({ length: bracket.nTeams }, (_, i) => itaPositionToken(id, i + 1)) : []
+    })
   switch (active?.source) {
+    case 'avulsa-ita':        return itaOps
     case 'gironi':            return gironiOps
     case 'avulsa':            return avulsaOps
     case 'avulsa-intelligente': return avulsaOps
@@ -1109,7 +1122,7 @@ const avulsaOps = Array.from(
 case 'avulsa+eliminati':  return [...avulsaOps, ...elimOps]
     default:                  return []
   }
-}, [tourId, tId, realGironiCodes, tappaSize, active?.source, active?.fromTableId, brackets, gmSE])
+}, [tourId, tId, realGironiCodes, tappaSize, active?.source, active?.fromTableId, active?.itaFromTable1, active?.itaFromTable2, brackets, gmSE])
 
 
 
@@ -1337,6 +1350,7 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
               <option value="gironi">Gironi (A1, A2, …)</option>
               <option value="avulsa">Classifica avulsa (1, 2, …)</option>
               <option value="avulsa-intelligente">Avulsa intelligente (anti-rivincite)</option>
+              {active.type === 'SE' && <option value="avulsa-ita">Avulsa ITA — da due tabelloni ITA</option>}
               <option value="eliminati">Eliminati da tabellone</option>
               <option value="gironi+eliminati">Gironi + Eliminati</option>
 <option value="avulsa+eliminati">Avulsa + Eliminati</option> 
@@ -1351,6 +1365,28 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
           </div>
         </div>
 
+        {active.type === 'SE' && active.source === 'avulsa-ita' && (
+          <div className="mt-4 p-4 rounded-lg border border-orange-500/40 bg-neutral-900">
+            <div className="font-semibold mb-2">Avulsa ITA — riferimenti alle classifiche</div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {([1,2] as const).map(num=>{
+                const field=num===1?'itaFromTable1':'itaFromTable2'
+                const other=num===1?active.itaFromTable2:active.itaFromTable1
+                return <label key={num} className="flex flex-col gap-1 text-sm">
+                  <span>Tabellone ITA {num}</span>
+                  <select className="input h-12" value={active[field] || ''} disabled={locked}
+                    onChange={e=>patchActive({[field]:e.target.value || undefined} as Partial<Bracket>)}>
+                    <option value="">— Seleziona ITA —</option>
+                    {brackets.filter(b=>b.id!==active.id && b.type==='ITA' && b.id!==other).map(b=>
+                      <option key={b.id} value={b.id}>{b.title} ({b.nTeams} coppie)</option>
+                    )}
+                  </select>
+                </label>
+              })}
+            </div>
+            <p className="text-xs text-neutral-400 mt-3">In ciascun incontro scegli liberamente una posizione dei due ITA; le posizioni già usate sono disabilitate. BYE e casella vuota restano disponibili.</p>
+          </div>
+        )}
         <div className="flex items-center gap-2 ml-2 mt-3">
           <input id="thirdplace" type="checkbox" className="accent-white" checked={enableThirdPlace} onChange={(e)=>setEnableThirdPlace(e.target.checked)} disabled={locked} />
           <label htmlFor="thirdplace" className="text-sm">Match 3° / 4° posto</label>
@@ -1473,7 +1509,7 @@ const ENTER = Math.round(50 * (CARD_W / 224))
   const dis = isTakenElsewhere(op, {pair, side:0})
   return (
     <option key={`a-${pair}-${op}`} value={op} disabled={dis}>
-     {op}{dis ? ' — X' : ''}
+     {active.source === 'avulsa-ita' ? itaPositionLabel(op, brackets) : op}{dis ? ' — X' : ''}
     </option>
   )
 })}
@@ -1497,7 +1533,7 @@ const ENTER = Math.round(50 * (CARD_W / 224))
   const dis = isTakenElsewhere(op, {pair, side:1})
   return (
     <option key={`b-${pair}-${op}`} value={op} disabled={dis}>
-     {op}{dis ? ' — X' : ''}
+     {active.source === 'avulsa-ita' ? itaPositionLabel(op, brackets) : op}{dis ? ' — X' : ''}
     </option>
   )
 })}
@@ -1585,7 +1621,7 @@ const ENTER = Math.round(50 * (CARD_W / 224))
   <option value="BYE">BYE</option>
   {slotOptions.map(op => (
     <option key={`ita-${i}-${op}`} value={op} disabled={isTakenElsewhere(op, { itaIndex:i })}>
-      {op}{isTakenElsewhere(op, { itaIndex:i }) ? ' — X' : ''}
+      {active.source === 'avulsa-ita' ? itaPositionLabel(op, brackets) : op}{isTakenElsewhere(op, { itaIndex:i }) ? ' — X' : ''}
     </option>
   ))}
 </select>
