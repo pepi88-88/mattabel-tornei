@@ -56,7 +56,7 @@ export function rankedItaTeams(
   })
   itaRoundRobinPairs(n).forEach(([a, b], i) => {
     const score = scores?.[i]
-    if (score?.a == null || score?.b == null || score.a === '' || score.b === '') return
+    if (score?.a == null || score?.b == null) return
     const x = Number(score.a), y = Number(score.b)
     if (!Number.isFinite(x) || !Number.isFinite(y)) return
     const A = rows[a - 1], B = rows[b - 1]
