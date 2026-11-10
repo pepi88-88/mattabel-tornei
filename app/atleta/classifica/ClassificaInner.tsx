@@ -318,7 +318,7 @@ export default function ClassificaInner() {
             Sul telefono si può pizzicare per cambiare zoom, senza ritorno automatico. */}
         <div ref={rankingTouchRef} className="p-2 sm:p-4 overflow-x-auto">
           <div className={`ranking-mobile-zoom ${showStageColumns ? 'ranking-mobile-expanded' : ''}`} style={{'--ranking-zoom':mobileZoom} as React.CSSProperties}>
-          <table className={showStageColumns ? "w-full text-sm" : "w-max table-auto text-sm"}>
+          <table className="w-max table-auto text-sm">
            <thead className="text-xs uppercase">
               <tr>
                 <th className="text-left w-12">#</th>
