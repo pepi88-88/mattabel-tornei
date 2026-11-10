@@ -72,7 +72,34 @@ function rankBadgeClass(rank: number) {
   }
   return 'bg-neutral-800 text-neutral-200 border border-neutral-700'
 }
+/** Gas stagionale: rapporto fra punti conquistati e massimo possibile
+ * nelle sole tappe disputate. Il moltiplicatore e la legenda sono già
+ * inclusi nei puntiOfBucket, quindi la percentuale è equa tra le tappe.
+ */
+function GasThermometer({ percentage }: { percentage: number | null }) {
+  const value = percentage == null ? 0 : Math.min(100, Math.max(0, percentage))
+  const color = value < 20 ? '#701313' :
+                value < 40 ? '#a11b22' :
+                value < 60 ? '#cc2830' :
+                value < 80 ? '#ef4444' : '#ff7373'
+  return (
+    <div className="inline-flex items-center gap-2 min-w-[145px]"
+      title={percentage == null ? 'Nessuna tappa disputata' : `Gas: ${percentage}% del massimo ottenibile nelle tappe disputate`}>
+      <div className="relative flex-1 h-3 rounded-full border border-red-950 bg-neutral-800/90 min-w-[90px]" aria-hidden="true">
+        <span className="absolute inset-y-[1px] left-[1px] rounded-full transition-[width] duration-300"
+          style={{ width: `calc((100% - 2px) * ${value / 100})`, backgroundColor: color }} />
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/3 rounded-full w-4 h-4 border border-red-900/80 shadow-[0_0_0_2px_rgba(15,15,15,0.9)]"
+          style={{ backgroundColor: color }} />
+      </div>
+      <span className="w-11 text-right text-xs font-bold tabular-nums text-red-200">
+        {percentage == null ? '—' : `${percentage}%`}
+      </span>
+    </div>
+  )
+}
+
 export default function ClassificaInner() {
+  const [showStageColumns, setShowStageColumns] = React.useState(false)
   const [gender, setGender] = React.useState<Gender>(() =>
     ((typeof window !== 'undefined' && (localStorage.getItem('ath:lastGender') as Gender|null)) || 'M')
   )
@@ -144,6 +171,27 @@ export default function ClassificaInner() {
     return sum
   }, [stages, placementsByStage, legendSet])
 
+  // Gas = punti accumulati / punti massimi delle tappe realmente disputate.
+  // Non penalizziamo chi non ha partecipato alle altre tappe.
+  const gasForPlayer = React.useCallback((pid: string) => {
+    let participated = 0
+    let possible = 0
+    let earned = 0
+    for (const st of stages) {
+      const pos = placementsByStage[st.id]?.[pid] ?? 0
+      const total = Number(st.total_teams || 0)
+      if (!Number.isFinite(pos) || pos < 1 || total < 1 || pos > total) continue
+      const mult = Number(st.multiplier || 1)
+      participated++
+      earned += pointsOfBucket(pos, total, mult, legendSet)
+      possible += pointsOfBucket(1, total, mult, legendSet)
+    }
+    return {
+      stagesPlayed: participated,
+      gas: possible > 0 ? Math.round(Math.min(100, Math.max(0, earned / possible * 100))) : null,
+    }
+  }, [stages, placementsByStage, legendSet])
+
   // ordinamento: totale desc, miglior piazzamento asc, nome asc
   const rows = React.useMemo(()=>{
     const bestPlacementOf = (pid:string) => {
@@ -159,7 +207,8 @@ export default function ClassificaInner() {
       player_id: p.player_id,
       name: p.display_name,
       total: pointsForPlayer(p.player_id),
-      best: bestPlacementOf(p.player_id)
+      best: bestPlacementOf(p.player_id),
+      ...gasForPlayer(p.player_id)
     }))
     out.sort((a,b)=>{
       const t = b.total - a.total
@@ -168,7 +217,7 @@ export default function ClassificaInner() {
       return a.name.localeCompare(b.name, 'it')
     })
     return out
-  }, [players, stages, placementsByStage, pointsForPlayer])
+  }, [players, stages, placementsByStage, pointsForPlayer, gasForPlayer])
 
   
 
@@ -198,8 +247,13 @@ export default function ClassificaInner() {
 
            {/* Card classifica */}
       <div className="card p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b border-neutral-800 flex items-center justify-between bg-neutral-950/60">
+        <div className="px-4 py-3 border-b border-neutral-800 flex flex-wrap items-center justify-between gap-3 bg-neutral-950/60">
           <div className="text-base font-semibold tracking-wide">Classifica</div>
+          <button type="button" className="btn btn-sm btn-outline"
+            onClick={() => setShowStageColumns(value => !value)}
+            aria-expanded={showStageColumns}>
+            {showStageColumns ? 'Nascondi punti delle tappe' : 'Mostra punti delle tappe'}
+          </button>
         </div>
 
         {/* ---- DESKTOP: tabella completa ---- */}
@@ -211,7 +265,11 @@ export default function ClassificaInner() {
                 <th className="text-left">Giocatore</th>
                 <th className="text-right w-28 pr-4">Totale</th>
 
-                {stages.map((st, idx)=>(
+                {!showStageColumns && <>
+                  <th className="text-center w-20">Tappe</th>
+                  <th className="text-center min-w-[190px]">Gas</th>
+                </>}
+                {showStageColumns && stages.map((st, idx)=>(
                  <th key={st.id} className={`min-w-[120px] align-bottom border-l border-neutral-800`}>
                     <div className="flex flex-col items-center gap-1 py-1">
                       <div className="font-medium">{st.name}</div>
@@ -223,7 +281,7 @@ export default function ClassificaInner() {
                   </th>
                 ))}
               </tr>
-              {stages.length>0 && (
+              {showStageColumns && stages.length>0 && (
                 <tr className="text-neutral-400">
                   <th /><th /><th />
                   {stages.map(st=>(
@@ -257,7 +315,11 @@ export default function ClassificaInner() {
       {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(r.total)}
     </td>
 
-                  {stages.map((st, idx2)=>{
+                  {!showStageColumns && <>
+                    <td className="py-2 text-center tabular-nums">{r.stagesPlayed}</td>
+                    <td className="py-2 px-3"><GasThermometer percentage={r.gas} /></td>
+                  </>}
+                  {showStageColumns && stages.map((st, idx2)=>{
                     const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
                     const pts = pos ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet) : 0
                     return (
@@ -277,7 +339,7 @@ export default function ClassificaInner() {
 
               {rows.length===0 && (
                 <tr>
-                  <td colSpan={3 + stages.length} className="py-4 text-center text-neutral-500">
+                  <td colSpan={3 + (showStageColumns ? stages.length : 2)} className="py-4 text-center text-neutral-500">
                     Nessun dato
                   </td>
                 </tr>
@@ -313,11 +375,13 @@ export default function ClassificaInner() {
                   {new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(r.total)}
                 </span>
 
-                {/* separatore sottile prima delle tappe */}
-                {stages.length > 0 && <span className="mx-1 w-px h-4 bg-neutral-800 shrink-0" />}
-
-                {/* chip tappe scorrevoli */}
-                {stages.map((st) => {
+                {!showStageColumns && <>
+                  <span className="ml-2 text-xs text-neutral-400 shrink-0">Tappe: <strong className="text-white">{r.stagesPlayed}</strong></span>
+                  <span className="ml-2 shrink-0"><GasThermometer percentage={r.gas} /></span>
+                </>}
+                {/* chip tappe scorrevoli, solo su richiesta */}
+                {showStageColumns && stages.length > 0 && <span className="mx-1 w-px h-4 bg-neutral-800 shrink-0" />}
+                {showStageColumns && stages.map((st) => {
                   const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
                   const pts = pos
                     ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet)
