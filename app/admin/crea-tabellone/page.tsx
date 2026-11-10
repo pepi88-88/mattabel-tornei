@@ -1406,9 +1406,16 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
             <p className="text-xs text-neutral-400 mt-3">In ciascun incontro scegli liberamente una posizione dei due ITA; le posizioni già usate sono disabilitate. BYE e casella vuota restano disponibili.</p>
           </div>
         )}
-        <div className="flex items-center gap-2 ml-2 mt-3">
-          <input id="thirdplace" type="checkbox" className="accent-white" checked={enableThirdPlace} onChange={(e)=>setEnableThirdPlace(e.target.checked)} disabled={locked} />
-          <label htmlFor="thirdplace" className="text-sm">Match 3° / 4° posto</label>
+        <div className="flex items-center justify-between gap-4 ml-2 mt-3 min-h-[28px]">
+          <div className="flex items-center gap-2">
+            <input id="thirdplace" type="checkbox" className="accent-white" checked={enableThirdPlace} onChange={(e)=>setEnableThirdPlace(e.target.checked)} disabled={locked} />
+            <label htmlFor="thirdplace" className="text-sm">Match 3° / 4° posto</label>
+          </div>
+          <div role="status" aria-live="polite" className="min-w-[220px] text-right text-xs sm:text-sm whitespace-nowrap">
+            {bracketsSaveState==='saving' && <span className="text-amber-300">Salvataggio in corso…</span>}
+            {bracketsSaveState==='saved' && <span className="text-emerald-400">✓ Salvato</span>}
+            {bracketsSaveState==='error' && <span className="text-red-400" title="Non cambiare pagina finché il salvataggio non riesce">Errore salvataggio — riprova</span>}
+          </div>
         </div>
 <div className="flex items-center gap-2 ml-2 mt-3">
   <input
@@ -1422,8 +1429,7 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
 </div>
 
 
-        {bracketsSaveState==='saving' && <div role="status" className="mt-2 text-sm text-amber-300">Salvataggio tabellone in corso...</div>}
-        {bracketsSaveState==='error' && <div role="alert" className="mt-2 text-sm text-red-400">Salvataggio non riuscito. Non cambiare pagina finché non è ripristinato.</div>}
+
 
         {/* Titolo grande colorato centrato */}
 <div className="mt-4 flex justify-center">
