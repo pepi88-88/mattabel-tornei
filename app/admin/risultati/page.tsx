@@ -7,6 +7,7 @@ import BracketCanvas, {
   type Bracket as BracketType,
 } from '../../../components/BracketCanvas'
 import PreliminaryBracket from '../../../components/PreliminaryBracket'
+import { parseItaPositionToken, resolveItaPosition } from '../../../lib/itaSources'
 import {
   colorForLetter as colorFor,
   GROUP_LETTERS as LETTERS_STR,
@@ -732,6 +733,8 @@ function normalizeBracket(b: any): BracketType {
     nTeams: n,
     source: (b?.source as BracketType['source']) || 'gironi',
     fromTableId: b?.fromTableId || undefined,
+    itaFromTable1: b?.itaFromTable1 || undefined,
+    itaFromTable2: b?.itaFromTable2 || undefined,
     r1,
     prelims: b?.type === 'PSE' || b?.type === 'PDE' ? Array.from({length:b?.type === 'PSE' && n === 24 ? 8 : 4}, (_,i)=>({A:b?.prelims?.[i]?.A??'-', B:b?.prelims?.[i]?.B??'-'})) : undefined,
     slots,
@@ -1665,11 +1668,16 @@ const resolveToken = useMemo(() => {
     }
 
     // 3) fallback standard (Winner/Loser -> A1) + post-risoluzione ULTERIORE
+    const itaRef=parseItaPositionToken(token)
+    if(itaRef) return lastSurnames(resolveItaPosition(token,brackets,itaScoresById,raw=>{
+      const name=resolveGroupOrAvulsaNow(raw)
+      return name || slotBase(raw)
+    }) || token)
     const out = slotBase(token) // può restituire A1/B2 ecc (o già un nome)
     const nm = resolveGroupOrAvulsaNow(out)
     return nm ?? out
   }
-}, [brackets, winnersById, tourId, tId, avulsa])
+}, [brackets, winnersById, tourId, tId, avulsa, itaScoresById])
 
  useEffect(() => {
   const request = ++bracketsRequestRef.current
