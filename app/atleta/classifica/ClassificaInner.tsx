@@ -103,6 +103,7 @@ export default function ClassificaInner() {
   // Zoom specifico della classifica, non del sito: resta invariato
   // quando si sollevano le dita e al successivo accesso dal telefono.
   const [mobileZoom, setMobileZoom] = React.useState(0.65)
+  const currentZoomRef = React.useRef(mobileZoom)
   const rankingTouchRef = React.useRef<HTMLDivElement>(null)
   const pinchStartRef = React.useRef<{distance:number; zoom:number} | null>(null)
   const clampZoom = React.useCallback((n:number)=>Math.min(1.5, Math.max(0.35, Math.round(n*100)/100)),[])
@@ -114,6 +115,7 @@ export default function ClassificaInner() {
     } catch {}
   },[clampZoom])
   React.useEffect(()=>{
+    currentZoomRef.current=mobileZoom
     try { localStorage.setItem('ath:rankingZoom', String(mobileZoom)) } catch {}
   },[mobileZoom])
   React.useEffect(()=>{
@@ -124,7 +126,7 @@ export default function ClassificaInner() {
       touches[0].clientY-touches[1].clientY
     )
     const start=(event:TouchEvent)=>{
-      if(event.touches.length===2) pinchStartRef.current={distance:distance(event.touches), zoom:mobileZoom}
+      if(event.touches.length===2) pinchStartRef.current={distance:distance(event.touches), zoom:currentZoomRef.current}
     }
     const move=(event:TouchEvent)=>{
       const start=pinchStartRef.current
@@ -145,7 +147,7 @@ export default function ClassificaInner() {
       el.removeEventListener('touchend',end)
       el.removeEventListener('touchcancel',end)
     }
-  },[mobileZoom,clampZoom])
+  },[clampZoom])
   const [gender, setGender] = React.useState<Gender>(() =>
     ((typeof window !== 'undefined' && (localStorage.getItem('ath:lastGender') as Gender|null)) || 'M')
   )
