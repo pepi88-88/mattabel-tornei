@@ -1594,7 +1594,7 @@ useEffect(() => {
   const [brackets, setBrackets] = useState<BracketType[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [smartDraft, setSmartDraft] = useState<{bracketId:string; rows:{A:string;B:string}[]; prelims?:{A:string;B:string}[]} | null>(null)
-  const [smartShowNumbers, setSmartShowNumbers] = useState(true)
+  const [smartShowNumbers, setSmartShowNumbers] = useState(false)
   const [smartPanelOpen, setSmartPanelOpen] = useState(false)
   const [smartEdit, setSmartEdit] = useState(false)
   const [smartPicked, setSmartPicked] = useState<number | null>(null)
@@ -2312,7 +2312,7 @@ return (
           <table className="w-full text-sm">
             <thead className="text-xs text-neutral-400">
               <tr>
-                <th className="text-left">Pos</th>
+                <th className="text-left" title="Posizione generale nella classifica avulsa">Avulsa</th>
                 <th className="text-left">Gir</th>
                 <th className="text-left">Team</th>
                 <th className="text-right">Partite</th>
@@ -2325,7 +2325,7 @@ return (
             <tbody>
               {avulsa.map((r, i) => (
                 <tr key={i} className={`border-t border-neutral-800 ${r.completed ? 'bg-emerald-950/50 text-emerald-200' : ''}`} title={r.completed ? 'Tutte le partite della coppia sono concluse' : 'Partite ancora da completare'}>
-                  <td className="py-1">{r.pos}</td>
+                  <td className="py-1 font-semibold tabular-nums">{i + 1}</td>
                   <td>{r.letter}</td>
                   <td className="truncate">{r.label}</td>
                   <td className="text-right tabular-nums">{r.played}/{r.total}</td>
