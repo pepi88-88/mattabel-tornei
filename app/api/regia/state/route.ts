@@ -28,7 +28,7 @@ type Bracket = {
   color: string
   type: 'SE' | 'DE' | 'ITA' | 'PSE' | 'PDE'
   nTeams: number
-  source: 'gironi' | 'avulsa' | 'eliminati' | 'gironi+eliminati' | 'avulsa+eliminati'
+  source: 'gironi' | 'avulsa' | 'avulsa-intelligente' | 'eliminati' | 'gironi+eliminati' | 'avulsa+eliminati'
   fromTableId?: string
   r1: { A: string; B: string }[]
   prelims?: { A: string; B: string }[]

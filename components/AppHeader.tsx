@@ -38,7 +38,14 @@ function NavLink({ href, label, active }: { href:string; label:string; active:bo
   return (
     <button
       type="button"
-      onClick={() => router.push(href)}                  // 👈 navigazione forzata
+      onClick={() => {
+        // Le pagine con salvataggi in sospeso possono completare il salvataggio
+        // prima di lasciare la schermata (es. Creazione Tabellone).
+        const before = new CustomEvent('mattabel:before-admin-nav', {
+          cancelable: true, detail: { href },
+        })
+        if (window.dispatchEvent(before)) router.push(href)
+      }}
       className={[
         'inline-flex items-center justify-center',
         'h-11 px-4 rounded-md my-2',

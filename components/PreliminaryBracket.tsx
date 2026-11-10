@@ -148,7 +148,7 @@ export default function PreliminaryBracket({title,color,type,nTeams,prelims=[],r
               onClick={()=>chooseWinner(side,name)}
               className={`w-full h-10 rounded-md px-2 text-left truncate transition
                 ${editable&&onWinner?'cursor-pointer':'cursor-default'}
-                ${selected===side?'bg-yellow-500/20 ring-1 ring-yellow-500':'bg-neutral-800/40 hover:bg-neutral-700/40'}`}>
+                ${onWinner && selected===side && name && name!=='—' && name!=='-' && name!=='BYE' && !/^Vincente\s|^Perdente\s/i.test(name)?'bg-yellow-500/20 ring-1 ring-yellow-500':'bg-neutral-800/40 hover:bg-neutral-700/40'}`}>
               <span className="font-mono text-sm">{name||'—'}</span>
             </button>
         })}

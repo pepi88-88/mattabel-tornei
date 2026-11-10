@@ -57,7 +57,7 @@ type Bracket = {
   color: string
   type: 'SE' | 'DE' | 'ITA' | 'PSE' | 'PDE'
   nTeams: number
-  source: 'gironi' | 'avulsa' | 'eliminati' | 'gironi+eliminati'| 'avulsa+eliminati'
+  source: 'gironi' | 'avulsa' | 'avulsa-intelligente' | 'eliminati' | 'gironi+eliminati'| 'avulsa+eliminati'
   fromTableId?: string
   prelims?: { A: string; B: string }[] // P1..P4/P8; separate from official R round
   r1: { A: string; B: string }[]   // usato da SE e anche da DE (R1..R4)
@@ -839,7 +839,7 @@ function ensureR1For(n:number) {
 
 function setSlot(pair:number, side:0|1, value:string) {
   const r1 = active?.r1 ? [...active.r1] : [];
-  const cur = r1[pair] ?? { A:'-', B:'-' };
+  const cur = { ...(r1[pair] ?? { A:'-', B:'-' }) };
   if (side===0) cur.A = value; else cur.B = value;
   r1[pair] = cur;
   patchActive({ r1 });
@@ -923,68 +923,94 @@ useEffect(() => {
 }, [tId])
 
 
-// nella pagina risultati, autosave winners
-useEffect(() => {
-  if (!tId) return
-  if (!loadedRemote) return
-  if (brackets.length === 0) return
-
-  const curTId = tId
-  const timer = setTimeout(async () => {
-    try {
-      const res = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(curTId)}`, {
-        headers: { 'x-role': 'admin' },
-        cache: 'no-store',
-      })
-      const js = await res.json()
-      const prev = (js?.state || {}) as any
-
-      const next = {
-        ...(Array.isArray(prev) ? {} : prev),
-        items: brackets,
-        winnersById: Object.fromEntries(Object.entries({...Object.fromEntries(brackets.map(b => [b.id, {}])), ...(prev?.winnersById || {})}).map(([id, values]) => {
-          const b = brackets.find(x => x.id === id)
-          if (!b || (b.type !== 'PSE' && b.type !== 'PDE')) return [id, values]
-          const merged = {...(values as Record<string, 'A' | 'B' | undefined>)}
-          for (let i = 0; i < (b.prelims?.length || 0); i++) {
-            const code = `P${i+1}`
-            const local = winnersById[id]?.[code]
-            if (local === 'A' || local === 'B') merged[code] = local
-            else delete merged[code] // Allow clearing a preliminary winner
-          }
-          return [id, merged]
-        })),
-        itaScoresById: prev?.itaScoresById || {},
-        isPublic: typeof prev?.isPublic === 'boolean' ? prev.isPublic : false,
-        regia: prev?.regia ?? { items: {} }, // <-- IMPORTANTE: preserva la regia
+// Salvataggi serializzati: un aggiornamento vecchio non deve sovrascrivere
+// l'ultimo mentre lo staff passa da Creazione Tabellone a Risultati.
+const bracketsSaveQueue = useRef<Promise<void>>(Promise.resolve())
+const [bracketsSaveState, setBracketsSaveState] = useState<'idle'|'saving'|'saved'|'error'>('idle')
+const persistBracketDraft = (
+  tournamentId:string,
+  rows:Bracket[],
+  chosenWinners:Record<string,Record<string,'A'|'B'|undefined>>,
+):Promise<void> => {
+  const save = async () => {
+    setBracketsSaveState('saving')
+    const res = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(tournamentId)}`, {
+      headers:{'x-role':'admin'},cache:'no-store'
+    })
+    if(!res.ok)throw new Error('Impossibile leggere i tabelloni prima del salvataggio')
+    const js = await res.json()
+    const prev = (js?.state || {}) as any
+    const winners = Object.fromEntries(Object.entries({
+      ...Object.fromEntries(rows.map(b=>[b.id,{}])),
+      ...(Array.isArray(prev)?{}:prev?.winnersById || {})
+    }).map(([id,values])=>{
+      const b=rows.find(x=>x.id===id)
+      if(!b || (b.type!=='PSE' && b.type!=='PDE'))return [id,values]
+      const merged={...(values as Record<string,'A'|'B'|undefined>)}
+      for(let i=0;i<(b.prelims?.length||0);i++){
+        const code=`P${i+1}`
+        const picked=chosenWinners[id]?.[code]
+        if(picked==='A'||picked==='B')merged[code]=picked
+        else delete merged[code]
       }
+      return [id,merged]
+    }))
+    const next = {
+      ...(Array.isArray(prev)?{}:prev),
+      items:rows,
+      winnersById:winners,
+      itaScoresById:Array.isArray(prev)?{}:prev?.itaScoresById||{},
+      isPublic:typeof prev?.isPublic==='boolean'?prev.isPublic:false,
+      regia:prev?.regia??{items:{}},
+    }
+    if(JSON.stringify(prev?.items||[])===JSON.stringify(next.items) &&
+       JSON.stringify(prev?.winnersById||{})===JSON.stringify(next.winnersById) &&
+       JSON.stringify(prev?.itaScoresById||{})===JSON.stringify(next.itaScoresById) &&
+       Boolean(prev?.isPublic)===Boolean(next.isPublic) &&
+       JSON.stringify(prev?.regia??{items:{}})===JSON.stringify(next.regia??{items:{}})){
+      setBracketsSaveState('saved')
+      return
+    }
+    const put=await fetch('/api/brackets/state',{
+      method:'PUT',headers:{'Content-Type':'application/json','x-role':'admin'},
+      body:JSON.stringify({tournament_id:tournamentId,state:next})
+    })
+    if(!put.ok)throw new Error('Salvataggio tabellone fallito')
+    setBracketsSaveState('saved')
+  }
+  const pending=bracketsSaveQueue.current.catch(()=>{}).then(save)
+  bracketsSaveQueue.current=pending
+  return pending
+}
 
-      const same =
-        JSON.stringify(prev?.items || []) === JSON.stringify(next.items) &&
-        JSON.stringify(prev?.winnersById || {}) === JSON.stringify(next.winnersById) &&
-        JSON.stringify(prev?.itaScoresById || {}) === JSON.stringify(next.itaScoresById) &&
-        Boolean(prev?.isPublic) === Boolean(next.isPublic) &&
-        JSON.stringify(prev?.regia ?? { items: {} }) === JSON.stringify(next.regia ?? { items: {} })
+useEffect(()=>{
+  if(!tId || !loadedRemote || !brackets.length)return
+  const timer=setTimeout(()=>{
+    persistBracketDraft(tId,brackets,winnersById).catch(()=>{
+      setBracketsSaveState('error')
+    })
+  },300)
+  return ()=>clearTimeout(timer)
+},[tId,loadedRemote,brackets,winnersById])
 
-      if (same) return
-      if (curTId !== tId) return
-
-      await fetch('/api/brackets/state', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-role': 'admin',
-        },
-        body: JSON.stringify({
-          tournament_id: curTId,
-          state: next,
-        }),
-      })
-    } catch {}
-  }, 300)
-
-  return () => clearTimeout(timer)
-}, [tId, loadedRemote, brackets, winnersById])
+// Il menu Admin è un router client: senza questo controllo la navigazione
+// cancella il debounce e Risultati può mostrare le vecchie coppie.
+useEffect(()=>{
+  const handleNavigation=(ev:Event)=>{
+    const event=ev as CustomEvent<{href:string}>
+    if(!event.detail?.href || !tId || !loadedRemote || !brackets.length)return
+    event.preventDefault()
+    const destination=event.detail.href
+    persistBracketDraft(tId,brackets,winnersById).then(()=>{
+      window.location.assign(destination)
+    }).catch(()=>{
+      setBracketsSaveState('error')
+      window.alert('Il tabellone non è stato salvato. Riprova prima di cambiare pagina.')
+    })
+  }
+  window.addEventListener('mattabel:before-admin-nav',handleNavigation)
+  return ()=>window.removeEventListener('mattabel:before-admin-nav',handleNavigation)
+},[tId,loadedRemote,brackets,winnersById])
 
 // lettere da usare (come Sorgenti) + limitazione con groupsCount
 const lettersReal = useMemo(() => {
@@ -1077,6 +1103,7 @@ const avulsaOps = Array.from(
   switch (active?.source) {
     case 'gironi':            return gironiOps
     case 'avulsa':            return avulsaOps
+    case 'avulsa-intelligente': return avulsaOps
     case 'eliminati':         return elimOps
     case 'gironi+eliminati':  return [...gironiOps, ...elimOps]
 case 'avulsa+eliminati':  return [...avulsaOps, ...elimOps]
@@ -1309,6 +1336,7 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
             <select className="input w-56 h-12 text-base" value={active.source} onChange={(e)=>patchActive({ source: e.target.value as Bracket['source'] })}disabled={locked}>
               <option value="gironi">Gironi (A1, A2, …)</option>
               <option value="avulsa">Classifica avulsa (1, 2, …)</option>
+              <option value="avulsa-intelligente">Avulsa intelligente (anti-rivincite)</option>
               <option value="eliminati">Eliminati da tabellone</option>
               <option value="gironi+eliminati">Gironi + Eliminati</option>
 <option value="avulsa+eliminati">Avulsa + Eliminati</option> 
@@ -1338,6 +1366,9 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
   <label htmlFor="lock" className="text-sm">Blocca modifiche (solo lettura)</label>
 </div>
 
+
+        {bracketsSaveState==='saving' && <div role="status" className="mt-2 text-sm text-amber-300">Salvataggio tabellone in corso...</div>}
+        {bracketsSaveState==='error' && <div role="alert" className="mt-2 text-sm text-red-400">Salvataggio non riuscito. Non cambiare pagina finché non è ripristinato.</div>}
 
         {/* Titolo grande colorato centrato */}
 <div className="mt-4 flex justify-center">

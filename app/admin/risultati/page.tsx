@@ -737,6 +737,58 @@ function normalizeBracket(b: any): BracketType {
     slots,
   }
 }
+
+// Avulsa intelligente: i numeri sono identità delle coppie, non posizioni nel tabellone.
+// Le teste di serie sul lato A rimangono fisse; si permutano soltanto gli ingressi B.
+// La classifica avulsa e l'insieme delle qualificate non vengono mai alterati.
+function smartAvulsaPairs(rows: {A:string;B:string}[], groupForSeed: (seed:number)=>string | undefined) {
+  const original=rows.map(m=>({...m}))
+  // Lato A protetto: solo gli avversari B si possono permutare automaticamente.
+  const movable=original.map((m,i)=>/^\d+$/.test(m.B.trim()) ? i : -1).filter(i=>i>=0)
+  const seeds=movable.map(i=>original[i].B)
+  if(movable.length<2 || new Set(seeds).size!==seeds.length)return original
+  const score=(arr:string[])=>{
+    let collisions=0,shift=0
+    movable.forEach((i,j)=>{
+      const a=original[i].A,b=arr[j]
+      const ga=/^\d+$/.test(a)?groupForSeed(Number(a)):undefined
+      const gb=groupForSeed(Number(b))
+      if(ga && gb && ga===gb)collisions++
+      shift+=Math.abs(Number(b)-Number(seeds[j]))
+    })
+    return collisions*100000 + shift
+  }
+  let best=[...seeds],bestScore=score(best)
+  if(seeds.length<=8){
+    const used=new Set<string>(),current:string[]=[]
+    const visit=()=>{
+      if(current.length===seeds.length){
+        const val=score(current)
+        if(val<bestScore){best=[...current];bestScore=val}
+        return
+      }
+      for(const seed of seeds){
+        if(used.has(seed))continue
+        used.add(seed);current.push(seed);visit();current.pop();used.delete(seed)
+      }
+    }
+    visit()
+  }else{
+    let improved=true
+    while(improved){
+      improved=false
+      for(let i=0;i<best.length;i++)for(let j=i+1;j<best.length;j++){
+        const swapped=[...best];[swapped[i],swapped[j]]=[swapped[j],swapped[i]]
+        const val=score(swapped)
+        if(val<bestScore){best=swapped;bestScore=val;improved=true}
+      }
+    }
+  }
+  const answer=original.map(m=>({...m}))
+  movable.forEach((i,j)=>{answer[i].B=best[j]})
+  return answer
+}
+
 const keyBr = (tour: string, tId: string) => `brackets:${tour}:${tId}`
 function loadBrackets(tour: string, tId: string): BracketType[] {
   if (!tour || !tId) return []
@@ -1541,6 +1593,14 @@ useEffect(() => {
   const bracketsRequestRef = useRef(0)
   const [brackets, setBrackets] = useState<BracketType[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [smartDraft, setSmartDraft] = useState<{bracketId:string; rows:{A:string;B:string}[]; prelims?:{A:string;B:string}[]} | null>(null)
+  const [smartShowNumbers, setSmartShowNumbers] = useState(false)
+  const [smartPanelOpen, setSmartPanelOpen] = useState(false)
+  const [smartEdit, setSmartEdit] = useState(false)
+  const [smartPicked, setSmartPicked] = useState<number | null>(null)
+  const [smartSaving, setSmartSaving] = useState(false)
+  const [smartMessage, setSmartMessage] = useState('')
+  
   const [winnersById, setWinnersById] = useState<Record<string, WinnerMap>>({})
 const [itaScoresById, setItaScoresById] = useState<Record<string, ItaScore[]>>({})
 
@@ -1712,23 +1772,136 @@ useEffect(() => {
 }, [tourId, tId, bracketsLoadKey, bracketsLoadError, winnersById, itaScoresById, courtsByBracket, bracketScoresById])
 
   const active = useMemo(() => brackets.find(b => b.id === activeId) || null, [activeId, brackets])
+
+  const avulsaGroupForSeed = (seed:number) => avulsa[seed-1]?.letter
+  const isPreliminarySmart=active?.type==='PSE' || active?.type==='PDE'
+  const smartRows=smartDraft?.bracketId===activeId ? smartDraft.rows : (active?.r1 || [])
+  const smartPrelims=smartDraft?.bracketId===activeId ? (smartDraft.prelims || []) : (active?.prelims || [])
+  const smartSupported=!!active && ['SE','DE','PSE','PDE'].includes(active.type) &&
+    (active.source==='avulsa' || active.source==='avulsa-intelligente')
+  const smartLocked=!!active && (
+    Object.values(winnersById[active.id] || {}).some(Boolean) ||
+    Object.values(bracketScoresById[active.id] || {}).some(v=>v?.A!=null || v?.B!=null)
+  )
+  // Le R dei PSE/PDE hanno un ingresso A dinamico (vincitrice P): non è un posto spostabile.
+  // Non mostrare etichette residue di altri tornei nel pannello touch.
+  // Solo i numeri che esistono nella classifica avulsa corrente sono squadre.
+  const validAvulsaToken=(token:string) =>
+    /^\d+$/.test(String(token||'').trim()) && !!avulsa[Number(token)-1]?.label
+  const cleanAvulsaToken=(token:string) =>
+    validAvulsaToken(token) ? token : '-'
+  const cleanAvulsaRows=(rows:{A:string;B:string}[]) =>
+    rows.map(m=>({A:cleanAvulsaToken(m.A),B:cleanAvulsaToken(m.B)}))
+  const smartSlots: Array<{section:'prelims'|'r1';index:number;side:'A'|'B';token:string;match:string}> =
+    isPreliminarySmart
+      ? [...smartPrelims.flatMap((m,i)=>[
+          {section:'prelims' as const,index:i,side:'A' as const,token:cleanAvulsaToken(m.A),match:`P${i+1}`},
+          {section:'prelims' as const,index:i,side:'B' as const,token:cleanAvulsaToken(m.B),match:`P${i+1}`}
+        ]),...smartRows.map((m,i)=>({
+          section:'r1' as const,index:i,side:'B' as const,token:cleanAvulsaToken(m.B),match:`R${i+1}`
+        }))]
+      : smartRows.flatMap((m,i)=>[
+          {section:'r1' as const,index:i,side:'A' as const,token:cleanAvulsaToken(m.A),match:`M${i+1}`},
+          {section:'r1' as const,index:i,side:'B' as const,token:cleanAvulsaToken(m.B),match:`M${i+1}`}
+        ])
+  // Le rivincite sono verificate tra coppie dello stesso girone. Per PSE/PDE
+  // il primo turno disputato e' il preliminare P; per SE/DE e' R1/M.
+  const smartRematches=(isPreliminarySmart?smartPrelims:smartRows).flatMap((m,i)=>{
+    const ga=/^\d+$/.test(m.A) ? avulsaGroupForSeed(Number(m.A)) : undefined
+    const gb=/^\d+$/.test(m.B) ? avulsaGroupForSeed(Number(m.B)) : undefined
+    if(!ga || !gb || ga!==gb)return []
+    return [{match:isPreliminarySmart?`P${i+1}`:`M${i+1}`,
+      a:m.A,b:m.B,group:ga}]
+  })
+  const smartWarnings=smartRematches.length
+  const smartSwap=(index:number)=>{
+    if(!active || smartLocked)return
+    if(smartPicked===null){setSmartPicked(index);return}
+    if(smartPicked===index){setSmartPicked(null);return}
+    const first=smartSlots[smartPicked],second=smartSlots[index]
+    if(!first || !second ||
+      (!validAvulsaToken(first.token) && !validAvulsaToken(second.token))){
+      setSmartMessage('Seleziona almeno una coppia con posizione avulsa valida.')
+      setSmartPicked(null);return
+    }
+    const rows=cleanAvulsaRows(smartRows),prelims=cleanAvulsaRows(smartPrelims)
+    const data={r1:rows,prelims}
+    data[first.section][first.index][first.side]=second.token
+    data[second.section][second.index][second.side]=first.token
+    setSmartDraft({bracketId:active.id,rows,prelims})
+    setSmartPicked(null);setSmartMessage('')
+  }
+  const smartPropose=()=>{
+    if(!active || smartLocked)return
+    const rows=cleanAvulsaRows(smartRows),prelims=cleanAvulsaRows(smartPrelims)
+    const proposal=isPreliminarySmart ? smartAvulsaPairs(prelims,avulsaGroupForSeed) : smartAvulsaPairs(rows,avulsaGroupForSeed)
+    setSmartDraft({bracketId:active.id,rows:isPreliminarySmart?rows:proposal,prelims:isPreliminarySmart?proposal:prelims})
+    setSmartEdit(true);setSmartPicked(null);setSmartMessage('')
+  }
+  const smartSave=async()=>{
+    if(!active || !smartDraft || smartDraft.bracketId!==active.id || smartLocked || smartSaving)return
+    const id=active.id,rows=smartDraft.rows.map(m=>({...m}))
+    const prelims=smartDraft.prelims?.map(m=>({...m}))
+    setSmartSaving(true);setSmartMessage('')
+    try{
+      const response=await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`,{
+        headers:{'x-role':'admin'},cache:'no-store'
+      })
+      if(!response.ok)throw new Error('Impossibile rileggere il tabellone')
+      const json=await response.json(),previous=json?.state
+      const items=Array.isArray(previous)?previous:previous?.items
+      if(!Array.isArray(items))throw new Error('Dati tabellone non validi')
+      const current=items.find((b:any)=>b.id===id)
+      if(!current || JSON.stringify(current.r1)!==JSON.stringify(active.r1) ||
+         (isPreliminarySmart && JSON.stringify(current.prelims)!==JSON.stringify(active.prelims)))
+        throw new Error('Il tabellone è cambiato su un altro dispositivo: ricarica prima di salvare')
+      if(Object.values((Array.isArray(previous)?{}:previous?.winnersById?.[id])||{}).some(Boolean) ||
+        Object.values((Array.isArray(previous)?{}:previous?.bracketScoresById?.[id])||{}).some((v:any)=>v?.A!=null||v?.B!=null))
+        throw new Error('Il tabellone contiene già risultati')
+      const nextItems=items.map((b:any)=>b.id===id?{...b,r1:rows,...(isPreliminarySmart?{prelims}:{} )}:b)
+      const next=Array.isArray(previous)?{items:nextItems}:{...previous,items:nextItems}
+      const saved=await fetch('/api/brackets/state',{
+        method:'PUT',headers:{'Content-Type':'application/json','x-role':'admin'},
+        body:JSON.stringify({tournament_id:tId,state:next})
+      })
+      if(!saved.ok)throw new Error('Salvataggio non riuscito')
+      setBrackets(prev=>prev.map(b=>b.id===id?{...b,r1:rows,...(isPreliminarySmart?{prelims}:{} )}:b))
+      setSmartDraft(null);setSmartEdit(false);setSmartPicked(null)
+      setSmartMessage('Accoppiamenti salvati.')
+    }catch(e:any){setSmartMessage(e?.message||'Salvataggio non riuscito')}
+    finally{setSmartSaving(false)}
+  }
+
 // Bracket "per display": per SE/DE risolvo A1/B2/avulsa(1..N) -> cognomi
 const activeForDisplay = useMemo(() => {
   if (!active) return null
 
   // solo SE/DE hanno il problema (ITA usa già ItaEditor con resolve)
   if (String(active.type).toUpperCase() === 'SE' || String(active.type).toUpperCase() === 'DE') {
-    const mapSlot = (s: string) => resolveToken(String(s || '').trim())
+    const mapSlot = (s: string) => {
+      const token=String(s || '').trim()
+      const avulsaSource=active.source==='avulsa' || active.source==='avulsa-intelligente'
+      if (!token || token==='-' || token==='—') return '—'
+      if(token.toUpperCase()==='BYE')return 'BYE'
+      // Nelle provenienze avulsa soltanto un numero identifica una coppia.
+      // Una vecchia etichetta letterale (es. dal torneo precedente) non deve
+      // riapparire come partecipante a un ingresso lasciato vuoto.
+      if(avulsaSource && !/^\d+$/.test(token))return '—'
+      const name=resolveToken(token)
+      if(avulsaSource && /^\d+$/.test(token) && !avulsa[Number(token)-1]?.label)return '—'
+      return smartShowNumbers && avulsaSource && /^\d+$/.test(token)
+        ? `#${token} · ${name}` : name
+    }
     return {
       ...active,
       // r1: risolvo A e B
-      r1: (active.r1 || []).map(m => ({ A: mapSlot(m.A), B: mapSlot(m.B) })),
+      r1: (smartDraft?.bracketId===active.id ? smartDraft.rows : active.r1 || []).map(m => ({ A: mapSlot(m.A), B: mapSlot(m.B) })),
       // slots lineari (per gli schemi che li mostrano)
       slots: (active.slots || []).map(mapSlot),
     } as BracketType
   }
   return active
-}, [active, resolveToken])
+}, [active, resolveToken, smartShowNumbers, smartDraft, avulsa])
 
   // ------------------------------------------------------------
 // UI
@@ -1833,7 +2006,7 @@ return (
                 <button
                   key={b.id}
                   className={`btn ${b.id === activeId ? '' : 'opacity-80'}`}
-                  onClick={() => setActiveId(b.id)}
+                  onClick={() => {setActiveId(b.id);setSmartDraft(null);setSmartPicked(null);setSmartEdit(false);setSmartPanelOpen(false);setSmartMessage('')}}
                   title={b.title}
                   style={
                     b.id === activeId
@@ -1851,6 +2024,65 @@ return (
             {/* Canvas / Editor */}
             {active ? (
   <div className="p-4">
+    {smartSupported && <div className="mb-4 rounded-xl border border-neutral-700 bg-neutral-900 p-3">
+      <button type="button" aria-expanded={smartPanelOpen}
+        onClick={()=>{setSmartPanelOpen(v=>!v);setSmartPicked(null)}}
+        className="w-full flex flex-wrap items-center justify-between gap-2 text-left rounded-lg px-2 py-2 hover:bg-neutral-800/60"
+        title={smartPanelOpen?'Chiudi dettagli avulsa':'Apri dettagli avulsa'}>
+        <span className="font-semibold text-sm">Avulsa intelligente</span>
+        <span className={`text-sm ${smartWarnings?'text-amber-400':'text-emerald-400'}`}>
+          {smartWarnings} {smartWarnings===1?'rivincita':'rivincite'} al primo turno
+          <span className="ml-3 text-neutral-400" aria-hidden="true">{smartPanelOpen?'▴':'▾'}</span>
+        </span>
+      </button>
+      {smartPanelOpen && <div className="space-y-3 px-2 pb-2 pt-3 border-t border-neutral-800">
+        <div className="text-xs text-neutral-400">La classifica non cambia: il numero avulsa segue sempre la coppia.</div>
+        {smartRematches.length>0 ?
+          <div className="rounded-lg border border-amber-700/40 bg-amber-950/20 p-3 space-y-2">
+            <div className="text-sm font-semibold text-amber-300">Incontri che ripetono una sfida del girone</div>
+            {smartRematches.map(rematch=><div key={rematch.match} className="text-sm text-neutral-200">
+              <span className="font-semibold text-amber-300">{rematch.match} · Girone {rematch.group}:</span>{' '}
+              <span>#{rematch.a} {resolveToken(rematch.a)} vs #{rematch.b} {resolveToken(rematch.b)}</span>
+            </div>)}
+          </div>
+          : <div className="text-sm text-emerald-400">Nessuna rivincita rilevata nel primo turno.</div>}
+      <div className="flex flex-wrap gap-4 items-center">
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={smartShowNumbers} onChange={e=>setSmartShowNumbers(e.target.checked)}/> Mostra numeri avulsa</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={smartEdit} disabled={smartLocked} onChange={e=>{setSmartEdit(e.target.checked);setSmartPicked(null)}}/> Sposta squadre (tablet)</label>
+        <button type="button" className="btn" disabled={smartLocked||smartSaving||!!smartDraft} onClick={()=>{
+          if(!active)return
+          smartPropose()
+        }}>Proponi anti-rivincite</button>
+      </div>
+      {smartLocked && <div className="text-sm text-amber-400">Spostamenti bloccati: sono già stati inseriti risultati.</div>}
+      {(smartEdit||smartDraft?.bracketId===active.id) && <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {(isPreliminarySmart ? [
+          ...smartPrelims.map((_,i)=>({match:`P${i+1}`,index:i,section:'prelims' as const})),
+          ...smartRows.map((_,i)=>({match:`R${i+1}`,index:i,section:'r1' as const}))
+        ] : smartRows.map((_,i)=>({match:`M${i+1}`,index:i,section:'r1' as const}))).map(row=><div key={row.match} className="rounded-lg border border-neutral-700 p-2">
+          <div className="text-xs text-neutral-400 mb-1">Incontro {row.match}</div>
+          {smartSlots.map((entry,index)=>({entry,index})).filter(({entry})=>entry.match===row.match).map(({entry,index})=>{
+            const token=entry.token,seed=Number(token),valid=validAvulsaToken(token)
+            return <button key={entry.side} type="button" disabled={!smartEdit||smartLocked}
+              onClick={()=>smartSwap(index)}
+              className={`w-full text-left rounded-lg p-3 my-1 min-h-[54px] border ${smartPicked===index?'border-amber-400 bg-amber-900/30':'border-neutral-700 bg-neutral-800'}`}>
+              {valid ? <>
+                <strong>#{token} · </strong>{resolveToken(token)}
+                {avulsaGroupForSeed(seed)?` · Girone ${avulsaGroupForSeed(seed)}`:''}
+              </> : <span className="text-neutral-500">— {smartEdit?'(posto libero)':''}</span>}
+            </button>
+          })}
+          {isPreliminarySmart && row.section==='r1' && <div className="text-xs text-neutral-500 mt-1">Altra coppia: vincitrice del preliminare {row.match.replace('R','P')}</div>}
+        </div>)}
+      </div>}
+      {smartEdit && !smartLocked && <p className="text-xs text-neutral-400">Tocca una coppia e poi un'altra per scambiarle; puoi anche spostarla in un posto libero. Gli scambi restano in anteprima fino al salvataggio.</p>}
+      {smartDraft?.bracketId===active.id && <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn" disabled={smartSaving||smartLocked} onClick={smartSave}>{smartSaving?'Salvataggio...':'Conferma e salva'}</button>
+        <button type="button" className="btn" disabled={smartSaving} onClick={()=>{setSmartDraft(null);setSmartPicked(null);setSmartEdit(false);setSmartMessage('Modifiche annullate')}}>Annulla</button>
+      </div>}
+      {smartMessage && <div role="status" className="text-sm text-amber-300">{smartMessage}</div>}
+      </div>}
+    </div>}
     {active.type === 'ITA' ? (
       <ItaEditor
         bracket={active}
@@ -1865,7 +2097,15 @@ return (
     ) : (active.type === 'PSE' || active.type === 'PDE') ? (
       <PreliminaryBracket
         title={active.title} color={active.color} type={active.type} nTeams={active.nTeams}
-        prelims={active.prelims} r1={active.r1} resolve={resolveToken}
+        prelims={smartDraft?.bracketId===active.id ? smartPrelims : active.prelims} r1={smartRows} resolve={(token)=>{
+          const raw=String(token||'').trim()
+          const avulsaSource=active.source==='avulsa'||active.source==='avulsa-intelligente'
+          if(!raw || raw==='-' || raw==='—')return '—'
+          if(avulsaSource && !/^\d+$/.test(raw))return '—'
+          if(avulsaSource && /^\d+$/.test(raw) && !avulsa[Number(raw)-1]?.label)return '—'
+          const name=resolveToken(raw)
+          return smartShowNumbers && avulsaSource && /^\d+$/.test(raw) ? `#${raw} · ${name}` : name
+        }}
         editable
         winners={winnersById[active.id] || {}}
         onWinner={(code,side) => setWinnersById(prev => ({
@@ -2083,7 +2323,7 @@ return (
           <table className="w-full text-sm">
             <thead className="text-xs text-neutral-400">
               <tr>
-                <th className="text-left">Pos</th>
+                <th className="text-left" title="Posizione generale nella classifica avulsa">Avulsa</th>
                 <th className="text-left">Gir</th>
                 <th className="text-left">Team</th>
                 <th className="text-right">Partite</th>
@@ -2096,7 +2336,7 @@ return (
             <tbody>
               {avulsa.map((r, i) => (
                 <tr key={i} className={`border-t border-neutral-800 ${r.completed ? 'bg-emerald-950/50 text-emerald-200' : ''}`} title={r.completed ? 'Tutte le partite della coppia sono concluse' : 'Partite ancora da completare'}>
-                  <td className="py-1">{r.pos}</td>
+                  <td className="py-1 font-semibold tabular-nums">{i + 1}</td>
                   <td>{r.letter}</td>
                   <td className="truncate">{r.label}</td>
                   <td className="text-right tabular-nums">{r.played}/{r.total}</td>
