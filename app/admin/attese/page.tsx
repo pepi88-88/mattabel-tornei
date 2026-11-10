@@ -230,3 +230,5 @@ export default function AttesePage(){
       I timer vengono conservati su questo dispositivo anche chiudendo il browser. Il conteggio parte quando una coppia viene riconosciuta per la prima volta e riparte dal risultato osservato al successivo aggiornamento. Per un conteggio condiviso tra dispositivi e per risultati registrati mentre questa pagina è chiusa servirà un archivio temporale sul server. Questa schermata non modifica risultati né Regia.
     </p>
   </div>
+  )
+}
