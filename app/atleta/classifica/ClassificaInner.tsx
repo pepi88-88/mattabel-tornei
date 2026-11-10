@@ -223,8 +223,9 @@ export default function ClassificaInner() {
 
   // ------------------------ RENDER ------------------------
   return (
-    <div className="p-6 space-y-6">
-      {/* Top: genere + select edizione */}
+    <div className="px-3 py-5 sm:p-6">
+      <div className={`mx-auto w-full space-y-5 ${showStageColumns ? 'max-w-[1400px]' : 'max-w-[900px]'}`}>
+      {/* Filtri e classifica condividono lo stesso contenitore centrato. */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-xl overflow-hidden border border-neutral-700">
           <button
@@ -246,7 +247,7 @@ export default function ClassificaInner() {
       </div>
 
            {/* Card classifica */}
-      <div className={`card p-0 overflow-hidden w-full ${showStageColumns ? '' : 'max-w-[900px]'}`}>
+      <div className="card p-0 overflow-hidden w-full">
         <div className="px-4 py-3 border-b border-neutral-800 flex flex-wrap items-center justify-between gap-3 bg-neutral-950/60">
           <div className="text-base font-semibold tracking-wide">Classifica</div>
           <button type="button" className="btn btn-sm btn-outline"
@@ -405,6 +406,7 @@ export default function ClassificaInner() {
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   )
