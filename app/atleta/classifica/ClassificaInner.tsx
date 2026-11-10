@@ -272,7 +272,7 @@ export default function ClassificaInner() {
   // ------------------------ RENDER ------------------------
   return (
     <div className="px-3 py-5 sm:p-6">
-      <div className={`mx-auto w-full space-y-5 ${showStageColumns ? 'max-w-[1400px]' : 'max-w-[900px]'}`}>
+      <div className={`mx-auto space-y-5 ${showStageColumns ? 'w-full max-w-[1400px]' : 'w-full sm:w-fit max-w-full'}`}>
       {/* Filtri e classifica condividono lo stesso contenitore centrato. */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-xl overflow-hidden border border-neutral-700">
@@ -317,17 +317,17 @@ export default function ClassificaInner() {
         {/* Una sola tabella, con gli stessi allineamenti su PC e cellulare.
             Sul telefono si può pizzicare per cambiare zoom, senza ritorno automatico. */}
         <div ref={rankingTouchRef} className="p-2 sm:p-4 overflow-x-auto">
-          <div className="ranking-mobile-zoom" style={{'--ranking-zoom':mobileZoom} as React.CSSProperties}>
-          <table className="w-full text-sm">
+          <div className={`ranking-mobile-zoom ${showStageColumns ? 'ranking-mobile-expanded' : ''}`} style={{'--ranking-zoom':mobileZoom} as React.CSSProperties}>
+          <table className={showStageColumns ? "w-full text-sm" : "w-max table-auto text-sm"}>
            <thead className="text-xs uppercase">
               <tr>
                 <th className="text-left w-12">#</th>
-                <th className="text-left">Giocatore</th>
-                <th className="text-right w-28 pr-4">Totale</th>
+                <th className="text-left pr-3 whitespace-nowrap">Giocatore</th>
+                <th className="text-right w-[72px] pr-2">Totale</th>
 
                 {!showStageColumns && <>
-                  <th className="text-center w-20">Tappe</th>
-                  <th className="text-center w-[190px] min-w-[190px]">Gas</th>
+                  <th className="text-center w-[60px]">Tappe</th>
+                  <th className="text-center w-[175px] min-w-[175px]">Gas</th>
                 </>}
                 {showStageColumns && stages.map((st, idx)=>(
                  <th key={st.id} className={`min-w-[120px] align-bottom border-l border-neutral-800`}>
@@ -367,11 +367,11 @@ export default function ClassificaInner() {
       </span>
     </td>
 
-    <td className="py-2 whitespace-nowrap max-w-[240px] truncate font-medium" title={r.name}>
+    <td className="py-2 whitespace-nowrap pr-3 font-medium" title={r.name}>
       {r.name}
     </td>
 
-    <td className={`py-2 text-right font-extrabold pr-4 tabular-nums ${totalCellClass(i + 1)}`}>
+    <td className={`py-2 text-right font-extrabold pr-2 tabular-nums ${totalCellClass(i + 1)}`}>
       {new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(r.total)}
     </td>
 
