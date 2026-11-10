@@ -246,7 +246,7 @@ export default function ClassificaInner() {
       </div>
 
            {/* Card classifica */}
-      <div className="card p-0 overflow-hidden">
+      <div className={`card p-0 overflow-hidden w-full ${showStageColumns ? '' : 'max-w-[900px]'}`}>
         <div className="px-4 py-3 border-b border-neutral-800 flex flex-wrap items-center justify-between gap-3 bg-neutral-950/60">
           <div className="text-base font-semibold tracking-wide">Classifica</div>
           <button type="button" className="btn btn-sm btn-outline"
@@ -267,7 +267,7 @@ export default function ClassificaInner() {
 
                 {!showStageColumns && <>
                   <th className="text-center w-20">Tappe</th>
-                  <th className="text-center min-w-[190px]">Gas</th>
+                  <th className="text-center w-[190px] min-w-[190px]">Gas</th>
                 </>}
                 {showStageColumns && stages.map((st, idx)=>(
                  <th key={st.id} className={`min-w-[120px] align-bottom border-l border-neutral-800`}>
@@ -317,7 +317,7 @@ export default function ClassificaInner() {
 
                   {!showStageColumns && <>
                     <td className="py-2 text-center tabular-nums">{r.stagesPlayed}</td>
-                    <td className="py-2 px-3"><GasThermometer percentage={r.gas} /></td>
+                    <td className="py-2 px-3"><div className="flex justify-center"><GasThermometer percentage={r.gas} /></div></td>
                   </>}
                   {showStageColumns && stages.map((st, idx2)=>{
                     const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
