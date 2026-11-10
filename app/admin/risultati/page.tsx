@@ -1595,6 +1595,7 @@ useEffect(() => {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [smartDraft, setSmartDraft] = useState<{bracketId:string; rows:{A:string;B:string}[]; prelims?:{A:string;B:string}[]} | null>(null)
   const [smartShowNumbers, setSmartShowNumbers] = useState(true)
+  const [smartPanelOpen, setSmartPanelOpen] = useState(false)
   const [smartEdit, setSmartEdit] = useState(false)
   const [smartPicked, setSmartPicked] = useState<number | null>(null)
   const [smartSaving, setSmartSaving] = useState(false)
@@ -1795,11 +1796,16 @@ useEffect(() => {
           {section:'r1' as const,index:i,side:'A' as const,token:m.A,match:`M${i+1}`},
           {section:'r1' as const,index:i,side:'B' as const,token:m.B,match:`M${i+1}`}
         ])
-  const smartWarnings=(isPreliminarySmart?smartPrelims:smartRows).filter(m=>{
+  // Le rivincite sono verificate tra coppie dello stesso girone. Per PSE/PDE
+  // il primo turno disputato e' il preliminare P; per SE/DE e' R1/M.
+  const smartRematches=(isPreliminarySmart?smartPrelims:smartRows).flatMap((m,i)=>{
     const ga=/^\d+$/.test(m.A) ? avulsaGroupForSeed(Number(m.A)) : undefined
     const gb=/^\d+$/.test(m.B) ? avulsaGroupForSeed(Number(m.B)) : undefined
-    return !!ga && ga===gb
-  }).length
+    if(!ga || !gb || ga!==gb)return []
+    return [{match:isPreliminarySmart?`P${i+1}`:`M${i+1}`,
+      a:m.A,b:m.B,group:ga}]
+  })
+  const smartWarnings=smartRematches.length
   const smartSwap=(index:number)=>{
     if(!active || smartLocked)return
     if(smartPicked===null){setSmartPicked(index);return}
@@ -1983,7 +1989,7 @@ return (
                 <button
                   key={b.id}
                   className={`btn ${b.id === activeId ? '' : 'opacity-80'}`}
-                  onClick={() => {setActiveId(b.id);setSmartDraft(null);setSmartPicked(null);setSmartEdit(false);setSmartMessage('')}}
+                  onClick={() => {setActiveId(b.id);setSmartDraft(null);setSmartPicked(null);setSmartEdit(false);setSmartPanelOpen(false);setSmartMessage('')}}
                   title={b.title}
                   style={
                     b.id === activeId
@@ -2001,12 +2007,28 @@ return (
             {/* Canvas / Editor */}
             {active ? (
   <div className="p-4">
-    {smartSupported && <div className="mb-4 rounded-xl border border-amber-600/50 bg-neutral-900 p-4 space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><div className="font-semibold">Avulsa intelligente · Anti-rivincita</div>
-          <div className="text-xs text-neutral-400">La classifica non cambia. Il numero avulsa segue sempre la coppia.</div></div>
-        <span className={smartWarnings?'text-amber-400 text-sm':'text-emerald-400 text-sm'}>{smartWarnings} rivincite possibili al primo turno</span>
-      </div>
+    {smartSupported && <div className="mb-4 rounded-xl border border-neutral-700 bg-neutral-900 p-3">
+      <button type="button" aria-expanded={smartPanelOpen}
+        onClick={()=>{setSmartPanelOpen(v=>!v);setSmartPicked(null)}}
+        className="w-full flex flex-wrap items-center justify-between gap-2 text-left rounded-lg px-2 py-2 hover:bg-neutral-800/60"
+        title={smartPanelOpen?'Chiudi dettagli avulsa':'Apri dettagli avulsa'}>
+        <span className="font-semibold text-sm">Avulsa intelligente</span>
+        <span className={`text-sm ${smartWarnings?'text-amber-400':'text-emerald-400'}`}>
+          {smartWarnings} {smartWarnings===1?'rivincita':'rivincite'} al primo turno
+          <span className="ml-3 text-neutral-400" aria-hidden="true">{smartPanelOpen?'▴':'▾'}</span>
+        </span>
+      </button>
+      {smartPanelOpen && <div className="space-y-3 px-2 pb-2 pt-3 border-t border-neutral-800">
+        <div className="text-xs text-neutral-400">La classifica non cambia: il numero avulsa segue sempre la coppia.</div>
+        {smartRematches.length>0 ?
+          <div className="rounded-lg border border-amber-700/40 bg-amber-950/20 p-3 space-y-2">
+            <div className="text-sm font-semibold text-amber-300">Incontri che ripetono una sfida del girone</div>
+            {smartRematches.map(rematch=><div key={rematch.match} className="text-sm text-neutral-200">
+              <span className="font-semibold text-amber-300">{rematch.match} · Girone {rematch.group}:</span>{' '}
+              <span>#{rematch.a} {resolveToken(rematch.a)} vs #{rematch.b} {resolveToken(rematch.b)}</span>
+            </div>)}
+          </div>
+          : <div className="text-sm text-emerald-400">Nessuna rivincita rilevata nel primo turno.</div>}
       <div className="flex flex-wrap gap-4 items-center">
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={smartShowNumbers} onChange={e=>setSmartShowNumbers(e.target.checked)}/> Mostra numeri avulsa</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={smartEdit} disabled={smartLocked} onChange={e=>{setSmartEdit(e.target.checked);setSmartPicked(null)}}/> Sposta squadre (tablet)</label>
@@ -2040,6 +2062,7 @@ return (
         <button type="button" className="btn" disabled={smartSaving} onClick={()=>{setSmartDraft(null);setSmartPicked(null);setSmartEdit(false);setSmartMessage('Modifiche annullate')}}>Annulla</button>
       </div>}
       {smartMessage && <div role="status" className="text-sm text-amber-300">{smartMessage}</div>}
+      </div>
     </div>}
     {active.type === 'ITA' ? (
       <ItaEditor
