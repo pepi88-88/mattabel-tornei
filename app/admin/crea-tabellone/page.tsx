@@ -1126,16 +1126,21 @@ case 'avulsa+eliminati':  return [...avulsaOps, ...elimOps]
 
 
 
-  const usedCodesGlobal = useMemo(()=>{
-    const s = new Set<string>()
-    const add = (code?:string) => { if (!code) return; if (code==='-'||code==='BYE') return; s.add(code) }
-    for (const b of brackets) {
-      for (const r of b.r1 ?? []) { add(r?.A); add(r?.B) }
-      for (const r of b.prelims ?? []) { add(r?.A); add(r?.B) }
-      for (const c of b.slots ?? []) add(c)
+  // Una coppia può avanzare tra tabelloni/fasi diverse, ma non può
+  // occupare due caselle dello STESSO tabellone.
+  const usedCodesCurrent = useMemo(()=>{
+    const used = new Set<string>()
+    const add = (code?:string) => {
+      if (!code || code==='-' || code==='—' || code==='BYE') return
+      used.add(code)
     }
-    return s
-  }, [brackets])
+    if (active) {
+      for (const row of active.r1 ?? []) { add(row?.A); add(row?.B) }
+      for (const row of active.prelims ?? []) { add(row?.A); add(row?.B) }
+      for (const code of active.slots ?? []) add(code)
+    }
+    return used
+  }, [active])
   const isTakenElsewhere = (code:string, ctx: {pair?:number; side?:0|1; itaIndex?:number} = {}) => {
     if (!code || code==='-' || code==='BYE') return false
     if (ctx.pair!=null && ctx.side!=null) {
@@ -1146,7 +1151,7 @@ case 'avulsa+eliminati':  return [...avulsaOps, ...elimOps]
       const cur = active?.slots?.[ctx.itaIndex]
       if (cur === code) return false
     }
-    return usedCodesGlobal.has(code)
+    return usedCodesCurrent.has(code)
   }
 // Calcolo livelli (profondità) rispetto al PRIMO tabellone dell’array
 // Livelli in sequenza (sinistra→destra): L1, L2, L3...
@@ -1442,7 +1447,7 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
           const current = match[1] === 'P'
             ? active.prelims?.[index]?.[side]
             : active.r1?.[index]?.[side]
-          return value !== current && usedCodesGlobal.has(value)
+          return value !== current && usedCodesCurrent.has(value)
         }}
         onSlotChange={(code,side,value) => {
           const match = code.match(/^([PR])(\d+)$/)
