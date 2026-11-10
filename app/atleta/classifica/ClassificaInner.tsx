@@ -100,6 +100,52 @@ function GasThermometer({ percentage }: { percentage: number | null }) {
 
 export default function ClassificaInner() {
   const [showStageColumns, setShowStageColumns] = React.useState(false)
+  // Zoom specifico della classifica, non del sito: resta invariato
+  // quando si sollevano le dita e al successivo accesso dal telefono.
+  const [mobileZoom, setMobileZoom] = React.useState(0.65)
+  const rankingTouchRef = React.useRef<HTMLDivElement>(null)
+  const pinchStartRef = React.useRef<{distance:number; zoom:number} | null>(null)
+  const clampZoom = React.useCallback((n:number)=>Math.min(1.5, Math.max(0.35, Math.round(n*100)/100)),[])
+
+  React.useEffect(()=>{
+    try {
+      const saved=Number(localStorage.getItem('ath:rankingZoom'))
+      if (saved && Number.isFinite(saved)) setMobileZoom(clampZoom(saved))
+    } catch {}
+  },[clampZoom])
+  React.useEffect(()=>{
+    try { localStorage.setItem('ath:rankingZoom', String(mobileZoom)) } catch {}
+  },[mobileZoom])
+  React.useEffect(()=>{
+    const el=rankingTouchRef.current
+    if (!el) return
+    const distance=(touches:TouchList)=>Math.hypot(
+      touches[0].clientX-touches[1].clientX,
+      touches[0].clientY-touches[1].clientY
+    )
+    const start=(event:TouchEvent)=>{
+      if(event.touches.length===2) pinchStartRef.current={distance:distance(event.touches), zoom:mobileZoom}
+    }
+    const move=(event:TouchEvent)=>{
+      const start=pinchStartRef.current
+      if(!start || event.touches.length!==2 || start.distance<=0) return
+      event.preventDefault()
+      setMobileZoom(clampZoom(start.zoom*distance(event.touches)/start.distance))
+    }
+    const end=(event:TouchEvent)=>{
+      if(event.touches.length<2) pinchStartRef.current=null
+    }
+    el.addEventListener('touchstart',start,{passive:true})
+    el.addEventListener('touchmove',move,{passive:false})
+    el.addEventListener('touchend',end)
+    el.addEventListener('touchcancel',end)
+    return ()=>{
+      el.removeEventListener('touchstart',start)
+      el.removeEventListener('touchmove',move)
+      el.removeEventListener('touchend',end)
+      el.removeEventListener('touchcancel',end)
+    }
+  },[mobileZoom,clampZoom])
   const [gender, setGender] = React.useState<Gender>(() =>
     ((typeof window !== 'undefined' && (localStorage.getItem('ath:lastGender') as Gender|null)) || 'M')
   )
@@ -250,15 +296,26 @@ export default function ClassificaInner() {
       <div className="card p-0 overflow-hidden w-full">
         <div className="px-4 py-3 border-b border-neutral-800 flex flex-wrap items-center justify-between gap-3 bg-neutral-950/60">
           <div className="text-base font-semibold tracking-wide">Classifica</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="sm:hidden flex items-center gap-1" aria-label="Zoom classifica">
+              <button type="button" className="btn btn-xs" aria-label="Riduci zoom della classifica"
+                onClick={()=>setMobileZoom(v=>clampZoom(v-0.1))}>−</button>
+              <span className="min-w-[45px] text-center text-xs tabular-nums text-neutral-300">{Math.round(mobileZoom*100)}%</span>
+              <button type="button" className="btn btn-xs" aria-label="Aumenta zoom della classifica"
+                onClick={()=>setMobileZoom(v=>clampZoom(v+0.1))}>+</button>
+            </div>
           <button type="button" className="btn btn-sm btn-outline"
             onClick={() => setShowStageColumns(value => !value)}
             aria-expanded={showStageColumns}>
             {showStageColumns ? 'Nascondi punti delle tappe' : 'Mostra punti delle tappe'}
           </button>
+          </div>
         </div>
 
-        {/* ---- DESKTOP: tabella completa ---- */}
-        <div className="hidden sm:block p-4 overflow-x-auto">
+        {/* Una sola tabella, con gli stessi allineamenti su PC e cellulare.
+            Sul telefono si può pizzicare per cambiare zoom, senza ritorno automatico. */}
+        <div ref={rankingTouchRef} className="p-2 sm:p-4 overflow-x-auto">
+          <div className="ranking-mobile-zoom" style={{'--ranking-zoom':mobileZoom} as React.CSSProperties}>
           <table className="w-full text-sm">
            <thead className="text-xs uppercase">
               <tr>
@@ -347,65 +404,9 @@ export default function ClassificaInner() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
 
-        {/* ---- MOBILE: riga unica orizzontale (pos • nome • totale • tappe→scroll) ---- */}
-        <div className="sm:hidden p-3 space-y-2">
-          {rows.length === 0 ? (
-            <div className="text-sm text-neutral-500">Nessun dato</div>
-          ) : rows.map((r, i) => (
-            <div key={r.player_id} className="overflow-x-auto">
-              <div
-  className={
-    `inline-flex items-center gap-1.5 border border-neutral-800 rounded-lg px-2.5 py-1.5 whitespace-nowrap min-w-max ` +
-    `${rowPremiumClass(i + 1)}`
-  }
->
-                {/* posizione compatta */}
-              <span className={`text-[11px] px-2 py-0.5 rounded tabular-nums shrink-0 font-semibold ${rankBadgeClass(i + 1)}`}>
-  {i + 1}
-</span>
-
-                {/* nome senza truncate, leggermente più piccolo */}
-                <span className="text-sm font-medium">
-                  {r.name}
-                </span>
-
-                {/* totale subito dopo il nome */}
-               <span className={`ml-2 text-sm tabular-nums font-extrabold shrink-0 ${totalCellClass(i + 1)}`}>
-                  {new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(r.total)}
-                </span>
-
-                {!showStageColumns && <>
-                  <span className="ml-2 text-xs text-neutral-400 shrink-0">Tappe: <strong className="text-white">{r.stagesPlayed}</strong></span>
-                  <span className="ml-2 shrink-0"><GasThermometer percentage={r.gas} /></span>
-                </>}
-                {/* chip tappe scorrevoli, solo su richiesta */}
-                {showStageColumns && stages.length > 0 && <span className="mx-1 w-px h-4 bg-neutral-800 shrink-0" />}
-                {showStageColumns && stages.map((st) => {
-                  const pos = placementsByStage[st.id]?.[r.player_id] ?? 0
-                  const pts = pos
-                    ? pointsOfBucket(pos, Number(st.total_teams||0), Number(st.multiplier||1), legendSet)
-                    : 0
-                  return (
-                    <span
-                      key={st.id}
-                      className="shrink-0 px-2 py-1 rounded-md border border-neutral-800 text-[11px] inline-flex items-center gap-2"
-                      title={`${st.name} — ${String(st.day).padStart(2,'0')}/${String(st.month).padStart(2,'0')} · x${Number(st.multiplier).toFixed(2)}`}
-                    >
-                      <span className="text-[10px] text-neutral-400">
-                        {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')} · x{Number(st.multiplier).toFixed(2)}
-                      </span>
-                      <span className="tabular-nums">
-                        {pos || '—'} • {pts || '—'}
-                      </span>
-                    </span>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
       </div>
     </div>
