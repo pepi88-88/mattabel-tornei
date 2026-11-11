@@ -2181,8 +2181,7 @@ return (
   {chunk(letters, 2).map((pair, idx) => (
     <div
       key={idx}
-      className="grid gap-4"
-      style={{ gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}
+      className="grid grid-cols-1 xl:grid-cols-2 gap-4"
     >
       {pair.map((L) => {
         const color = colorFor(L), rows = scheduleRows(L)
