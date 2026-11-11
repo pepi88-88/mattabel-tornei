@@ -166,3 +166,11 @@ html,body{
     font-size: 16px;
   }
 }
+
+/* Large tablets in landscape (e.g. 12.9" iPad) can exceed xl width.
+   Keep their touch navigation compact without changing desktop PC menus. */
+@media (pointer: coarse) and (min-width: 1280px) {
+  .admin-nav-desktop { display: none !important; }
+  .admin-nav-tablet { display: flex !important; }
+  .admin-header-spacer { height: 80px !important; }
+}
