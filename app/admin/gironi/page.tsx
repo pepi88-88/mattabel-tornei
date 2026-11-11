@@ -672,7 +672,7 @@ function commitTimeUncontrolled(
    // ---- UI: partite (due colonne)
   function SchedulesRow({ pair }: { pair: string[] }) {
     return (
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(2,minmax(0,1fr))' }}>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {pair.map(L => {
           const color = colorFor(L)
           const rows = scheduleRows(L)
@@ -870,11 +870,11 @@ function commitTimeUncontrolled(
     )
   }
   return (
-    <div className="p-6">
-      <div className="card p-3 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
+    <div className="p-2 sm:p-3 xl:p-6">
+      <div className="card p-3 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 xl:gap-6">
         {/* colonna sinistra */}
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <div>
               <div className="text-xs text-neutral-400 mb-1">Tour</div>
               <select className="input w-full" value={tourId} onChange={e => {localStorage.setItem('selectedTourId',e.target.value);localStorage.removeItem('selectedTournamentId');setTourId(e.target.value);setTId('')}}>
