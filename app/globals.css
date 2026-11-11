@@ -139,3 +139,31 @@ html,body{
     zoom: 1;
   }
 }
+
+/* Tablet tournament operations: give tables the width they need without
+   making the entire admin page scroll horizontally. */
+.admin-tablet-shell { min-width: 0; max-width: 100%; }
+.admin-tablet-shell .card { min-width: 0; }
+.admin-tablet-shell .tablet-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+}
+.admin-tablet-shell .tablet-table-scroll:focus-visible {
+  outline: 2px solid var(--brand-orange);
+  outline-offset: -2px;
+}
+@media (max-width: 1279px) {
+  .admin-tablet-shell { overflow-x: clip; }
+  .admin-tablet-shell .input, .admin-tablet-shell .btn {
+    touch-action: manipulation;
+  }
+}
+@media (max-width: 639px) {
+  .admin-tablet-shell input:not([type="checkbox"]):not([type="radio"]),
+  .admin-tablet-shell select,
+  .admin-tablet-shell textarea {
+    font-size: 16px;
+  }
+}
