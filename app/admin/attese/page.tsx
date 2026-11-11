@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 
-type Tournament = { id:string; name:string; event_date?:string; status?:string }
+type Tour = { id:string; name:string; is_active?:boolean }
+type Tournament = { id:string; tour_id:string; name:string; event_date?:string; status?:string; archived?:boolean }
 type Match = {
   key:string; tournament_id:string; phase:string; teamA:string; teamB:string;
   status:'waiting'|'queued'|'live'|'paused'|'done'; sourceType:'girone'|'bracket';
@@ -19,6 +20,7 @@ type BracketData = {
 type Snapshot = { starts:Record<string,number>; lastPlayed:Record<string,number>; completed:Record<string,true> }
 const emptySnapshot=():Snapshot=>({starts:{},lastPlayed:{},completed:{}})
 const STORAGE_TOUR='attese:selectedTournament'
+const STORAGE_SEASON='attese:selectedTour'
 const nameKey=(name:string)=>String(name||'').trim().toLocaleLowerCase('it')
 const known=(name:string)=>{
   const v=String(name||'').trim()
@@ -61,6 +63,8 @@ function readSnapshot(tournamentId:string):Snapshot{
 const errMsg=(error:unknown)=>error instanceof Error?error.message:String(error)
 
 export default function AttesePage(){
+  const [tours,setTours]=React.useState<Tour[]>([])
+  const [tourId,setTourId]=React.useState('')
   const [tournaments,setTournaments]=React.useState<Tournament[]>([])
   const [selected,setSelected]=React.useState('')
   const [rows,setRows]=React.useState<Match[]>([])
@@ -80,19 +84,41 @@ export default function AttesePage(){
   },[])
   React.useEffect(()=>{
     let mounted=true
-    fetch('/api/tournaments',{cache:'no-store'}).then(async r=>{
-      if(!r.ok)throw new Error(`Tornei: HTTP ${r.status}`)
+    fetch('/api/tours',{cache:'no-store'}).then(async r=>{
+      if(!r.ok)throw new Error(`Tour: HTTP ${r.status}`)
       return r.json()
     }).then(data=>{
       if(!mounted)return
-      const options=Array.isArray(data.items)?data.items as Tournament[]:[]
-      setTournaments(options)
-      const stored=localStorage.getItem(STORAGE_TOUR)||localStorage.getItem('selectedTournamentId')||''
-      const regia=(()=>{try{return JSON.parse(localStorage.getItem('regia:selectedTournaments')||'{}')?.a||''}catch{return ''}})()
-      setSelected(options.some(o=>o.id===stored)?stored:options.some(o=>o.id===regia)?regia:options[0]?.id||'')
+      const options=Array.isArray(data.items)?data.items as Tour[]:[]
+      setTours(options)
+      const saved=localStorage.getItem(STORAGE_SEASON)||localStorage.getItem('selectedTourId')||''
+      const active=options.filter(t=>t.is_active!==false)
+      setTourId(active.find(t=>t.id===saved)?.id||active[0]?.id||options.find(t=>t.id===saved)?.id||options[0]?.id||'')
     }).catch(e=>{if(mounted)setError(errMsg(e))})
     return ()=>{mounted=false}
   },[])
+  React.useEffect(()=>{
+    if(!tourId){setTournaments([]);setSelected('');return}
+    localStorage.setItem(STORAGE_SEASON,tourId)
+    localStorage.setItem('selectedTourId',tourId)
+    const controller=new AbortController()
+    setTournaments([])
+    setSelected('')
+    setRows([])
+    fetch(`/api/tournaments?tour_id=${encodeURIComponent(tourId)}`,{cache:'no-store',signal:controller.signal})
+      .then(async r=>{if(!r.ok)throw new Error(`Tornei: HTTP ${r.status}`);return r.json()})
+      .then(data=>{
+        if(controller.signal.aborted)return
+        const options=(Array.isArray(data.items)?data.items as Tournament[]:[])
+          .filter(t=>t.tour_id===tourId && String(t.status||'').toLowerCase()!=='closed' && !t.archived)
+        setTournaments(options)
+        const saved=localStorage.getItem(STORAGE_TOUR)||localStorage.getItem('selectedTournamentId')||''
+        const regia=(()=>{try{return JSON.parse(localStorage.getItem('regia:selectedTournaments')||'{}')?.a||''}catch{return ''}})()
+        setSelected(options.find(t=>t.id===saved)?.id||options.find(t=>t.id===regia)?.id||options[0]?.id||'')
+        setError('')
+      }).catch(e=>{if(!controller.signal.aborted)setError(errMsg(e))})
+    return ()=>controller.abort()
+  },[tourId])
 
   const load=React.useCallback(async()=>{
     if(!selected || busy.current)return
@@ -178,8 +204,14 @@ export default function AttesePage(){
       <span className="rounded-full border border-orange-500/50 text-orange-200 px-3 py-1 text-xs">PREVIEW · DATI REALI</span>
     </div>
     <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 flex flex-wrap items-end gap-3">
-      <label className="flex flex-col gap-1 text-xs text-neutral-300 min-w-[250px] flex-1 max-w-lg">Torneo
-        <select value={selected} onChange={e=>setSelected(e.target.value)} className="input text-sm min-h-11">
+      <label className="flex flex-col gap-1 text-xs text-neutral-300 min-w-0 w-full sm:w-[240px]">Tour
+        <select value={tourId} onChange={e=>setTourId(e.target.value)} className="input text-sm min-h-11 w-full">
+          {tours.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-neutral-300 min-w-0 w-full sm:w-[320px]">Torneo aperto
+        <select value={selected} onChange={e=>setSelected(e.target.value)} className="input text-sm min-h-11 w-full" disabled={!tournaments.length}>
+          {!tournaments.length&&<option value="">Nessun torneo aperto</option>}
           {tournaments.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
       </label>
@@ -193,7 +225,7 @@ export default function AttesePage(){
       </div>
     </div>
     {error&&<p role="alert" className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm text-amber-200">{error}</p>}
-    <div className="grid lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)] gap-4">
+    <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(220px,270px)] xl:grid-cols-[minmax(0,1fr)_280px] gap-3 lg:gap-4">
       <section className="min-w-0 space-y-2">
         <h2 className="font-semibold">Partite in attesa ({nextMatches.length})</h2>
         {nextMatches.map((m,i)=><article key={m.key} className={`rounded-xl border p-3 space-y-2 ${highlight===m.key?'border-orange-400 bg-neutral-800':'border-neutral-800 bg-neutral-900/70'}`}>
@@ -201,14 +233,20 @@ export default function AttesePage(){
             <span>{i+1}. {m.phase}</span>
             <span>{m.court?'Campo '+m.court:''} {m.status==='live'?'· LIVE':''}</span>
           </div>
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-            <span className="font-medium break-words">{known(m.teamA)?m.teamA:'— Da definire'}</span>
-            <span className={`font-bold tabular-nums ${known(m.teamA)?colors(m.waitA/60000):'text-neutral-500'}`}>{known(m.teamA)?fmt(m.waitA):'—'}</span>
-          </div>
-          <div className="text-xs text-center text-neutral-500">VS</div>
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-            <span className="font-medium break-words">{known(m.teamB)?m.teamB:'— Da definire'}</span>
-            <span className={`font-bold tabular-nums ${known(m.teamB)?colors(m.waitB/60000):'text-neutral-500'}`}>{known(m.teamB)?fmt(m.waitB):'—'}</span>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 sm:gap-3">
+            <div className="min-w-0">
+              <div className="font-semibold text-xs sm:text-sm leading-snug break-words">{known(m.teamA)?m.teamA:'— Da definire'}</div>
+              <div className={`text-[11px] sm:text-xs mt-1 font-medium tabular-nums ${known(m.teamA)?colors(m.waitA/60000):'text-neutral-500'}`}>
+                {known(m.teamA)?fmt(m.waitA):'—'}
+              </div>
+            </div>
+            <span className="text-[11px] sm:text-xs text-neutral-500 pt-1">VS</span>
+            <div className="min-w-0 text-right">
+              <div className="font-semibold text-xs sm:text-sm leading-snug break-words">{known(m.teamB)?m.teamB:'— Da definire'}</div>
+              <div className={`text-[11px] sm:text-xs mt-1 font-medium tabular-nums ${known(m.teamB)?colors(m.waitB/60000):'text-neutral-500'}`}>
+                {known(m.teamB)?fmt(m.waitB):'—'}
+              </div>
+            </div>
           </div>
         </article>)}
         {!nextMatches.length&&!loading&&<div className="rounded-lg border border-neutral-800 p-5 text-sm text-neutral-400">
@@ -217,11 +255,11 @@ export default function AttesePage(){
       <section className="min-w-0 space-y-2">
         <h2 className="font-semibold">Coppie in attesa ({teams.length})</h2>
         {teams.map((t,i)=><button key={t.name} type="button" onClick={()=>setHighlight(t.matchKey)}
-          className={`w-full text-left rounded-lg p-3 border ${highlight===t.matchKey?'border-orange-400 bg-neutral-800':'border-neutral-800 bg-neutral-900/70'}`}>
+          className={`w-full text-left rounded-lg p-2.5 border ${highlight===t.matchKey?'border-orange-400 bg-neutral-800':'border-neutral-800 bg-neutral-900/70'}`}>
           <span className="text-xs text-neutral-500">#{i+1}</span>
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-medium text-sm break-words">{t.name}</span>
-            <span className={`font-bold tabular-nums ${colors(t.wait/60000)}`}>{fmt(t.wait)}</span>
+          <div className="min-w-0">
+            <div className="font-medium text-xs sm:text-sm break-words">{t.name}</div>
+            <div className={`text-xs mt-1 font-bold tabular-nums ${colors(t.wait/60000)}`}>{fmt(t.wait)}</div>
           </div>
         </button>)}
       </section>
