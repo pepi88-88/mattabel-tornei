@@ -17,8 +17,13 @@ type BracketData = {
   winnersById?:Record<string,Record<string,'A'|'B'|undefined>>;
   bracketScoresById?:Record<string,Record<string,unknown>>
 }
-type Snapshot = { starts:Record<string,number>; lastPlayed:Record<string,number>; completed:Record<string,true> }
-const emptySnapshot=():Snapshot=>({starts:{},lastPlayed:{},completed:{}})
+type Snapshot = {
+  version: 2
+  /** Timestamp of the latest observed finished match; absent until a first game is played. */
+  starts: Record<string, number>
+  completed: Record<string, true>
+}
+const emptySnapshot=():Snapshot=>({version:2,starts:{},completed:{}})
 const STORAGE_TOUR='attese:selectedTournament'
 const STORAGE_SEASON='attese:selectedTour'
 const nameKey=(name:string)=>String(name||'').trim().toLocaleLowerCase('it')
@@ -57,7 +62,9 @@ function isCompleted(match:Match,groups:GroupData,brackets:BracketData):boolean{
 function readSnapshot(tournamentId:string):Snapshot{
   try{
     const value=JSON.parse(localStorage.getItem(`attese:clock:${tournamentId}`)||'{}')
-    return {starts:value.starts||{},lastPlayed:value.lastPlayed||{},completed:value.completed||{}}
+    // Version 1 started all clocks on page open. It must not be reused.
+    if(value.version!==2)return emptySnapshot()
+    return {version:2,starts:value.starts||{},completed:value.completed||{}}
   }catch{return emptySnapshot()}
 }
 const errMsg=(error:unknown)=>error instanceof Error?error.message:String(error)
@@ -135,29 +142,29 @@ export default function AttesePage(){
       const [rj,gj,bj]=await Promise.all([r.json(),g.json(),b.json()])
       const incoming=(Array.isArray(rj.rows)?rj.rows:[]) as Match[]
       const groups=(gj.state||{}) as GroupData,brackets=(bj.state||{}) as BracketData
-      const previous=readSnapshot(selected),next:Snapshot={
-        starts:{...previous.starts},lastPlayed:{...previous.lastPlayed},completed:{...previous.completed}
+      const previous=readSnapshot(selected)
+      const next:Snapshot={
+        version:2,
+        starts:{...previous.starts},
+        completed:{...previous.completed}
       }
       const current=Date.now()
+      // A new pair must have played at least one match before its timer starts.
+      // Match outcomes already present when opening an ongoing tournament are
+      // historical: in the absence of per-match timestamps, start at first read.
+      // Once running, timestamps survive navigation, reload and closed tabs.
       for(const match of incoming){
-        const done=isCompleted(match,groups,brackets)
-        if(done){
-          if(!next.completed[match.key]){
-            next.completed[match.key]=true
-            for(const name of [match.teamA,match.teamB])if(known(name)){
-              const key=nameKey(name)
-              next.lastPlayed[key]=current
-              delete next.starts[key]
-            }
-          }
-        }else if(!next.completed[match.key]){
-          for(const name of [match.teamA,match.teamB]){
-            if(!known(name))continue
-            const key=nameKey(name)
-            if(!next.starts[key])next.starts[key]=next.lastPlayed[key]||current
-          }
+        if(!isCompleted(match,groups,brackets))continue
+        if(next.completed[match.key])continue
+        next.completed[match.key]=true
+        for(const name of [match.teamA,match.teamB]){
+          if(!known(name))continue
+          next.starts[nameKey(name)]=current
         }
       }
+      // A completed match remains excluded until it is reopened; while a
+      // later match is pending, its players keep the timestamp of their last
+      // finished match, not that of this page opening.
       localStorage.setItem(`attese:clock:${selected}`,JSON.stringify(next))
       setClock(next)
       setRows(incoming.filter(m=>!isCompleted(m,groups,brackets)))
@@ -180,22 +187,26 @@ export default function AttesePage(){
     return ()=>clearInterval(timer)
   },[selected,load])
 
-  const waitFor=(name:string)=>known(name)?Math.max(0,now-(clock.starts[nameKey(name)]||now)):0
+  const waitFor=(name:string)=>{
+    if(!known(name))return null
+    const began=clock.starts[nameKey(name)]
+    return Number.isFinite(began)&&began>0?Math.max(0,now-began):null
+  }
   const nextMatches=React.useMemo(()=>{
     return rows.filter(m=>known(m.teamA)||known(m.teamB))
       .map(m=>({...m,waitA:waitFor(m.teamA),waitB:waitFor(m.teamB)}))
-      .sort((a,b)=>Math.max(b.waitA,b.waitB)-Math.max(a.waitA,a.waitB))
+      .sort((a,b)=>Math.max(b.waitA??-1,b.waitB??-1)-Math.max(a.waitA??-1,a.waitB??-1))
   },[rows,clock,now])
   const teams=React.useMemo(()=>{
-    const result=new Map<string,{name:string;wait:number;matchKey:string}>()
+    const result=new Map<string,{name:string;wait:number|null;matchKey:string}>()
     for(const match of nextMatches){
-      for(const [name,wait] of [[match.teamA,match.waitA],[match.teamB,match.waitB]] as Array<[string,number]>){
+      for(const [name,wait] of [[match.teamA,match.waitA],[match.teamB,match.waitB]] as Array<[string,number|null]>){
         if(!known(name))continue
         const id=nameKey(name),old=result.get(id)
-        if(!old||wait>old.wait)result.set(id,{name,wait,matchKey:match.key})
+        if(!old||(wait??-1)>(old.wait??-1))result.set(id,{name,wait,matchKey:match.key})
       }
     }
-    return [...result.values()].sort((a,b)=>b.wait-a.wait)
+    return [...result.values()].sort((a,b)=>(b.wait??-1)-(a.wait??-1))
   },[nextMatches])
   return <div className="space-y-5 pb-8">
     <div className="flex flex-wrap justify-between gap-3 items-center">
@@ -236,15 +247,15 @@ export default function AttesePage(){
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 sm:gap-3">
             <div className="min-w-0">
               <div className="font-semibold text-xs sm:text-sm leading-snug break-words">{known(m.teamA)?m.teamA:'— Da definire'}</div>
-              <div className={`text-[11px] sm:text-xs mt-1 font-medium tabular-nums ${known(m.teamA)?colors(m.waitA/60000):'text-neutral-500'}`}>
-                {known(m.teamA)?fmt(m.waitA):'—'}
+              <div className={`text-[11px] sm:text-xs mt-1 font-medium tabular-nums ${m.waitA!=null?colors(m.waitA/60000):'text-neutral-500'}`}>
+                {m.waitA!=null?fmt(m.waitA):'Non ha giocato'}
               </div>
             </div>
             <span className="text-[11px] sm:text-xs text-neutral-500 pt-1">VS</span>
             <div className="min-w-0 text-right">
               <div className="font-semibold text-xs sm:text-sm leading-snug break-words">{known(m.teamB)?m.teamB:'— Da definire'}</div>
-              <div className={`text-[11px] sm:text-xs mt-1 font-medium tabular-nums ${known(m.teamB)?colors(m.waitB/60000):'text-neutral-500'}`}>
-                {known(m.teamB)?fmt(m.waitB):'—'}
+              <div className={`text-[11px] sm:text-xs mt-1 font-medium tabular-nums ${m.waitB!=null?colors(m.waitB/60000):'text-neutral-500'}`}>
+                {m.waitB!=null?fmt(m.waitB):'Non ha giocato'}
               </div>
             </div>
           </div>
@@ -259,13 +270,13 @@ export default function AttesePage(){
           <span className="text-xs text-neutral-500">#{i+1}</span>
           <div className="min-w-0">
             <div className="font-medium text-xs sm:text-sm break-words">{t.name}</div>
-            <div className={`text-xs mt-1 font-bold tabular-nums ${colors(t.wait/60000)}`}>{fmt(t.wait)}</div>
+            <div className={`text-xs mt-1 font-bold tabular-nums ${t.wait!=null?colors(t.wait/60000):'text-neutral-500'}`}>{t.wait!=null?fmt(t.wait):'Non ha giocato'}</div>
           </div>
         </button>)}
       </section>
     </div>
     <p className="text-xs text-neutral-400 border-t border-neutral-800 pt-3">
-      I timer vengono conservati su questo dispositivo anche chiudendo il browser. Il conteggio parte quando una coppia viene riconosciuta per la prima volta e riparte dal risultato osservato al successivo aggiornamento. Per un conteggio condiviso tra dispositivi e per risultati registrati mentre questa pagina è chiusa servirà un archivio temporale sul server. Questa schermata non modifica risultati né Regia.
+      I timer vengono conservati su questo dispositivo anche chiudendo il browser. Il timer parte soltanto dopo il primo incontro concluso della coppia e si azzera quando viene rilevato un nuovo risultato. Per un conteggio condiviso tra dispositivi e per risultati registrati mentre questa pagina è chiusa servirà un archivio temporale sul server. Questa schermata non modifica risultati né Regia.
     </p>
   </div>
 }
