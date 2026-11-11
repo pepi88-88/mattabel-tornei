@@ -79,6 +79,18 @@ function ExitButton() {
 export default function AppHeader() {
   const role = useRole()
   const pathname = usePathname()
+  const router = useRouter()
+  const navigate = (href: string) => {
+    if (href === '__exit__') {
+      localStorage.removeItem('role')
+      location.href = '/'
+      return
+    }
+    const before = new CustomEvent('mattabel:before-admin-nav', {
+      cancelable: true, detail: { href },
+    })
+    if (window.dispatchEvent(before)) router.push(href)
+  }
 
   if (
     pathname === '/' ||
@@ -103,18 +115,34 @@ export default function AppHeader() {
      <div className="relative z-[1] container-admin mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* Tutto su un lato (sinistra), con wrap */}
-          <nav className="flex flex-wrap gap-2">
+          <nav className="hidden xl:flex flex-wrap gap-2">
             {visible.map(it =>
               it.href === '__exit__'
                 ? <ExitButton key="__exit__" />
                 : <NavLink key={it.href} href={it.href} label={it.label} active={!!pathname?.startsWith(it.href)} />
             )}
           </nav>
+          <nav className="xl:hidden flex items-center gap-2 min-w-0 h-[58px]" aria-label="Navigazione Staff tablet">
+            <span className="hidden sm:inline font-bold text-sm text-orange-400 shrink-0">MATTABEL</span>
+            <select aria-label="Vai a una sezione del gestionale"
+              className="input h-11 flex-1 min-w-0 text-sm bg-neutral-900"
+              value={visible.find(it => it.href !== '__exit__' && (pathname === it.href || pathname?.startsWith(it.href + '/')))?.href ||
+                (pathname?.includes('/regia') ? '/admin/tornei/test/regia' : '')}
+              onChange={event => { if(event.target.value) navigate(event.target.value) }}>
+              <option value="">Seleziona pagina…</option>
+              {visible.map(it => <option key={it.href} value={it.href}>{it.label}</option>)}
+            </select>
+            {visible.filter(it => ['/admin/risultati','/admin/tornei/test/regia','/admin/attese'].includes(it.href))
+              .map(it => <button key={it.href} type="button" onClick={() => navigate(it.href)}
+                className={`hidden md:inline-flex h-11 items-center px-3 rounded-md border text-sm whitespace-nowrap ${pathname?.startsWith(it.href) ? 'border-orange-500 bg-slate-800':'border-neutral-700 bg-[--brand-navy]'}`}>
+                {it.label === 'Risultati Girone/Tabellone' ? 'Risultati' : it.label}
+              </button>)}
+          </nav>
         </div>
       <div className="brand-strip pointer-events-none" aria-hidden="true" />
 
       </header>
-<div className="h-[64px]" />
+<div className="h-[64px] xl:h-[120px]" />
 
       {/* LOGO non-sticky sotto la riga */}
       <div className="container-admin mx-auto px-4 sm:px-6 lg:px-8">
