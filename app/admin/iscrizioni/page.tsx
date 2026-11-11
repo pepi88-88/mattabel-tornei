@@ -244,7 +244,7 @@ return
 
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 xl:space-y-6 p-2 sm:p-3 xl:p-6">
       {/* intestazione */}
       <div className="flex items-end gap-3">
         <div className="flex flex-col gap-1">
