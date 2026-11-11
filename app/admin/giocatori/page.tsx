@@ -87,7 +87,7 @@ export default function Page(){
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-2 sm:p-3 xl:p-6 space-y-6">
       <h1 className="text-xl font-semibold">Giocatori</h1>
 
       <div className="card p-4 space-y-3">
