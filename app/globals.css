@@ -155,7 +155,6 @@ html,body{
   outline-offset: -2px;
 }
 @media (max-width: 1279px) {
-  .admin-tablet-shell { overflow-x: clip; }
   .admin-tablet-shell .input, .admin-tablet-shell .btn {
     touch-action: manipulation;
   }
