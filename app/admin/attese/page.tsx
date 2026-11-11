@@ -240,11 +240,13 @@ export default function AttesePage(){
       <section className="min-w-0 space-y-2">
         <h2 className="font-semibold">Partite in attesa ({nextMatches.length})</h2>
         {nextMatches.map((m,i)=><article key={m.key} className={`rounded-xl border p-3 space-y-2 ${highlight===m.key?'border-orange-400 bg-neutral-800':'border-neutral-800 bg-neutral-900/70'}`}>
-          <div className="flex items-center justify-between text-xs text-neutral-400">
-            <span>{i+1}. {m.phase}</span>
-            <span>{m.court?'Campo '+m.court:''} {m.status==='live'?'· LIVE':''}</span>
+          <div className="relative flex items-center justify-center min-h-5 text-center text-xs text-neutral-400">
+            <span className="font-semibold text-neutral-300">{m.phase}</span>
+            {(m.court||m.status==='live')&&<span className="absolute right-0 text-[10px] text-neutral-500">
+              {m.court?'Campo '+m.court:''}{m.status==='live'?' · LIVE':''}
+            </span>}
           </div>
-          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 sm:gap-3">
+          <div className="mx-auto grid w-full max-w-[710px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 sm:gap-4">
             <div className="min-w-0">
               <div className="font-semibold text-xs sm:text-sm leading-snug break-words">{known(m.teamA)?m.teamA:'— Da definire'}</div>
               <div className={`text-[11px] sm:text-xs mt-1 font-medium tabular-nums ${m.waitA!=null?colors(m.waitA/60000):'text-neutral-500'}`}>
