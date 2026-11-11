@@ -115,14 +115,14 @@ export default function AppHeader() {
      <div className="relative z-[1] container-admin mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* Tutto su un lato (sinistra), con wrap */}
-          <nav className="hidden xl:flex flex-wrap gap-2">
+          <nav className="admin-nav-desktop hidden xl:flex flex-wrap gap-2">
             {visible.map(it =>
               it.href === '__exit__'
                 ? <ExitButton key="__exit__" />
                 : <NavLink key={it.href} href={it.href} label={it.label} active={!!pathname?.startsWith(it.href)} />
             )}
           </nav>
-          <nav className="xl:hidden flex items-center gap-2 min-w-0 h-[58px]" aria-label="Navigazione Staff tablet">
+          <nav className="admin-nav-tablet xl:hidden flex items-center gap-2 min-w-0 h-[58px]" aria-label="Navigazione Staff tablet">
             <span className="hidden sm:inline font-bold text-sm text-orange-400 shrink-0">MATTABEL</span>
             <select aria-label="Vai a una sezione del gestionale"
               className="input h-11 flex-1 min-w-0 text-sm bg-neutral-900"
@@ -142,7 +142,7 @@ export default function AppHeader() {
       <div className="brand-strip pointer-events-none" aria-hidden="true" />
 
       </header>
-<div className="h-[64px] xl:h-[120px]" />
+<div className="admin-header-spacer h-[80px] xl:h-[150px]" />
 
       {/* LOGO non-sticky sotto la riga */}
       <div className="container-admin mx-auto px-4 sm:px-6 lg:px-8">
