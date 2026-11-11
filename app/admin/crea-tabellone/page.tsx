@@ -1213,7 +1213,7 @@ if (!loadedRemote) {
 
 if (!active) {
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-2 sm:p-3 xl:p-4 space-y-3 min-w-0">
       <div className="card p-6 text-sm text-neutral-400">
         Nessun tabellone ancora presente per questa tappa.
         <div className="mt-3">
