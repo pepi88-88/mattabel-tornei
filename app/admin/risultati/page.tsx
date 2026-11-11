@@ -1915,7 +1915,7 @@ const activeForDisplay = useMemo(() => {
 // UI
 // ------------------------------------------------------------
 return (
-  <div className="relative z-0 p-6 space-y-8 pointer-events-auto">
+  <div className="relative z-0 p-2 sm:p-3 xl:p-6 space-y-6 xl:space-y-8 pointer-events-auto min-w-0">
    
     {resultsSaveError && <div role="alert" className="rounded border border-amber-500 p-3 text-amber-300">{resultsSaveError}</div>}
     {/* Header filtri */}
