@@ -543,7 +543,7 @@ function rowBg(status: RegiaStatus, tournamentId?: string) {
 
 
   return (
-    <div className="min-h-screen bg-neutral-950 p-4 md:p-6 text-white">
+    <div className="min-h-screen min-w-0 bg-neutral-950 p-2 sm:p-3 xl:p-6 text-white">
       <div className="mb-5 rounded-2xl border border-neutral-800 bg-neutral-900 p-4 shadow-sm">
       <div className="mb-4 grid gap-3 md:grid-cols-2">
   <div>
@@ -724,8 +724,8 @@ Pulisci regia
       </div>
 
      <div className="overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900 shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="min-w-[1180px] w-full text-sm">
+        <div className="overflow-x-auto overscroll-x-contain tablet-table-scroll" tabIndex={0} role="region" aria-label="Tabella Regia scorrevole orizzontalmente">
+          <table className="min-w-[1050px] xl:min-w-[1180px] w-full text-sm">
             <thead className="bg-neutral-950 text-left">
             <tr className="border-b border-neutral-800">
   <th className="px-4 py-3 font-semibold text-neutral-300">Torneo</th>
