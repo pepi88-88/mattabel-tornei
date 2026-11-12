@@ -800,3 +800,51 @@ html[data-mattabel-theme="blu"] .mt-stage-actions .btn:last-child{
  html[data-mattabel-theme="dark"] .mt-tour-row-actions,
  html[data-mattabel-theme="blu"] .mt-tour-row-actions{justify-content:flex-start}
 }
+
+
+/* Brand lockup: bigger original mark, less empty image padding visually. */
+html[data-mattabel-theme="dark"] .mt-header-brand,
+html[data-mattabel-theme="blu"] .mt-header-brand,
+html[data-mattabel-theme="dark"] .mt-athlete-brand,
+html[data-mattabel-theme="blu"] .mt-athlete-brand{
+  width:164px;min-width:164px;height:58px;padding:0 13px 0 0;
+}
+html[data-mattabel-theme="dark"] .mt-header-brand-img,
+html[data-mattabel-theme="blu"] .mt-header-brand-img{
+  width:148px!important;height:58px!important;
+  object-fit:contain;max-width:none;
+  transform:scale(1.07);transform-origin:left center;
+}
+html[data-mattabel-theme="dark"] .mt-header-brand,
+html[data-mattabel-theme="blu"] .mt-header-brand{
+  background:color-mix(in srgb,var(--mt-accent) 4%,transparent);
+}
+html[data-mattabel-theme="dark"] .mt-tour-row[class*="bg-neutral-900/"],
+html[data-mattabel-theme="blu"] .mt-tour-row[class*="bg-neutral-900/"]{
+  background:color-mix(in srgb,var(--mt-accent) 7%,var(--mt-panel))!important;
+  box-shadow:inset 3px 0 0 var(--mt-accent);
+}
+@media(max-width:1250px){
+ html[data-mattabel-theme="dark"] .mt-header-brand,
+ html[data-mattabel-theme="blu"] .mt-header-brand{width:116px;min-width:116px}
+ html[data-mattabel-theme="dark"] .mt-header-brand-img,
+ html[data-mattabel-theme="blu"] .mt-header-brand-img{width:107px!important}
+ html[data-mattabel-theme="dark"] .mt-athlete-brand,
+ html[data-mattabel-theme="blu"] .mt-athlete-brand{width:122px;min-width:122px}
+}
+@media(max-width:760px){
+ html[data-mattabel-theme="dark"] .mt-header-brand,
+ html[data-mattabel-theme="blu"] .mt-header-brand{width:92px;min-width:92px;padding-right:3px}
+ html[data-mattabel-theme="dark"] .mt-header-brand-img,
+ html[data-mattabel-theme="blu"] .mt-header-brand-img{width:85px!important}
+ html[data-mattabel-theme="dark"] .mt-athlete-brand,
+ html[data-mattabel-theme="blu"] .mt-athlete-brand{width:90px;min-width:90px}
+}
+@media(max-width:540px){
+ html[data-mattabel-theme="dark"] .mt-header-brand,
+ html[data-mattabel-theme="blu"] .mt-header-brand{width:72px;min-width:72px}
+ html[data-mattabel-theme="dark"] .mt-header-brand-img,
+ html[data-mattabel-theme="blu"] .mt-header-brand-img{width:69px!important}
+ html[data-mattabel-theme="dark"] .mt-athlete-brand,
+ html[data-mattabel-theme="blu"] .mt-athlete-brand{display:none}
+}
