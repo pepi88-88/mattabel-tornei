@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Image from 'next/image'
 import ThemeSwitcher from './ThemeSwitcher'
+import NavigationIcon, { type NavigationIconName } from './NavigationIcon'
 import { useRouter, usePathname } from 'next/navigation'  // 👈 unico import next/navigation
 
 const ORANGE = 'rgb(240,125,0)'
@@ -19,23 +20,23 @@ function useRole(): 'admin' | 'coach' | 'athlete' | undefined {
   return role
 }
 
-type Item = { href: string; label: string; roles: Array<'admin'|'coach'> | 'any' }
+type Item = { href: string; label: string; icon: NavigationIconName; roles: Array<'admin'|'coach'> | 'any' }
 const NAV_ITEMS: Item[] = [
-  { href: '/admin/tour',              label: 'Gestione Tour/Tappa',         roles: ['admin'] },
-  { href: '/admin/giocatori',         label: 'Crea giocatore',              roles: ['admin','coach'] },
-  { href: '/admin/iscrizioni',        label: 'Iscrizioni',                  roles: ['admin','coach'] },
-  { href: '/admin/gironi',            label: 'Crea Gironi',                 roles: ['admin','coach'] },
-  { href: '/admin/crea-tabellone',    label: 'Creazione Tabellone',         roles: ['admin'] },
-  { href: '/admin/risultati',         label: 'Risultati Girone/Tabellone',  roles: ['admin','coach'] },
-  { href: '/admin/classifica',        label: 'Classifica',                  roles: ['admin','coach'] },
-  { href: '/admin/tornei/test/regia',             label: 'Regia',                       roles: ['admin','coach'] },
-  { href: '/admin/attese',            label: 'Attese',              roles: ['admin','coach'] },
-  { href: '/admin/pagamenti',         label: 'Pagamenti',                   roles: ['admin','coach'] },
-  { href: '/admin/stampa',            label: 'Stampa',                      roles: ['admin','coach'] },
-  { href: '__exit__',                 label: 'Esci',                        roles: 'any' },
+  { href: '/admin/tour', icon: 'tour',              label: 'Gestione Tour/Tappa',         roles: ['admin'] },
+  { href: '/admin/giocatori', icon: 'players',         label: 'Crea giocatore',              roles: ['admin','coach'] },
+  { href: '/admin/iscrizioni', icon: 'registrations',        label: 'Iscrizioni',                  roles: ['admin','coach'] },
+  { href: '/admin/gironi', icon: 'groups',            label: 'Crea Gironi',                 roles: ['admin','coach'] },
+  { href: '/admin/crea-tabellone', icon: 'bracket',    label: 'Creazione Tabellone',         roles: ['admin'] },
+  { href: '/admin/risultati', icon: 'results',         label: 'Risultati Girone/Tabellone',  roles: ['admin','coach'] },
+  { href: '/admin/classifica', icon: 'ranking',        label: 'Classifica',                  roles: ['admin','coach'] },
+  { href: '/admin/tornei/test/regia', icon: 'broadcast',             label: 'Regia',                       roles: ['admin','coach'] },
+  { href: '/admin/attese', icon: 'waiting',            label: 'Attese',              roles: ['admin','coach'] },
+  { href: '/admin/pagamenti', icon: 'payments',         label: 'Pagamenti',                   roles: ['admin','coach'] },
+  { href: '/admin/stampa', icon: 'print',            label: 'Stampa',                      roles: ['admin','coach'] },
+  { href: '__exit__', icon: 'logout',                 label: 'Esci',                        roles: 'any' },
 ]
 
-function NavLink({ href, label, active }: { href:string; label:string; active:boolean }) {
+function NavLink({ href, label, icon, active }: { href:string; label:string; icon: NavigationIconName; active:boolean }) {
   const router = useRouter()
   return (
     <button
@@ -57,6 +58,7 @@ function NavLink({ href, label, active }: { href:string; label:string; active:bo
       ].join(' ')}
       style={active ? { borderColor: ORANGE } : undefined}
     >
+      <span className="mt-nav-icon"><NavigationIcon name={icon} /></span>
       <span className="truncate">{label}</span>
     </button>
   )
@@ -114,17 +116,20 @@ export default function AppHeader() {
   style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}
 >
      <div className="admin-topline relative z-[1] container-admin mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mt-header-brand" aria-label="Beach Volley Mattabel">
+            <Image src="/logo2.png" alt="Beach Volley Mattabel" width={112} height={64} className="mt-header-brand-img" priority />
+          </div>
 
           {/* Tutto su un lato (sinistra), con wrap */}
           <nav className="admin-nav-desktop hidden xl:flex flex-wrap gap-2" aria-label="Navigazione staff">
             {visible.map(it =>
               it.href === '__exit__'
                 ? <ExitButton key="__exit__" />
-                : <NavLink key={it.href} href={it.href} label={it.label} active={!!pathname?.startsWith(it.href)} />
+                : <NavLink key={it.href} href={it.href} label={it.label} icon={it.icon} active={!!pathname?.startsWith(it.href)} />
             )}
           </nav>
           <nav className="admin-nav-tablet xl:hidden flex items-center gap-2 min-w-0 h-[58px]" aria-label="Navigazione Staff tablet">
-            <span className="hidden sm:inline font-bold text-sm text-orange-400 shrink-0">MATTABEL</span>
+            <span className="mt-tablet-name hidden sm:inline font-bold text-sm text-orange-400 shrink-0">MATTABEL</span>
             <select aria-label="Vai a una sezione del gestionale"
               className="input h-11 flex-1 min-w-0 text-sm bg-neutral-900"
               value={visible.find(it => it.href !== '__exit__' && (pathname === it.href || pathname?.startsWith(it.href + '/')))?.href ||
@@ -136,6 +141,7 @@ export default function AppHeader() {
             {visible.filter(it => ['/admin/risultati','/admin/tornei/test/regia','/admin/attese','/admin/pagamenti'].includes(it.href))
               .map(it => <button key={it.href} type="button" onClick={() => navigate(it.href)}
                 className={`hidden md:inline-flex h-11 items-center px-3 rounded-md border text-sm whitespace-nowrap ${pathname?.startsWith(it.href) ? 'border-orange-500 bg-slate-800':'border-neutral-700 bg-[--brand-navy]'}`}>
+                <span className="mt-nav-icon"><NavigationIcon name={it.icon} /></span>
                 {it.label === 'Risultati Girone/Tabellone' ? 'Risultati' : it.label}
               </button>)}
           </nav>
