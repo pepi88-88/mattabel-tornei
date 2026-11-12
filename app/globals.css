@@ -1639,3 +1639,50 @@ html[data-mattabel-theme="blu"] .mt-groups-player-item {
     font-size:13px!important;
   }
 }
+
+
+/* Gironi final polish: title aligns with the team-select left edge (not row number). */
+html[data-mattabel-theme="dark"] .mt-group-bar-controls,
+html[data-mattabel-theme="blu"] .mt-group-bar-controls {
+  grid-template-columns:minmax(85px,1fr) 42px 58px 58px;
+  gap:4px!important;
+}
+html[data-mattabel-theme="dark"] .mt-group-label,
+html[data-mattabel-theme="blu"] .mt-group-label {
+  margin-left:24px!important;
+  font-size:12px;
+  white-space:nowrap;
+}
+
+/* Normal keeps the old status below the toolbar. In Dark/Blu the same
+   status is displayed above the action buttons, recovering vertical space. */
+.mt-groups-save-top{display:none}
+.mt-groups-action-buttons{display:flex;align-items:flex-end;gap:8px}
+html[data-mattabel-theme="dark"] .mt-groups-save-bottom,
+html[data-mattabel-theme="blu"] .mt-groups-save-bottom { display:none!important; }
+html[data-mattabel-theme="dark"] .mt-groups-actions,
+html[data-mattabel-theme="blu"] .mt-groups-actions {
+  display:flex;flex-direction:column;align-items:flex-start;
+  justify-content:flex-end;gap:3px!important;
+}
+html[data-mattabel-theme="dark"] .mt-groups-save-top,
+html[data-mattabel-theme="blu"] .mt-groups-save-top {
+  display:flex;align-items:center;gap:5px;
+  min-height:14px;line-height:1.15;
+  font-size:10px;color:var(--mt-muted);
+  padding:0;max-width:100%;
+}
+html[data-mattabel-theme="dark"] .mt-groups-action-buttons,
+html[data-mattabel-theme="blu"] .mt-groups-action-buttons {
+  display:flex;align-items:center;flex-wrap:nowrap;gap:6px;
+}
+@media(max-width:850px){
+  html[data-mattabel-theme="dark"] .mt-groups-action-buttons,
+  html[data-mattabel-theme="blu"] .mt-groups-action-buttons{flex-wrap:wrap}
+}
+@media(max-width:580px){
+  html[data-mattabel-theme="dark"] .mt-group-bar-controls,
+  html[data-mattabel-theme="blu"] .mt-group-bar-controls{
+    grid-template-columns:minmax(85px,1fr) 42px 58px 58px;
+  }
+}
