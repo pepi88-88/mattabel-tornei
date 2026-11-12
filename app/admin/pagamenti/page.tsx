@@ -211,7 +211,8 @@ paid_d: side === 'D' ? value : r.paid_d,
 
 
   return (
-    <div className="space-y-4 xl:space-y-6 p-2 sm:p-3 xl:p-6">
+    <div className="mt-payments-page space-y-4 xl:space-y-6 p-2 sm:p-3 xl:p-6">
+      <h1 className="mt-simple-page-title">Pagamenti</h1>
       {/* intestazione: stessi selettori di Iscrizioni */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
