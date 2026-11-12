@@ -596,11 +596,11 @@ function commitTimeUncontrolled(
      const m = meta[L] ?? { capacity: 0, format: 'pool', bestOf: 1 }
     const cap = m.capacity ?? 0
     return (
-      <div className="card p-0 overflow-hidden" key={L}>
+      <div className="mt-group-card card p-0 overflow-hidden" key={L}>
         {/* Header girone (testo bianco) */}
-        <div className="px-3 py-2" style={{ background: color }}>
-          <div className="flex items-center gap-2 text-white">
-            <div className="text-base font-extrabold tracking-wide mr-2">GIRONE {L}</div>
+        <div className="mt-group-bar px-3 py-2" style={{ background: color }}>
+          <div className="mt-group-bar-controls flex items-center gap-2 text-white">
+            <div className="mt-group-label text-base font-extrabold tracking-wide mr-2">GIRONE {L}</div>
             <input
               className="input w-16 text-center bg-white/90 text-black"
               type="number" min={0}
@@ -637,12 +637,12 @@ function commitTimeUncontrolled(
   <option value="1">1 set</option>
   <option value="3">3 set</option>
 </select>
-            <div className="ml-auto text-xs opacity-80 text-white/90">#</div>
+            
           </div>
         </div>
 
         {/* Slot squadra */}
-        <div className="p-3 space-y-2">
+        <div className="mt-group-slots p-3 space-y-2">
           {Array.from({ length: cap }, (_, i) => i + 1).map(slot => {
             const key = `${L}-${slot}`, sel = assign[key] ?? ''
             return (
@@ -672,7 +672,7 @@ function commitTimeUncontrolled(
    // ---- UI: partite (due colonne)
   function SchedulesRow({ pair }: { pair: string[] }) {
     return (
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="mt-schedule-pair grid grid-cols-1 xl:grid-cols-2 gap-4">
         {pair.map(L => {
           const color = colorFor(L)
           const rows = scheduleRows(L)
@@ -698,14 +698,14 @@ function commitTimeUncontrolled(
             setMatchOrder(prev => ({ ...prev, [L]: ids }))
           }
           return (
-            <div key={`${tId}-sch-${L}`} className="card p-0 overflow-hidden">
+            <div key={`${tId}-sch-${L}`} className="mt-schedule-card card p-0 overflow-hidden">
               {/* Barra colore full + CAMPO */}
-              <div className="h-9 px-3 flex items-center justify-between text-white" style={{ background: color }}>
+              <div className="mt-schedule-bar h-9 px-3 flex items-center justify-between text-white" style={{ background: color }}>
                 <div className="text-sm font-semibold">
                   Partite {L} — {(meta[L]?.format ?? 'pool').toString().toUpperCase()}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="mt-schedule-tools flex items-center gap-2">
                   <button type="button" onClick={sortByTime} className="text-xs underline text-white">Ordina per orario</button>
                    <span className="text-xs tracking-wide uppercase text-white/90">Campo</span>
                   <input
@@ -720,7 +720,7 @@ function commitTimeUncontrolled(
               </div>
 
                          {/* Elenco partite */}
-              <div className="p-3 space-y-0">
+              <div className="mt-schedule-rows p-3 space-y-0">
                 {rows.length === 0 ? (
                   <div className="text-xs text-neutral-500">Imposta # squadre e formato.</div>
                 ) : (
@@ -737,7 +737,7 @@ function commitTimeUncontrolled(
                         {r.sep && <div className="h-px bg-neutral-800 my-3" />}
 
                         <div
-                          className="grid items-center min-h-[38px]"
+                          className="mt-match-row grid items-center min-h-[38px]"
                           style={{
                             gridTemplateColumns: '62px 40px minmax(0,1fr) 44px 16px 44px minmax(0,1fr)',
                             columnGap: '.35rem',
@@ -870,11 +870,12 @@ function commitTimeUncontrolled(
     )
   }
   return (
-    <div className="p-2 sm:p-3 xl:p-6">
-      <div className="card p-3 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 xl:gap-6">
+    <div className="mt-groups-page p-2 sm:p-3 xl:p-6">
+      <h1 className="mt-groups-title">Crea Gironi</h1>
+      <div className="mt-groups-workspace card p-3 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 xl:gap-6">
         {/* colonna sinistra */}
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="mt-groups-main space-y-6">
+          <div className="mt-groups-controls grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <div>
               <div className="text-xs text-neutral-400 mb-1">Tour</div>
               <select className="input w-full" value={tourId} onChange={e => {localStorage.setItem('selectedTourId',e.target.value);localStorage.removeItem('selectedTournamentId');setTourId(e.target.value);setTId('')}}>
@@ -892,12 +893,12 @@ function commitTimeUncontrolled(
 </select>
 
             </div>
-            <div>
+            <div className="mt-groups-count">
               <div className="text-xs text-neutral-400 mb-1"># Gironi</div>
-              <span role="status" className="text-xs">{saveStatus}</span>{saveStatus.includes('conservate') && <button type="button" onClick={() => setRetrySave(x => x + 1)}>Riprova salvataggio</button>}<input className="input w-24" type="number" min={1} value={groupsCount}
+              <input className="input w-24" type="number" min={1} value={groupsCount}
                 onChange={e => setGroupsCount(Math.max(1, Number(e.target.value || 1)))} />
             </div>
-          <div className="flex items-end gap-2">
+          <div className="mt-groups-actions flex items-end gap-2">
   <button
     className="btn"
     onClick={() => {
@@ -935,24 +936,30 @@ function commitTimeUncontrolled(
 </div>
 
           </div>
+          <div className="mt-groups-save-line" role="status" aria-live="polite"
+            data-save-state={saveStatus.toLowerCase().includes('errore') || saveStatus.toLowerCase().includes('fallit') ? 'error' : saveStatus.toLowerCase().includes('corso') ? 'saving' : saveStatus.toLowerCase().includes('salvat') && !saveStatus.toLowerCase().includes('salvato') ? 'pending' : 'saved'}>
+            <span className="mt-groups-save-dot" aria-hidden="true" />
+            <span>{saveStatus}</span>
+            {saveStatus.includes('conservate') && <button type="button" className="btn" onClick={() => setRetrySave(x => x + 1)}>Riprova salvataggio</button>}
+          </div>
 
          {/* griglia gironi (responsive, niente chunk) */}
-<div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+<div className="mt-groups-grid grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
  {letters.map(L => renderGroupCard(L))}
 </div>
 
           
 
           {/* griglia partite: A|B poi C|D ... */}
-          <div className="space-y-4">
+          <div className="mt-groups-schedules space-y-4">
             {chunk(letters, 2).map((pair, i) => <SchedulesRow key={`s2-${i}`} pair={pair} />)}
           </div>
         </div>
 
         {/* colonna destra: giocatori */}
-        <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-3rem)]">
-          <div className="card p-3 h-full overflow-auto">
-            <div className="font-semibold mb-2 text-lg">Giocatori</div>
+        <div className="mt-groups-sidebar lg:sticky lg:top-4 lg:h-[calc(100vh-3rem)]">
+          <div className="mt-groups-sidebar-card card p-3 h-full overflow-auto">
+            <div className="mt-groups-sidebar-title font-semibold mb-2 text-lg">Giocatori</div>
             <DragDropContext onDragEnd={onDragEnd}>
               <Droppable droppableId="pool">
                 {p => (
@@ -966,7 +973,7 @@ function commitTimeUncontrolled(
                               ref={prov.innerRef}
                               {...prov.draggableProps}
                               {...prov.dragHandleProps}
-                              className="rounded px-2 py-1 text-sm flex items-center gap-2 border border-neutral-800"
+                              className="mt-groups-player-item rounded px-2 py-1 text-sm flex items-center gap-2 border border-neutral-800"
                               style={{ ...prov.draggableProps.style, borderLeft: `6px solid ${color}` }}
                             >
                               <div className="w-6 text-neutral-500">{(i + 1).toString().padStart(2, '0')}</div>
