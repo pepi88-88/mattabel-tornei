@@ -105,7 +105,8 @@ export default function StampaPage(){
   a.download=(exportMode==='groups'?'solo-gironi-':exportMode==='schedule'?'solo-calendari-':'gironi-e-calendari-')+(chosen?.name||'tappa').replace(/[^a-z0-9-]/gi,'-')+'.png'
   a.href=c.toDataURL('image/png');a.click()
  }
- return <div className="p-4 space-y-5">
+ return <div className="mt-print-page p-4 space-y-5">
+  <h1 className="mt-simple-page-title print:hidden">Stampa</h1>
   <div className="card p-4 flex flex-wrap items-end gap-3 print:hidden">
    <label className="text-sm">Tour<select className="input block mt-1" value={tourId} onChange={e=>{localStorage.setItem('selectedTourId',e.target.value);localStorage.removeItem('selectedTournamentId');setTourId(e.target.value);setTId('')}}>{tours.map((t:any)=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
    <label className="text-sm">Tappa<select className="input block mt-1" value={tId} onChange={e=>{localStorage.setItem('selectedTournamentId',e.target.value);setTId(e.target.value)}}>{tappe.map((t:any)=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
