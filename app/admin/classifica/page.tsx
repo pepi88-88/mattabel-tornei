@@ -628,18 +628,18 @@ const totalsSorted = React.useMemo(() => {
                 {visibleStages.map((st, idx) => (
                   <th
                     key={st.id}
-                    className={`min-w-[160px] align-bottom ${idx >= 0 ? 'border-l border-neutral-800' : ''}`}
+                    className={`mt-ranking-stage-header min-w-[160px] align-bottom ${idx >= 0 ? 'border-l border-neutral-800' : ''}`}
                   >
-                    <div className="flex flex-col items-center gap-1 py-1">
-                      <div className="font-medium">{st.name}</div>
-                      <div className="text-xs text-neutral-400">
+                    <div className={`mt-ranking-stage-heading ${stageView === 'last' && visibleStages.length === 1 ? 'mt-ranking-stage-single' : ''} flex flex-col items-center gap-1 py-1`}>
+                      <div className="mt-ranking-stage-name font-medium">{st.name}</div>
+                      <div className="mt-ranking-stage-date text-xs text-neutral-400">
                         {String(st.day).padStart(2,'0')}/{String(st.month).padStart(2,'0')}
                       </div>
-                      <div className="text-[11px] text-neutral-500">
+                      <div className="mt-ranking-stage-meta text-[11px] text-neutral-500">
                         x{Number(st.multiplier).toFixed(2)} · {st.total_teams} sq
                       </div>
                       <button
-                        className="btn btn-xs mt-1"
+                        className="mt-ranking-stage-remove btn btn-xs mt-1"
                         onClick={() => deleteStage(st.id, st.name)}
                         title="Elimina tappa"
                       >
