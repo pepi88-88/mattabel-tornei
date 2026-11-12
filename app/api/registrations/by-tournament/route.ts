@@ -47,12 +47,12 @@ export async function GET(req: NextRequest) {
 
     const { data: players, error: playersErr } = await s
       .from('players')
-      .select('id, first_name, last_name, is_placeholder')
+      .select('id, first_name, last_name, gender, is_placeholder')
       .in('id', playerIds)
 
     if (playersErr) return NextResponse.json({ error: playersErr.message }, { status: 500 })
 
-    const playerMap = new Map<string, { first_name?: string; last_name?: string; is_placeholder?: boolean }>()
+    const playerMap = new Map<string, { id: string; first_name?: string; last_name?: string; gender?: 'M' | 'F'; is_placeholder?: boolean }>()
     for (const p of players ?? []) playerMap.set(p.id, p)
 
     // helper
@@ -77,6 +77,16 @@ export async function GET(req: NextRequest) {
       paid: boolean
       team_name?: string | null
       team_format?: number | null
+      tournament_id: string
+      players: {
+        a: { id: string; first_name: string; last_name: string; gender?: 'M' | 'F' } | null
+        b: { id: string; first_name: string; last_name: string; gender?: 'M' | 'F' } | null
+        c: { id: string; first_name: string; last_name: string; gender?: 'M' | 'F' } | null
+        d: { id: string; first_name: string; last_name: string; gender?: 'M' | 'F' } | null
+      }
+      partner_status: string
+      c_status: string | null
+      d_status: string | null
     }> = []
 
     for (const r of regs as any[]) {
@@ -132,6 +142,16 @@ export async function GET(req: NextRequest) {
 
       out.push({
         id: r.id,
+        tournament_id: r.tournament_id,
+        players: {
+          a: aId ? playerMap.get(aId) ?? null : null,
+          b: bId ? playerMap.get(bId) ?? null : null,
+          c: r.c_player_id ? playerMap.get(r.c_player_id) ?? null : null,
+          d: r.d_player_id ? playerMap.get(r.d_player_id) ?? null : null,
+        },
+        partner_status: r.partner_status,
+        c_status: r.c_status,
+        d_status: r.d_status,
         label,
         label_short,
         paid: Boolean(r.paid_a && r.paid_b),
