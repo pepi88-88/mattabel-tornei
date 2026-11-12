@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
     if (playersErr) return NextResponse.json({ error: playersErr.message }, { status: 500 })
 
-    const playerMap = new Map<string, { id: string; first_name?: string; last_name?: string; gender?: 'M' | 'F'; is_placeholder?: boolean }>()
+    const playerMap = new Map<string, { id: string; first_name: string; last_name: string; gender?: 'M' | 'F'; is_placeholder?: boolean }>()
     for (const p of players ?? []) playerMap.set(p.id, p)
 
     // helper
