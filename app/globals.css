@@ -2128,3 +2128,74 @@ html[data-mattabel-theme="blu"] .mt-ranking-stage-single .mt-ranking-stage-remov
     padding-inline:65px!important;
   }
 }
+
+
+/* Light-touch final pass: Regia / Attese / Pagamenti / Stampa.
+   Scope modern themes only; keep original Normale and print output intact. */
+.mt-simple-page-title{display:none}
+html[data-mattabel-theme="dark"] .mt-simple-page-title,
+html[data-mattabel-theme="blu"] .mt-simple-page-title{
+  display:block;font-size:19px;font-weight:750;line-height:1.45;
+  letter-spacing:-.02em;color:var(--mt-ink);
+  margin:0 2px 10px;
+}
+html[data-mattabel-theme="dark"] .mt-regia-page,
+html[data-mattabel-theme="blu"] .mt-regia-page,
+html[data-mattabel-theme="dark"] .mt-payments-page,
+html[data-mattabel-theme="blu"] .mt-payments-page,
+html[data-mattabel-theme="dark"] .mt-print-page,
+html[data-mattabel-theme="blu"] .mt-print-page {
+  padding:0 4px 20px!important;min-width:0;
+}
+html[data-mattabel-theme="dark"] .mt-regia-page,
+html[data-mattabel-theme="blu"] .mt-regia-page{
+  background:transparent!important;
+  min-height:0;
+}
+html[data-mattabel-theme="dark"] .mt-regia-page > div:nth-of-type(1),
+html[data-mattabel-theme="blu"] .mt-regia-page > div:nth-of-type(1){
+  margin-top:0!important;
+}
+html[data-mattabel-theme="dark"] .mt-payments-page,
+html[data-mattabel-theme="blu"] .mt-payments-page{
+  display:flex;flex-direction:column;gap:12px!important;
+}
+html[data-mattabel-theme="dark"] .mt-payments-page > * + *,
+html[data-mattabel-theme="blu"] .mt-payments-page > * + *{
+  margin-top:0!important;
+}
+html[data-mattabel-theme="dark"] .mt-print-page,
+html[data-mattabel-theme="blu"] .mt-print-page{
+  display:flex;flex-direction:column;gap:12px!important;
+}
+html[data-mattabel-theme="dark"] .mt-print-page > * + *,
+html[data-mattabel-theme="blu"] .mt-print-page > * + *{
+  margin-top:0!important;
+}
+html[data-mattabel-theme="dark"] .mt-waiting-page,
+html[data-mattabel-theme="blu"] .mt-waiting-page{
+  display:flex;flex-direction:column;gap:12px!important;
+  padding-bottom:18px!important;
+}
+html[data-mattabel-theme="dark"] .mt-waiting-page > * + *,
+html[data-mattabel-theme="blu"] .mt-waiting-page > * + *{
+  margin-top:0!important;
+}
+html[data-mattabel-theme="dark"] .mt-waiting-heading,
+html[data-mattabel-theme="blu"] .mt-waiting-heading{
+  font-size:19px!important;letter-spacing:-.02em;line-height:1.35;
+}
+html[data-mattabel-theme="dark"] .mt-waiting-page article,
+html[data-mattabel-theme="blu"] .mt-waiting-page article{
+  border-color:var(--mt-border);
+}
+html[data-mattabel-theme="dark"] .mt-waiting-page section > button,
+html[data-mattabel-theme="blu"] .mt-waiting-page section > button{
+  border-color:var(--mt-border);
+}
+@media print{
+  html[data-mattabel-theme="dark"] .mt-simple-page-title,
+  html[data-mattabel-theme="blu"] .mt-simple-page-title{
+    display:none!important;
+  }
+}
