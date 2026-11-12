@@ -1572,3 +1572,70 @@ html[data-mattabel-theme="blu"] .mt-groups-player-item > .w-6{
     grid-template-columns:minmax(80px,1fr) 48px 75px 75px;
   }
 }
+
+
+/* Gironi readability pass: names and match times without increasing overall density. */
+html[data-mattabel-theme="dark"] .mt-group-slots select,
+html[data-mattabel-theme="blu"] .mt-group-slots select {
+  font-size:13px!important;
+  font-weight:600;
+  letter-spacing:0;
+  height:36px!important;
+  min-height:36px!important;
+  padding:5px 7px!important;
+}
+html[data-mattabel-theme="dark"] .mt-group-slots > div,
+html[data-mattabel-theme="blu"] .mt-group-slots > div {
+  gap:6px!important;
+}
+html[data-mattabel-theme="dark"] .mt-match-row,
+html[data-mattabel-theme="blu"] .mt-match-row {
+  min-width:490px;
+  grid-template-columns:62px 30px minmax(0,1fr) 37px 14px 37px minmax(0,1fr)!important;
+  column-gap:5px!important;
+  min-height:37px!important;
+}
+html[data-mattabel-theme="dark"] .mt-match-row > input:first-child,
+html[data-mattabel-theme="blu"] .mt-match-row > input:first-child {
+  width:60px!important;
+  font-size:13px!important;
+  font-weight:750!important;
+  font-variant-numeric:tabular-nums;
+  height:32px!important;
+  min-height:32px!important;
+  text-align:center;
+  padding:3px 2px!important;
+  color:var(--mt-ink)!important;
+}
+html[data-mattabel-theme="dark"] .mt-match-row > input:nth-child(2),
+html[data-mattabel-theme="blu"] .mt-match-row > input:nth-child(2) {
+  width:30px!important;
+  height:31px!important;
+  min-height:31px!important;
+  font-size:12px!important;
+}
+html[data-mattabel-theme="dark"] .mt-match-row > div:nth-child(3),
+html[data-mattabel-theme="dark"] .mt-match-row > div:last-child,
+html[data-mattabel-theme="blu"] .mt-match-row > div:nth-child(3),
+html[data-mattabel-theme="blu"] .mt-match-row > div:last-child {
+  font-size:12px!important;
+  line-height:1.35;
+  font-weight:600;
+  color:var(--mt-ink);
+}
+html[data-mattabel-theme="dark"] .mt-match-row > input[title^="Punteggio"],
+html[data-mattabel-theme="blu"] .mt-match-row > input[title^="Punteggio"] {
+  font-size:13px!important;
+  font-weight:700;
+}
+html[data-mattabel-theme="dark"] .mt-groups-player-item,
+html[data-mattabel-theme="blu"] .mt-groups-player-item {
+  font-size:12px!important;
+  min-height:29px;
+}
+@media (max-width:1199px) {
+  html[data-mattabel-theme="dark"] .mt-group-slots select,
+  html[data-mattabel-theme="blu"] .mt-group-slots select {
+    font-size:13px!important;
+  }
+}
