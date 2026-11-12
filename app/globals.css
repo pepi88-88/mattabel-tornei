@@ -1289,3 +1289,15 @@ html[data-mattabel-theme="blu"] #mt-registration-editor{
     padding:4px 3px;font-size:11px;
   }
 }
+
+
+/* Iscrizioni: remove compounded Tailwind space-y margins from the team form.
+   Keep a consistent, comfortable 13px gap between Formato, A, B, C, D. */
+html[data-mattabel-theme="dark"] .mt-registrations-create,
+html[data-mattabel-theme="blu"] .mt-registrations-create{
+  row-gap:13px!important;
+}
+html[data-mattabel-theme="dark"] .mt-registrations-create > * + *,
+html[data-mattabel-theme="blu"] .mt-registrations-create > * + *{
+  margin-top:0!important;
+}
