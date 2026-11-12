@@ -5,10 +5,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import ThemeSwitcher from '../../components/ThemeSwitcher'
+import NavigationIcon, { type NavigationIconName } from '../../components/NavigationIcon'
 
 const ORANGE = 'rgb(240,125,0)'
 
-function NavBtn({ href, label }:{ href:string; label:string }) {
+function NavBtn({ href, label, icon }:{ href:string; label:string; icon:NavigationIconName }) {
   const pathname = usePathname()
   const active = pathname?.startsWith(href)
   return (
@@ -23,7 +24,7 @@ function NavBtn({ href, label }:{ href:string; label:string }) {
       ].join(' ')}
       style={active ? { borderColor: ORANGE } : undefined}
     >
-      <span className="truncate">{label}</span>
+      <span className="mt-nav-icon"><NavigationIcon name={icon} /></span><span className="truncate">{label}</span>
     </Link>
   )
 }
@@ -37,7 +38,7 @@ function ExitBtn(){
       onClick={()=>{ localStorage.removeItem('role'); location.href='/' }}
       title="Esci"
     >
-      Esci
+      <span className="mt-nav-icon"><NavigationIcon name="logout" /></span>Esci
     </button>
   )
 }
@@ -51,9 +52,10 @@ export default function AthleteLayout({ children }: { children: React.ReactNode 
         style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}
       >
         <div className="athlete-topline container-admin mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mt-athlete-brand"><Image src="/logo2.png" alt="Beach Volley Mattabel" width={116} height={70} className="mt-header-brand-img" priority /></div>
           <nav className="athlete-navigation flex flex-wrap gap-2">
-            <NavBtn href="/atleta/tornei" label="Tornei attivi" />
-            <NavBtn href="/atleta/classifica" label="Classifica generale" />
+            <NavBtn href="/atleta/tornei" label="Tornei attivi" icon="tour" />
+            <NavBtn href="/atleta/classifica" label="Classifica generale" icon="ranking" />
             <ExitBtn />
           </nav>
           <ThemeSwitcher area="atleta" />
