@@ -12,9 +12,10 @@ type Props = {
   items: Item[]
   onReorder?: (ids: string[]) => void
   onDelete?: (id: string) => void
+  onEdit?: (id: string) => void
 }
 
-export default function RegistrationList({ items, onReorder, onDelete }: Props) {
+export default function RegistrationList({ items, onReorder, onDelete, onEdit }: Props) {
   const [dragId, setDragId] = React.useState<string | null>(null)
   const [local, setLocal] = React.useState(items)
 
@@ -83,14 +84,11 @@ export default function RegistrationList({ items, onReorder, onDelete }: Props) 
               )}
             </div>
 
-            {onDelete && (
-              <button
-                className="btn"
-                onClick={() => onDelete(it.id)}
-                title="Elimina iscrizione"
-              >
-                Elimina
-              </button>
+            {(onEdit || onDelete) && (
+              <div className="mt-reg-actions flex items-center gap-2">
+                {onEdit && <button type="button" className="btn" onClick={() => onEdit(it.id)} title="Modifica squadra">Modifica</button>}
+                {onDelete && <button type="button" className="btn" onClick={() => onDelete(it.id)} title="Elimina iscrizione">Elimina</button>}
+              </div>
             )}
           </div>
         )
