@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
+import ThemeSwitcher from './ThemeSwitcher'
 import { useRouter, usePathname } from 'next/navigation'  // 👈 unico import next/navigation
 
 const ORANGE = 'rgb(240,125,0)'
@@ -112,10 +113,10 @@ export default function AppHeader() {
   className="fixed top-0 left-0 right-0 z-[99999] isolate bg-neutral-950/95 backdrop-blur header-shadow pointer-events-auto"
   style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}
 >
-     <div className="relative z-[1] container-admin mx-auto px-4 sm:px-6 lg:px-8">
+     <div className="admin-topline relative z-[1] container-admin mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* Tutto su un lato (sinistra), con wrap */}
-          <nav className="admin-nav-desktop hidden xl:flex flex-wrap gap-2">
+          <nav className="admin-nav-desktop hidden xl:flex flex-wrap gap-2" aria-label="Navigazione staff">
             {visible.map(it =>
               it.href === '__exit__'
                 ? <ExitButton key="__exit__" />
@@ -138,6 +139,7 @@ export default function AppHeader() {
                 {it.label === 'Risultati Girone/Tabellone' ? 'Risultati' : it.label}
               </button>)}
           </nav>
+          <ThemeSwitcher area="staff" />
         </div>
       <div className="brand-strip pointer-events-none" aria-hidden="true" />
 
@@ -145,7 +147,7 @@ export default function AppHeader() {
 <div className="admin-header-spacer h-[80px] xl:h-[150px]" />
 
       {/* LOGO non-sticky sotto la riga */}
-      <div className="container-admin mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="admin-logo-below container-admin mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-center py-4">
           <Image
             src="/logo2.png"
