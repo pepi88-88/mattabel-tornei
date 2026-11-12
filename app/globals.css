@@ -1218,3 +1218,74 @@ html[data-mattabel-theme="blu"] .mt-registrations-list > div > div[draggable] [c
     width:72px;font-size:11px;padding-inline:3px;
   }
 }
+
+
+/* Registration editor v2: balanced player fields and Edit/Delete in one line. */
+html[data-mattabel-theme="dark"] .mt-reg-player-row,
+html[data-mattabel-theme="blu"] .mt-reg-player-row{
+  width:min(100%,980px);
+  grid-template-columns:minmax(0,3fr) minmax(175px,1fr)!important;
+  gap:12px!important;
+}
+html[data-mattabel-theme="dark"] .mt-reg-format,
+html[data-mattabel-theme="blu"] .mt-reg-format{
+  width:min(100%,980px);
+}
+html[data-mattabel-theme="dark"] .mt-reg-player-row .mt-reg-add,
+html[data-mattabel-theme="blu"] .mt-reg-player-row .mt-reg-add{
+  width:100%;height:38px;white-space:nowrap;
+}
+html[data-mattabel-theme="dark"] .mt-reg-edit-header,
+html[data-mattabel-theme="blu"] .mt-reg-edit-header{
+  min-height:24px;display:flex;align-items:center;justify-content:space-between;
+}
+html[data-mattabel-theme="dark"] .mt-reg-edit-header .btn,
+html[data-mattabel-theme="blu"] .mt-reg-edit-header .btn{
+  font-size:12px;padding:5px 10px;min-height:30px;
+}
+html[data-mattabel-theme="dark"] .mt-registrations-list > div > div[draggable],
+html[data-mattabel-theme="blu"] .mt-registrations-list > div > div[draggable]{
+  grid-template-columns:minmax(0,1fr) 190px!important;
+}
+html[data-mattabel-theme="dark"] .mt-registrations-list .mt-reg-actions,
+html[data-mattabel-theme="blu"] .mt-registrations-list .mt-reg-actions{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px!important;align-items:center;justify-self:end;width:190px;
+}
+html[data-mattabel-theme="dark"] .mt-registrations-list .mt-reg-actions .btn,
+html[data-mattabel-theme="blu"] .mt-registrations-list .mt-reg-actions .btn{
+  width:100%;height:33px;min-width:0!important;padding:5px 7px;
+  font-size:12px;white-space:nowrap;
+}
+html[data-mattabel-theme="dark"] .mt-registrations-list .mt-reg-actions .btn:last-child,
+html[data-mattabel-theme="blu"] .mt-registrations-list .mt-reg-actions .btn:last-child{
+  border-color:color-mix(in srgb,#f87171 35%,var(--mt-border));
+}
+html[data-mattabel-theme="dark"] #mt-registration-editor,
+html[data-mattabel-theme="blu"] #mt-registration-editor{
+  scroll-margin-top:80px;
+}
+@media(max-width:780px){
+  html[data-mattabel-theme="dark"] .mt-reg-player-row,
+  html[data-mattabel-theme="blu"] .mt-reg-player-row{
+    width:100%;grid-template-columns:minmax(0,2.5fr) minmax(155px,1fr)!important;
+  }
+}
+@media(max-width:580px){
+  html[data-mattabel-theme="dark"] .mt-reg-player-row,
+  html[data-mattabel-theme="blu"] .mt-reg-player-row{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  html[data-mattabel-theme="dark"] .mt-registrations-list > div > div[draggable],
+  html[data-mattabel-theme="blu"] .mt-registrations-list > div > div[draggable]{
+    grid-template-columns:minmax(0,1fr) 148px!important;gap:5px;
+  }
+  html[data-mattabel-theme="dark"] .mt-registrations-list .mt-reg-actions,
+  html[data-mattabel-theme="blu"] .mt-registrations-list .mt-reg-actions{
+    width:148px;gap:4px!important;
+  }
+  html[data-mattabel-theme="dark"] .mt-registrations-list .mt-reg-actions .btn,
+  html[data-mattabel-theme="blu"] .mt-registrations-list .mt-reg-actions .btn{
+    padding:4px 3px;font-size:11px;
+  }
+}
