@@ -134,10 +134,12 @@ export default function Page(){
               ) : (
                 <div className="mt-player-display flex items-center justify-between">
                   <div className="mt-player-name">{p.last_name} {p.first_name}</div>
-                  <div className="mt-player-actions flex items-center gap-3">
+                  <div className="mt-player-right flex items-center gap-3">
                     <span className="mt-player-gender text-neutral-400 text-sm" aria-label={p.gender === "F" ? "Femminile" : "Maschile"}>{p.gender}</span>
-                    <button className="btn" onClick={()=>startEdit(p)}>Modifica</button>
-                    <button className="btn" onClick={()=>askDelete(p)}>Elimina</button>
+                    <div className="mt-player-actions flex items-center gap-3">
+                      <button className="btn" onClick={()=>startEdit(p)}>Modifica</button>
+                      <button className="btn" onClick={()=>askDelete(p)}>Elimina</button>
+                    </div>
                   </div>
                 </div>
               )}
