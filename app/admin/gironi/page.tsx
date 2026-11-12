@@ -899,6 +899,13 @@ function commitTimeUncontrolled(
                 onChange={e => setGroupsCount(Math.max(1, Number(e.target.value || 1)))} />
             </div>
           <div className="mt-groups-actions flex items-end gap-2">
+            <div className="mt-groups-save-line mt-groups-save-top" role="status" aria-live="polite"
+              data-save-state={saveStatus.toLowerCase().includes('errore') || saveStatus.toLowerCase().includes('fallit') ? 'error' : saveStatus.toLowerCase().includes('corso') ? 'saving' : saveStatus.toLowerCase().includes('salvat') && !saveStatus.toLowerCase().includes('salvato') ? 'pending' : 'saved'}>
+              <span className="mt-groups-save-dot" aria-hidden="true" />
+              <span>{saveStatus}</span>
+              {saveStatus.includes('conservate') && <button type="button" className="btn" onClick={() => setRetrySave(x => x + 1)}>Riprova salvataggio</button>}
+            </div>
+            <div className="mt-groups-action-buttons">
   <button
     className="btn"
     onClick={() => {
@@ -933,10 +940,11 @@ function commitTimeUncontrolled(
   >
     {isPublic ? 'Visibile agli atleti' : 'Non visibile'}
   </button>
+            </div>
 </div>
 
           </div>
-          <div className="mt-groups-save-line" role="status" aria-live="polite"
+          <div className="mt-groups-save-line mt-groups-save-bottom" role="status" aria-live="polite"
             data-save-state={saveStatus.toLowerCase().includes('errore') || saveStatus.toLowerCase().includes('fallit') ? 'error' : saveStatus.toLowerCase().includes('corso') ? 'saving' : saveStatus.toLowerCase().includes('salvat') && !saveStatus.toLowerCase().includes('salvato') ? 'pending' : 'saved'}>
             <span className="mt-groups-save-dot" aria-hidden="true" />
             <span>{saveStatus}</span>
