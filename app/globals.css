@@ -2219,8 +2219,8 @@ html[data-mattabel-theme="dark"] .mt-bracket-page > * + *,
 html[data-mattabel-theme="blu"] .mt-bracket-page > * + *{
   margin-top:0!important;
 }
-html[data-mattabel-theme="dark"] .mt-bracket-page > .card,
-html[data-mattabel-theme="blu"] .mt-bracket-page > .card{
+html[data-mattabel-theme="dark"] .mt-bracket-page > :is(.mt-bracket-toolbar,.mt-bracket-settings),
+html[data-mattabel-theme="blu"] .mt-bracket-page > :is(.mt-bracket-toolbar,.mt-bracket-settings){
   border-radius:10px;padding:10px 12px!important;
 }
 html[data-mattabel-theme="dark"] .mt-bracket-toolbar-inner,
