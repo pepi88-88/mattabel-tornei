@@ -132,7 +132,7 @@ export default function AppHeader() {
               <option value="">Seleziona pagina…</option>
               {visible.map(it => <option key={it.href} value={it.href}>{it.label}</option>)}
             </select>
-            {visible.filter(it => ['/admin/risultati','/admin/tornei/test/regia','/admin/attese'].includes(it.href))
+            {visible.filter(it => ['/admin/risultati','/admin/tornei/test/regia','/admin/attese','/admin/pagamenti'].includes(it.href))
               .map(it => <button key={it.href} type="button" onClick={() => navigate(it.href)}
                 className={`hidden md:inline-flex h-11 items-center px-3 rounded-md border text-sm whitespace-nowrap ${pathname?.startsWith(it.href) ? 'border-orange-500 bg-slate-800':'border-neutral-700 bg-[--brand-navy]'}`}>
                 {it.label === 'Risultati Girone/Tabellone' ? 'Risultati' : it.label}
