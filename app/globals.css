@@ -2081,3 +2081,50 @@ html[data-mattabel-theme="blu"] .mt-ranking-table:has(.mt-ranking-stage-single) 
     grid-column:1/-1;
   }
 }
+
+
+/* Classifica: single visible stage header centred, delete in the upper-right.
+   Multi-stage column headers are intentionally unchanged. */
+html[data-mattabel-theme="dark"] .mt-ranking-stage-heading.mt-ranking-stage-single,
+html[data-mattabel-theme="blu"] .mt-ranking-stage-heading.mt-ranking-stage-single {
+  position:relative;
+  display:flex!important;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px!important;
+  min-height:58px;
+  padding:4px 79px 4px 79px!important;
+  text-align:center;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-stage-single .mt-ranking-stage-name,
+html[data-mattabel-theme="blu"] .mt-ranking-stage-single .mt-ranking-stage-name,
+html[data-mattabel-theme="dark"] .mt-ranking-stage-single .mt-ranking-stage-date,
+html[data-mattabel-theme="blu"] .mt-ranking-stage-single .mt-ranking-stage-date,
+html[data-mattabel-theme="dark"] .mt-ranking-stage-single .mt-ranking-stage-meta,
+html[data-mattabel-theme="blu"] .mt-ranking-stage-single .mt-ranking-stage-meta {
+  display:block;
+  width:100%;
+  grid-column:auto!important;
+  grid-row:auto!important;
+  justify-self:center!important;
+  text-align:center!important;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-stage-single .mt-ranking-stage-remove,
+html[data-mattabel-theme="blu"] .mt-ranking-stage-single .mt-ranking-stage-remove {
+  position:absolute;
+  top:4px;
+  right:4px;
+  grid-column:auto!important;
+  grid-row:auto!important;
+  margin:0!important;
+}
+@media(max-width:700px){
+  html[data-mattabel-theme="dark"] .mt-ranking-stage-heading.mt-ranking-stage-single,
+  html[data-mattabel-theme="blu"] .mt-ranking-stage-heading.mt-ranking-stage-single{
+    padding-inline:65px!important;
+  }
+}
