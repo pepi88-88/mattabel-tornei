@@ -988,3 +988,54 @@ html[data-mattabel-theme="blu"] .mt-player-editor .btn{height:34px}
   html[data-mattabel-theme="dark"] .mt-player-editor,
   html[data-mattabel-theme="blu"] .mt-player-editor{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+
+/* Player list action fix: separate gender from two horizontal buttons. */
+html[data-mattabel-theme="dark"] .mt-player-display,
+html[data-mattabel-theme="blu"] .mt-player-display{
+  grid-template-columns:minmax(0,1fr) 225px!important;
+}
+html[data-mattabel-theme="dark"] .mt-player-right,
+html[data-mattabel-theme="blu"] .mt-player-right{
+  display:grid!important;
+  grid-template-columns:33px minmax(0,1fr);
+  column-gap:9px;align-items:center;justify-self:end;width:225px;
+}
+html[data-mattabel-theme="dark"] .mt-player-actions,
+html[data-mattabel-theme="blu"] .mt-player-actions{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:7px!important;align-items:center;min-width:0;width:100%;
+}
+html[data-mattabel-theme="dark"] .mt-player-actions > button,
+html[data-mattabel-theme="blu"] .mt-player-actions > button{
+  box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;
+  width:100%;min-width:0!important;height:32px;white-space:nowrap;
+  padding:4px 6px;
+}
+@media(max-width:590px){
+  html[data-mattabel-theme="dark"] .mt-player-display,
+  html[data-mattabel-theme="blu"] .mt-player-display{
+    grid-template-columns:minmax(0,1fr) 196px!important;
+  }
+  html[data-mattabel-theme="dark"] .mt-player-right,
+  html[data-mattabel-theme="blu"] .mt-player-right{
+    width:196px;grid-template-columns:26px minmax(0,1fr);gap:5px;
+  }
+  html[data-mattabel-theme="dark"] .mt-player-actions,
+  html[data-mattabel-theme="blu"] .mt-player-actions{gap:4px!important}
+}
+@media(max-width:390px){
+  html[data-mattabel-theme="dark"] .mt-player-display,
+  html[data-mattabel-theme="blu"] .mt-player-display{
+    grid-template-columns:minmax(0,1fr) 176px!important;
+  }
+  html[data-mattabel-theme="dark"] .mt-player-right,
+  html[data-mattabel-theme="blu"] .mt-player-right{
+    width:176px;grid-template-columns:23px minmax(0,1fr);gap:3px;
+  }
+  html[data-mattabel-theme="dark"] .mt-player-actions > button,
+  html[data-mattabel-theme="blu"] .mt-player-actions > button{
+    font-size:10px;padding-inline:2px;
+  }
+}
