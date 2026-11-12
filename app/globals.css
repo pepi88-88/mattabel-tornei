@@ -174,3 +174,252 @@ html,body{
   .admin-nav-tablet { display: flex !important; }
   .admin-header-spacer { height: 80px !important; }
 }
+
+
+/* ============================================================
+   MATTABEL NEXT — 2026 THEME PREVIEW
+   'normale' deliberately keeps the established UI unchanged.
+   'dark' = graphite / satin gold; 'blu' = navy / sport orange.
+   Only presentation is affected; scores and grouped data are not.
+   ============================================================ */
+.mattabel-theme-picker{
+  display:flex;align-items:center;gap:7px;flex-shrink:0;
+  color:#d7deea;font-size:12px;font-weight:700;
+}
+.mattabel-theme-picker select{
+  width:106px;max-width:100%;height:37px;
+  appearance:auto;color:#f8fafc;background:#172536;
+  border:1px solid #516075;border-radius:10px;
+  padding:0 8px;font-size:13px;font-weight:700;cursor:pointer;
+}
+.mattabel-theme-picker select:focus-visible{
+  outline:2px solid var(--brand-orange);outline-offset:2px;
+}
+.admin-topline{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.admin-topline .admin-nav-desktop{flex:1;min-width:0}
+.admin-topline .admin-nav-tablet{flex:1;min-width:0}
+.athlete-topline{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.athlete-navigation{flex:1;min-width:0}
+@media(max-width:580px){
+  .mattabel-theme-label{display:none}
+  .mattabel-theme-picker select{width:92px;font-size:12px}
+  .admin-topline{gap:5px}
+  .admin-topline .admin-nav-tablet{gap:4px}
+  .athlete-topline{gap:5px}
+}
+
+/* Shared tokens only apply to the two NEW styles. */
+html[data-mattabel-theme="dark"]{
+  --mt-page:#171716;--mt-header:#201e1a;--mt-panel:#262420;
+  --mt-elevated:#312e28;--mt-field:#191919;--mt-border:#554b39;
+  --mt-ink:#f5f0e6;--mt-muted:#bcb2a0;--mt-accent:#dcb768;
+  --mt-accent-ink:#211b12;--mt-hover:#373125;
+  --brand-orange:#dcb768;--brand-navy:#25231e;
+  color-scheme:dark;
+}
+html[data-mattabel-theme="blu"]{
+  --mt-page:#0a1729;--mt-header:#0d233d;--mt-panel:#132b46;
+  --mt-elevated:#193855;--mt-field:#0b2036;--mt-border:#35556d;
+  --mt-ink:#f1f7ff;--mt-muted:#aac2d8;--mt-accent:#ff931e;
+  --mt-accent-ink:#172338;--mt-hover:#20446a;
+  --brand-orange:#ff931e;--brand-navy:#12345d;
+  color-scheme:dark;
+}
+html[data-mattabel-theme="dark"],
+html[data-mattabel-theme="dark"] body,
+html[data-mattabel-theme="blu"],
+html[data-mattabel-theme="blu"] body {
+  background:var(--mt-page)!important;color:var(--mt-ink);
+}
+html[data-mattabel-theme="dark"] .app-admin,
+html[data-mattabel-theme="blu"] .app-admin{
+  background:var(--mt-page)!important;color:var(--mt-ink);
+}
+html[data-mattabel-theme="dark"] .container-admin,
+html[data-mattabel-theme="blu"] .container-admin {
+  --admin-container:1800px;
+}
+html[data-mattabel-theme="dark"] .card,
+html[data-mattabel-theme="blu"] .card{
+  background:var(--mt-panel)!important;border:1px solid var(--mt-border)!important;
+  border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.10);
+}
+html[data-mattabel-theme="dark"] .input,
+html[data-mattabel-theme="blu"] .input,
+html[data-mattabel-theme="dark"] :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]),
+html[data-mattabel-theme="blu"] :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]){
+  background-color:var(--mt-field);color:var(--mt-ink);
+  border-color:var(--mt-border);border-radius:7px;
+}
+html[data-mattabel-theme="dark"] :is(input,select,textarea):focus-visible,
+html[data-mattabel-theme="blu"] :is(input,select,textarea):focus-visible {
+  outline:2px solid var(--mt-accent);outline-offset:1px;
+}
+html[data-mattabel-theme="dark"] :is(.btn,button):not([class*="bg-red"]):not([class*="bg-green"]),
+html[data-mattabel-theme="blu"] :is(.btn,button):not([class*="bg-red"]):not([class*="bg-green"]){
+  border-radius:8px;transition:background .16s,border-color .16s,transform .16s;
+}
+html[data-mattabel-theme="dark"] .btn,
+html[data-mattabel-theme="blu"] .btn{
+  background:var(--mt-elevated);border-color:var(--mt-border);color:var(--mt-ink);
+}
+html[data-mattabel-theme="dark"] .btn:hover,
+html[data-mattabel-theme="blu"] .btn:hover{
+  border-color:var(--mt-accent);background:var(--mt-hover);
+}
+html[data-mattabel-theme="dark"] :is(.bg-neutral-900,.bg-neutral-950),
+html[data-mattabel-theme="blu"] :is(.bg-neutral-900,.bg-neutral-950){
+  background-color:var(--mt-panel);
+}
+html[data-mattabel-theme="dark"] [class*="bg-neutral-900/"],
+html[data-mattabel-theme="dark"] [class*="bg-neutral-950/"],
+html[data-mattabel-theme="blu"] [class*="bg-neutral-900/"],
+html[data-mattabel-theme="blu"] [class*="bg-neutral-950/"]{
+  background-color:var(--mt-panel);
+}
+html[data-mattabel-theme="dark"] [class*="border-neutral-"],
+html[data-mattabel-theme="blu"] [class*="border-neutral-"]{
+  border-color:var(--mt-border);
+}
+html[data-mattabel-theme="dark"] [class*="text-neutral-400"],
+html[data-mattabel-theme="dark"] [class*="text-neutral-500"],
+html[data-mattabel-theme="blu"] [class*="text-neutral-400"],
+html[data-mattabel-theme="blu"] [class*="text-neutral-500"]{
+  color:var(--mt-muted);
+}
+html[data-mattabel-theme="dark"] :is(table,thead,tbody,tr,th,td),
+html[data-mattabel-theme="blu"] :is(table,thead,tbody,tr,th,td){
+  border-color:var(--mt-border);
+}
+html[data-mattabel-theme="dark"] :is(th,thead),
+html[data-mattabel-theme="blu"] :is(th,thead){
+  color:var(--mt-ink);
+}
+html[data-mattabel-theme="dark"] tbody tr:hover,
+html[data-mattabel-theme="blu"] tbody tr:hover{
+  background:color-mix(in srgb,var(--mt-accent) 7%,transparent);
+}
+
+/* Header is a narrow navigation rail on both PC and tablet. */
+html[data-mattabel-theme="dark"] .admin-topline,
+html[data-mattabel-theme="blu"] .admin-topline{
+  max-width:none;padding-inline:clamp(12px,2vw,30px);
+  height:60px;flex-wrap:nowrap;
+}
+html[data-mattabel-theme="dark"] header:has(.admin-topline),
+html[data-mattabel-theme="blu"] header:has(.admin-topline),
+html[data-mattabel-theme="dark"] .athlete-topbar,
+html[data-mattabel-theme="blu"] .athlete-topbar{
+  background:var(--mt-header)!important;
+  border-bottom:1px solid var(--mt-border)!important;
+  box-shadow:0 6px 25px rgba(0,0,0,.18);
+}
+html[data-mattabel-theme="dark"] .admin-topline::before,
+html[data-mattabel-theme="blu"] .admin-topline::before{
+  content:"MATTABEL";display:block;flex-shrink:0;
+  font-size:15px;letter-spacing:.08em;font-weight:900;
+  color:var(--mt-accent);
+}
+html[data-mattabel-theme="dark"] .admin-logo-below,
+html[data-mattabel-theme="blu"] .admin-logo-below,
+html[data-mattabel-theme="dark"] .athlete-logo-below,
+html[data-mattabel-theme="blu"] .athlete-logo-below {
+  display:none;
+}
+html[data-mattabel-theme="dark"] .admin-header-spacer,
+html[data-mattabel-theme="blu"] .admin-header-spacer{
+  height:66px!important;
+}
+html[data-mattabel-theme="dark"] .admin-nav-desktop,
+html[data-mattabel-theme="blu"] .admin-nav-desktop{
+  flex-wrap:nowrap!important;align-items:center;
+  gap:3px!important;overflow-x:auto;scrollbar-width:thin;
+  scrollbar-color:var(--mt-border) transparent;white-space:nowrap;
+}
+html[data-mattabel-theme="dark"] .admin-nav-desktop button,
+html[data-mattabel-theme="blu"] .admin-nav-desktop button{
+  min-width:0!important;width:auto!important;
+  height:37px!important;margin:0!important;
+  padding:0 11px!important;flex-shrink:0;
+  font-size:12px!important;letter-spacing:.01em;
+  border:1px solid transparent!important;
+  background:transparent!important;color:var(--mt-muted)!important;
+}
+html[data-mattabel-theme="dark"] .admin-nav-desktop button:hover,
+html[data-mattabel-theme="blu"] .admin-nav-desktop button:hover{
+  background:var(--mt-hover)!important;color:var(--mt-ink)!important;
+}
+html[data-mattabel-theme="dark"] .admin-nav-desktop button[style*="border-color"],
+html[data-mattabel-theme="blu"] .admin-nav-desktop button[style*="border-color"]{
+  background:var(--mt-elevated)!important;
+  color:var(--mt-accent)!important;
+  border-bottom:2px solid var(--mt-accent)!important;
+}
+html[data-mattabel-theme="dark"] .admin-nav-tablet,
+html[data-mattabel-theme="blu"] .admin-nav-tablet{
+  height:56px;gap:6px;overflow-x:auto;scrollbar-width:none;
+}
+html[data-mattabel-theme="dark"] .admin-nav-tablet button,
+html[data-mattabel-theme="blu"] .admin-nav-tablet button{
+  flex-shrink:0;background:var(--mt-elevated)!important;
+  border-color:var(--mt-border)!important;color:var(--mt-ink);
+  height:38px;padding-inline:10px;font-size:12px;
+}
+html[data-mattabel-theme="dark"] .admin-nav-tablet button[class*="border-orange"],
+html[data-mattabel-theme="blu"] .admin-nav-tablet button[class*="border-orange"]{
+  border-color:var(--mt-accent)!important;color:var(--mt-accent);
+}
+html[data-mattabel-theme="dark"] .brand-strip,
+html[data-mattabel-theme="blu"] .brand-strip{
+  height:2px;margin-top:0;
+  background:linear-gradient(90deg,transparent,var(--mt-accent),transparent);
+  opacity:.7;
+}
+html[data-mattabel-theme="dark"] .mattabel-theme-picker select,
+html[data-mattabel-theme="blu"] .mattabel-theme-picker select{
+  background:var(--mt-elevated);color:var(--mt-ink);
+  border-color:var(--mt-border);
+}
+html[data-mattabel-theme="dark"] .mattabel-theme-picker,
+html[data-mattabel-theme="blu"] .mattabel-theme-picker{
+  color:var(--mt-muted);
+}
+
+/* Athlete: fewer visual barriers, but identical language and theme control. */
+html[data-mattabel-theme="dark"] .athlete-topline,
+html[data-mattabel-theme="blu"] .athlete-topline{
+  min-height:57px;flex-wrap:nowrap;
+}
+html[data-mattabel-theme="dark"] .athlete-navigation,
+html[data-mattabel-theme="blu"] .athlete-navigation{
+  flex-wrap:nowrap;align-items:center;gap:6px;
+  overflow-x:auto;scrollbar-width:thin;white-space:nowrap;
+}
+html[data-mattabel-theme="dark"] .athlete-navigation :is(a,button),
+html[data-mattabel-theme="blu"] .athlete-navigation :is(a,button){
+  min-width:0!important;margin:0!important;height:38px!important;
+  padding:0 12px!important;font-size:13px;
+  background:var(--mt-elevated);color:var(--mt-ink);
+  border-color:var(--mt-border);
+}
+html[data-mattabel-theme="dark"] .athlete-navigation a[style*="border-color"],
+html[data-mattabel-theme="blu"] .athlete-navigation a[style*="border-color"]{
+  color:var(--mt-accent);border-bottom:2px solid var(--mt-accent)!important;
+}
+html[data-mattabel-theme="dark"] .athlete-topbar .brand-strip,
+html[data-mattabel-theme="blu"] .athlete-topbar .brand-strip{
+  margin-top:0;
+}
+
+/* Keep Pool A/B/C/D original blue/red/orange/violet identity in both modes.
+   Never overwrite semantic statuses (red/green/yellow) or bracket data. */
+@media(max-width:1279px){
+  html[data-mattabel-theme="dark"] .admin-topline::before,
+  html[data-mattabel-theme="blu"] .admin-topline::before{display:none}
+}
+@media(max-width:640px){
+  html[data-mattabel-theme="dark"] .athlete-topline,
+  html[data-mattabel-theme="blu"] .athlete-topline{padding:6px;gap:5px}
+  html[data-mattabel-theme="dark"] .athlete-navigation a,
+  html[data-mattabel-theme="blu"] .athlete-navigation a{font-size:12px;padding-inline:8px!important}
+}
