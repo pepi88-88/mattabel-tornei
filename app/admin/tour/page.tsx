@@ -173,11 +173,11 @@ const { data: taps, mutate: refreshTaps } = useSWR(
   }
 
   return (
-    <div className="p-2 sm:p-3 xl:p-6 space-y-6">
-      <h1 className="text-xl font-semibold">Tour / Tappe</h1>
+    <div className="mt-tour-page p-2 sm:p-3 xl:p-6 space-y-6">
+      <h1 className="text-xl font-semibold"><span className="mt-tour-title-new">Gestione Tour / Tappa</span><span className="mt-tour-title-legacy">Tour / Tappe</span></h1>
 
       {/* Crea tour */}
-      <div className="card p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
+      <div className="mt-tour-create card p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
         <input className="input" placeholder="Nome tour (es. 2025/2026)" value={tName} onChange={e=>setTName(e.target.value)} />
         <input className="input" type="number" placeholder="Anno iniziale" value={tStart} onChange={e=>setTStart(e.target.value===''? '': Number(e.target.value))} />
         <input className="input" type="number" placeholder="Anno finale" value={tEnd} onChange={e=>setTEnd(e.target.value===''? '': Number(e.target.value))} />
@@ -185,17 +185,17 @@ const { data: taps, mutate: refreshTaps } = useSWR(
       </div>
 
       {/* Lista tour */}
-      <div className="card p-4 space-y-2">
+      <div className="mt-tour-list card p-4 space-y-2">
         {!tours?.items?.length && <div className="text-neutral-400">Nessun tour.</div>}
         {tours?.items?.map((t:any)=>(
-          <div key={t.id} className={`flex items-center justify-between border-b border-neutral-800 py-2 ${t.id===tourId?'bg-neutral-900/40 rounded-xl px-3':''}`}>
-            <div className="flex flex-col">
+          <div key={t.id} className={`mt-tour-row flex items-center justify-between border-b border-neutral-800 py-2 ${t.id===tourId?'bg-neutral-900/40 rounded-xl px-3':''}`}>
+            <div className="mt-tour-row-summary flex flex-col">
               <span className="font-medium">{t.name}</span>  {/* <-- usa name */}
               <span className="text-xs text-neutral-400">
                 Stagione: {t.season_start ?? '—'} / {t.season_end ?? '—'}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="mt-tour-row-actions flex items-center gap-2">
               <button className="btn" onClick={()=>pickTour(t.id)}>Seleziona</button>
               <button className="btn" onClick={()=>deleteTour(t.id)}>Elimina Tour</button>
             </div>
@@ -204,7 +204,7 @@ const { data: taps, mutate: refreshTaps } = useSWR(
       </div>
 
       {/* Crea tappa */}
-      <div className="card p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
+      <div className="mt-stage-create card p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
         <input className="input" placeholder="Nome tappa" value={name} onChange={e=>setName(e.target.value)} />
         <div>
           <div className="text-xs text-neutral-400 mb-1">Data tappa</div>
@@ -216,17 +216,17 @@ const { data: taps, mutate: refreshTaps } = useSWR(
       </div>
 
       {/* Lista tappe */}
-      <div className="card p-4">
+      <div className="mt-stage-list card p-4">
         {tapSorted.length ? (
-          <div className="space-y-2">
+          <div className="mt-stage-rows space-y-2">
             {tapSorted.map((tp: any) => (
-              <div key={tp.id} className="flex items-center justify-between border-b border-neutral-800 py-2">
-                <div>
+              <div key={tp.id} className="mt-stage-row flex items-center justify-between border-b border-neutral-800 py-2">
+                <div className="mt-stage-info">
                   <div className="font-medium">{tp.name}</div>
                   <div className="text-xs text-neutral-400">
                     Data: {tp.event_date ?? '—'} · Moltiplicatore: {tp.multiplier}
                   </div>
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="mt-stage-status mt-1 flex items-center gap-2">
                     <span className="text-xs text-neutral-400">Stato:</span>
                     <span
                       className={
@@ -248,8 +248,8 @@ const { data: taps, mutate: refreshTaps } = useSWR(
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
+                <div className="mt-stage-actions flex items-center gap-2">
+                  <div className="mt-stage-max flex items-center gap-1">
                     <span className="text-xs text-neutral-400">Max</span>
                     <input
                       className="input w-20"
