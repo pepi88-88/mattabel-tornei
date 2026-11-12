@@ -631,3 +631,172 @@ html[data-mattabel-theme="blu"] :is(a,button,select,input,textarea):focus-visibl
  html[data-mattabel-theme="dark"] .container-admin,
  html[data-mattabel-theme="blu"] .container-admin{padding-inline:10px}
 }
+
+
+/* ============================================================
+   TOUR / TAPPA — COMPACT MANAGEMENT PAGE (Dark and Blu only)
+   Keeps the "Normale" markup and sizing unchanged.
+   ============================================================ */
+.mt-tour-title-new{display:none}
+html[data-mattabel-theme="dark"] .mt-tour-title-new,
+html[data-mattabel-theme="blu"] .mt-tour-title-new{display:inline}
+html[data-mattabel-theme="dark"] .mt-tour-title-legacy,
+html[data-mattabel-theme="blu"] .mt-tour-title-legacy{display:none}
+html[data-mattabel-theme="dark"] body:has(.mt-tour-page) > main,
+html[data-mattabel-theme="blu"] body:has(.mt-tour-page) > main{
+  padding-top:0!important;
+}
+html[data-mattabel-theme="dark"] .mt-tour-page,
+html[data-mattabel-theme="blu"] .mt-tour-page{
+  padding:0 4px 18px!important;
+  margin:0!important;
+  display:flex;flex-direction:column;
+  gap:12px!important;
+}
+html[data-mattabel-theme="dark"] .mt-tour-page h1,
+html[data-mattabel-theme="blu"] .mt-tour-page h1{
+  font-size:19px!important;line-height:1.45;
+  padding:0 2px;margin:0 0 1px 0!important;
+  font-weight:750;letter-spacing:-.02em;
+}
+html[data-mattabel-theme="dark"] .mt-tour-page .card,
+html[data-mattabel-theme="blu"] .mt-tour-page .card{
+  padding:12px 14px!important;
+  border-radius:10px;
+}
+html[data-mattabel-theme="dark"] .mt-tour-create,
+html[data-mattabel-theme="blu"] .mt-tour-create,
+html[data-mattabel-theme="dark"] .mt-stage-create,
+html[data-mattabel-theme="blu"] .mt-stage-create{
+  display:grid;
+  grid-template-columns:minmax(185px,1.35fr) minmax(95px,.7fr) minmax(95px,.7fr) minmax(150px,.9fr);
+  gap:10px!important;align-items:end;
+}
+html[data-mattabel-theme="dark"] .mt-tour-create :is(input,button),
+html[data-mattabel-theme="blu"] .mt-tour-create :is(input,button),
+html[data-mattabel-theme="dark"] .mt-stage-create :is(input,button),
+html[data-mattabel-theme="blu"] .mt-stage-create :is(input,button){
+  min-width:0;width:100%;height:38px;
+}
+html[data-mattabel-theme="dark"] .mt-stage-create,
+html[data-mattabel-theme="blu"] .mt-stage-create{
+  grid-template-columns:minmax(185px,1.25fr) minmax(155px,.85fr) minmax(90px,.5fr) minmax(140px,.75fr) minmax(150px,.9fr);
+}
+html[data-mattabel-theme="dark"] .mt-stage-create > div,
+html[data-mattabel-theme="blu"] .mt-stage-create > div{min-width:0}
+html[data-mattabel-theme="dark"] .mt-tour-list,
+html[data-mattabel-theme="blu"] .mt-tour-list,
+html[data-mattabel-theme="dark"] .mt-stage-list,
+html[data-mattabel-theme="blu"] .mt-stage-list{display:block}
+html[data-mattabel-theme="dark"] .mt-tour-row,
+html[data-mattabel-theme="blu"] .mt-tour-row{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;
+  gap:14px;align-items:center;
+  min-height:52px;margin:0!important;
+  padding:7px 10px!important;
+  border-radius:6px!important;border-bottom:1px solid var(--mt-border);
+  background:transparent;
+}
+html[data-mattabel-theme="dark"] .mt-tour-row:last-child,
+html[data-mattabel-theme="blu"] .mt-tour-row:last-child,
+html[data-mattabel-theme="dark"] .mt-stage-row:last-child,
+html[data-mattabel-theme="blu"] .mt-stage-row:last-child{border-bottom:0!important}
+html[data-mattabel-theme="dark"] .mt-tour-row:has(.mt-tour-row-summary),
+html[data-mattabel-theme="blu"] .mt-tour-row:has(.mt-tour-row-summary){min-width:0}
+html[data-mattabel-theme="dark"] .mt-tour-row-summary,
+html[data-mattabel-theme="blu"] .mt-tour-row-summary{min-width:0;gap:2px}
+html[data-mattabel-theme="dark"] .mt-tour-row-summary > span:first-child,
+html[data-mattabel-theme="blu"] .mt-tour-row-summary > span:first-child{font-size:13px;font-weight:700}
+html[data-mattabel-theme="dark"] .mt-tour-row-actions,
+html[data-mattabel-theme="blu"] .mt-tour-row-actions{gap:8px;justify-content:flex-end}
+html[data-mattabel-theme="dark"] .mt-tour-row-actions .btn,
+html[data-mattabel-theme="blu"] .mt-tour-row-actions .btn{
+  height:35px;min-width:85px;white-space:nowrap;
+  padding:6px 11px;
+}
+html[data-mattabel-theme="dark"] .mt-tour-row-actions .btn:last-child,
+html[data-mattabel-theme="blu"] .mt-tour-row-actions .btn:last-child{
+  border-color:color-mix(in srgb,#f87171 40%,var(--mt-border));
+}
+html[data-mattabel-theme="dark"] .mt-stage-rows,
+html[data-mattabel-theme="blu"] .mt-stage-rows{display:flex;flex-direction:column;gap:0!important}
+html[data-mattabel-theme="dark"] .mt-stage-row,
+html[data-mattabel-theme="blu"] .mt-stage-row{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;column-gap:12px;
+  min-height:54px;padding:8px 2px!important;margin:0!important;
+  border-bottom:1px solid var(--mt-border);
+}
+html[data-mattabel-theme="dark"] .mt-stage-info,
+html[data-mattabel-theme="blu"] .mt-stage-info{
+  min-width:0;display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(116px,180px);
+  grid-template-rows:auto auto;
+  column-gap:12px;row-gap:3px;align-items:center;
+}
+html[data-mattabel-theme="dark"] .mt-stage-info > .font-medium,
+html[data-mattabel-theme="blu"] .mt-stage-info > .font-medium{
+  grid-column:1;grid-row:1;min-width:0;font-size:13px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+html[data-mattabel-theme="dark"] .mt-stage-info > .text-xs,
+html[data-mattabel-theme="blu"] .mt-stage-info > .text-xs{
+  grid-column:1;grid-row:2;min-width:0;
+}
+html[data-mattabel-theme="dark"] .mt-stage-status,
+html[data-mattabel-theme="blu"] .mt-stage-status{
+  grid-column:2;grid-row:1 / 3;
+  margin:0!important;display:flex;flex-wrap:wrap;gap:5px;
+  justify-content:center;align-content:center;align-items:center;
+}
+html[data-mattabel-theme="dark"] .mt-stage-status > span:first-child,
+html[data-mattabel-theme="blu"] .mt-stage-status > span:first-child{display:none}
+html[data-mattabel-theme="dark"] .mt-stage-status > span:nth-child(2),
+html[data-mattabel-theme="blu"] .mt-stage-status > span:nth-child(2){
+  padding:3px 9px;line-height:1.2;border-radius:999px;
+  font-size:10px;font-weight:750;letter-spacing:.035em;
+}
+html[data-mattabel-theme="dark"] .mt-stage-actions,
+html[data-mattabel-theme="blu"] .mt-stage-actions{gap:8px;justify-content:flex-end}
+html[data-mattabel-theme="dark"] .mt-stage-max,
+html[data-mattabel-theme="blu"] .mt-stage-max{gap:6px;margin-right:3px}
+html[data-mattabel-theme="dark"] .mt-stage-max input,
+html[data-mattabel-theme="blu"] .mt-stage-max input{width:65px;height:34px;padding:4px 8px}
+html[data-mattabel-theme="dark"] .mt-stage-actions .btn,
+html[data-mattabel-theme="blu"] .mt-stage-actions .btn{
+  height:34px;min-width:65px;padding:5px 10px;white-space:nowrap;
+}
+html[data-mattabel-theme="dark"] .mt-stage-actions .btn:last-child,
+html[data-mattabel-theme="blu"] .mt-stage-actions .btn:last-child{
+  border-color:color-mix(in srgb,#f87171 35%,var(--mt-border));
+}
+@media(max-width:1000px){
+  html[data-mattabel-theme="dark"] .mt-tour-create,
+  html[data-mattabel-theme="blu"] .mt-tour-create{grid-template-columns:repeat(2,minmax(0,1fr))}
+  html[data-mattabel-theme="dark"] .mt-stage-create,
+  html[data-mattabel-theme="blu"] .mt-stage-create{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  html[data-mattabel-theme="dark"] .mt-stage-row,
+  html[data-mattabel-theme="blu"] .mt-stage-row{grid-template-columns:minmax(0,1fr) auto}
+}
+@media(max-width:640px){
+ html[data-mattabel-theme="dark"] .mt-stage-info,
+ html[data-mattabel-theme="blu"] .mt-stage-info{
+   grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;
+ }
+ html[data-mattabel-theme="dark"] .mt-stage-status,
+ html[data-mattabel-theme="blu"] .mt-stage-status{
+   grid-column:1;grid-row:3;justify-content:flex-start;
+ }
+ html[data-mattabel-theme="dark"] .mt-stage-row,
+ html[data-mattabel-theme="blu"] .mt-stage-row{
+   grid-template-columns:minmax(0,1fr);row-gap:8px;
+ }
+ html[data-mattabel-theme="dark"] .mt-stage-actions,
+ html[data-mattabel-theme="blu"] .mt-stage-actions{justify-content:flex-start}
+ html[data-mattabel-theme="dark"] .mt-tour-row,
+ html[data-mattabel-theme="blu"] .mt-tour-row{grid-template-columns:minmax(0,1fr)}
+ html[data-mattabel-theme="dark"] .mt-tour-row-actions,
+ html[data-mattabel-theme="blu"] .mt-tour-row-actions{justify-content:flex-start}
+}
