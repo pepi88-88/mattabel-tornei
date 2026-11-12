@@ -87,12 +87,12 @@ export default function Page(){
   }
 
   return (
-    <div className="p-2 sm:p-3 xl:p-6 space-y-6">
-      <h1 className="text-xl font-semibold">Giocatori</h1>
+    <div className="mt-players-page p-2 sm:p-3 xl:p-6 space-y-6">
+      <h1 className="text-xl font-semibold"><span className="mt-players-title-new">Crea giocatore</span><span className="mt-players-title-legacy">Giocatori</span></h1>
 
-      <div className="card p-4 space-y-3">
+      <div className="mt-players-create card p-4 space-y-3">
         <h3 className="font-semibold">Nuovo giocatore</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="mt-players-form grid grid-cols-1 md:grid-cols-4 gap-3">
           <input className="input" placeholder="Nome" value={first_name} onChange={e=>setFirst(e.target.value)} />
           <input className="input" placeholder="Cognome" value={last_name} onChange={e=>setLast(e.target.value)} />
           <select className="input" value={g} onChange={e=>setG(e.target.value as any)}>
@@ -103,23 +103,23 @@ export default function Page(){
         {err && <div className="text-red-400 text-sm">{err}</div>}
       </div>
 
-      <div className="card p-4 space-y-3">
+      <div className="mt-players-search card p-4 space-y-3">
         <h3 className="font-semibold">Cerca giocatori</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="mt-players-filters grid grid-cols-1 md:grid-cols-3 gap-3">
           <input className="input" placeholder="Cognome o nome…" value={q} onChange={e=>{ setQ(e.target.value); setPage(1) }} />
           <select className="input" value={gender} onChange={e=>{ setGender(e.target.value as any); setPage(1) }}>
             <option value="all">Tutti</option><option value="M">Maschile</option><option value="F">Femminile</option>
           </select>
-          <div className="flex items-center text-sm text-neutral-400">
+          <div className="mt-players-count flex items-center text-sm text-neutral-400">
             {isLoading ? 'Caricamento…' : `Trovati: ${data?.total ?? 0}`}
           </div>
         </div>
 
-        <div className="mt-3 rounded-xl border border-neutral-800 overflow-hidden">
+        <div className="mt-players-list mt-3 rounded-xl border border-neutral-800 overflow-hidden">
           {data?.items?.map((p:any)=>(
-            <div key={p.id} className="px-3 py-2 border-b border-neutral-800">
+            <div key={p.id} className="mt-player-row px-3 py-2 border-b border-neutral-800">
               {editId === p.id ? (
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
+                <div className="mt-player-editor grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
                   <input className="input" value={eLast} onChange={e=>setELast(e.target.value)} placeholder="Cognome" />
                   <input className="input" value={eFirst} onChange={e=>setEFirst(e.target.value)} placeholder="Nome" />
                   <select className="input" value={eG} onChange={e=>setEG(e.target.value as any)}>
@@ -132,10 +132,10 @@ export default function Page(){
                   {rowErr && <div className="text-red-400 text-sm col-span-full">{rowErr}</div>}
                 </div>
               ) : (
-                <div className="flex items-center justify-between">
-                  <div>{p.last_name} {p.first_name}</div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-neutral-400 text-sm">{p.gender}</span>
+                <div className="mt-player-display flex items-center justify-between">
+                  <div className="mt-player-name">{p.last_name} {p.first_name}</div>
+                  <div className="mt-player-actions flex items-center gap-3">
+                    <span className="mt-player-gender text-neutral-400 text-sm" aria-label={p.gender === "F" ? "Femminile" : "Maschile"}>{p.gender}</span>
                     <button className="btn" onClick={()=>startEdit(p)}>Modifica</button>
                     <button className="btn" onClick={()=>askDelete(p)}>Elimina</button>
                   </div>
