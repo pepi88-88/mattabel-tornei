@@ -244,9 +244,10 @@ return
 
 
   return (
-    <div className="space-y-4 xl:space-y-6 p-2 sm:p-3 xl:p-6">
+    <div className="mt-registrations-page space-y-4 xl:space-y-6 p-2 sm:p-3 xl:p-6">
+      <h1 className="mt-registrations-title text-xl font-semibold">Iscrizioni</h1>
       {/* intestazione */}
-      <div className="flex items-end gap-3">
+      <div className="mt-registrations-context flex items-end gap-3">
         <div className="flex flex-col gap-1">
           <span className="text-sm text-neutral-400">Tour</span>
           <select className="input" value={tourId} onChange={(e) => onPickTour(e.target.value)}>
@@ -274,14 +275,14 @@ return
   </select>
 </div>
 
-        <div className="ml-auto text-sm text-neutral-400">Max squadre: {maxTeams ?? '∞'}</div>
+        <div className="mt-registrations-capacity ml-auto text-sm text-neutral-400">Max squadre: {maxTeams ?? '∞'}</div>
       </div>
 
       {/* NUOVA SQUADRA: A in alto (larga) + bottone a destra / B sotto con select a destra */}
-      <div className="card p-4 space-y-4">
+      <div className="mt-registrations-create card p-4 space-y-4">
         <h3 className="font-semibold">Nuova squadra</h3>
     {/* Formato + Nome squadra (Nome squadra solo 3x3/4x4) */}
-<div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+<div className="mt-reg-format grid grid-cols-1 md:grid-cols-12 gap-3">
   <div className="md:col-span-3">
     <div className="text-base text-neutral-400 mb-1">Formato</div>
     <select
@@ -311,18 +312,18 @@ return
 
 
         {/* Riga A */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        <div className="mt-reg-player-row mt-reg-player-a grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <div className="md:col-span-9">
             <div className="text-base text-neutral-400 mb-1">Giocatore A</div>
             <PlayerPicker value={playerA} onChange={setPlayerA} placeholder="Cerca Giocatore A…" />
           </div>
           <div className="md:col-span-3">
-            <button className="btn w-full" onClick={createTeam}>Aggiungi squadra</button>
+            <button className="mt-reg-add btn w-full" onClick={createTeam}>Aggiungi squadra</button>
           </div>
         </div>
 
      {/* Riga B */}
-<div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+<div className="mt-reg-player-row mt-reg-player-b grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
   <div className="md:col-span-9">
     <div className="text-base text-neutral-400 mb-1">Giocatore B</div>
 
@@ -349,7 +350,7 @@ return
  
 {/* Riga C (solo 3x3/4x4) */}
 {teamFormat !== 2 && (
-  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+  <div className="mt-reg-player-row grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
     <div className="md:col-span-9">
       <div className="text-base text-neutral-400 mb-1">Giocatore C</div>
 
@@ -376,7 +377,7 @@ return
 
 {/* Riga D (solo 4x4) */}
 {teamFormat === 4 && (
-  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+  <div className="mt-reg-player-row grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
     <div className="md:col-span-9">
       <div className="text-base text-neutral-400 mb-1">Giocatore D</div>
 
@@ -401,12 +402,12 @@ return
 )}
 </div> 
            {/* lista iscritti */}
-      <div className="card p-4 space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="mt-registrations-list-card card p-4 space-y-3">
+        <div className="mt-registrations-list-heading flex items-center justify-between">
           <h3 className="font-semibold text-lg">Iscritti</h3>
           <div className="text-xs text-neutral-400">Trascina per riordinare</div>
         </div>
-        <RegistrationList items={items} onReorder={onReorder} onDelete={deleteTeam} />
+        <div className="mt-registrations-list"><RegistrationList items={items} onReorder={onReorder} onDelete={deleteTeam} /></div>
       </div>
 
     </div>
