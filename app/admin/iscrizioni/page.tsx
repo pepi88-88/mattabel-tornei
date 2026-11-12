@@ -22,7 +22,7 @@ export default function IscrizioniPage() {
   const { data: toursList } = useSWR('/api/tours', fetcher)
   const [tourId, setTourId] = useState<string>('')
   useEffect(() => { const s = localStorage.getItem('selectedTourId'); if (s) setTourId(s) }, [])
-  function onPickTour(id: string) { setTourId(id); localStorage.setItem('selectedTourId', id); localStorage.removeItem('selectedTournamentId'); setTId('') }
+  function onPickTour(id: string) { setEditingId(null); setTourId(id); localStorage.setItem('selectedTourId', id); localStorage.removeItem('selectedTournamentId'); setTId('') }
 
   // TAPPA
   const { data: tournaments } = useSWR(tourId ? `/api/tournaments?tour_id=${tourId}` : null, fetcher)
@@ -58,7 +58,7 @@ useEffect(() => {
   }
 }, [tappeVisibili, tId])
 
-  function onPickTappa(id: string) { setTId(id); localStorage.setItem('selectedTournamentId', id) }
+  function onPickTappa(id: string) { setEditingId(null); setTId(id); localStorage.setItem('selectedTournamentId', id) }
 
   // iscritti
   const key = tId ? `/api/registrations/by-tournament?tournament_id=${tId}` : null
@@ -133,6 +133,8 @@ const items = useMemo(() => {
 // form: 2x2 / 3x3 / 4x4
 const [teamFormat, setTeamFormat] = useState<2 | 3 | 4>(2)
 const [teamName, setTeamName] = useState<string>('')
+const [editingId, setEditingId] = useState<string | null>(null)
+const [savingEdit, setSavingEdit] = useState(false)
 
 // A/B/C/D
 const [playerA, setPlayerA] = useState<PickerPlayer | null>(null)
@@ -144,6 +146,31 @@ const [playerD, setPlayerD] = useState<PickerPlayer | null>(null)
 const [bMode, setBMode] = useState<'player'|'looking'|'cdc'>('player')
 const [cMode, setCMode] = useState<'player'|'looking'|'cdc'>('player')
 const [dMode, setDMode] = useState<'player'|'looking'|'cdc'>('player')
+
+// Edit an existing registration in place (same id and position).
+function startEdit(id: string) {
+  const current = (regs?.items ?? []).find((r: any) => r.id === id)
+  if (!current) return
+  const fmt = [2,3,4].includes(Number(current.team_format)) ? Number(current.team_format) as 2|3|4 : 2
+  setEditingId(id)
+  setTeamFormat(fmt)
+  setTeamName(current.team_name || '')
+  setPlayerA(current.players?.a ?? null)
+  setPlayerB(current.players?.b ?? null)
+  setPlayerC(current.players?.c ?? null)
+  setPlayerD(current.players?.d ?? null)
+  setBMode(current.partner_status === 'looking' ? 'looking' : current.partner_status === 'cdc' ? 'cdc' : 'player')
+  setCMode(current.c_status === 'looking' ? 'looking' : current.c_status === 'cdc' ? 'cdc' : 'player')
+  setDMode(current.d_status === 'looking' ? 'looking' : current.d_status === 'cdc' ? 'cdc' : 'player')
+  document.getElementById('mt-registration-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+function clearEditor() {
+  setEditingId(null)
+  setTeamName('')
+  setTeamFormat(2)
+  setPlayerA(null); setPlayerB(null); setPlayerC(null); setPlayerD(null)
+  setBMode('player'); setCMode('player'); setDMode('player')
+}
 
 // reset totale quando cambi formato (evita residui)
 function onChangeFormat(next: 2 | 3 | 4) {
@@ -161,10 +188,41 @@ function onChangeFormat(next: 2 | 3 | 4) {
 
 
   async function createTeam() {
-  if (!tId) return
+  if (!tId || savingEdit) return
 
   // A sempre obbligatorio
   if (!playerA) return alert('Seleziona il Giocatore A')
+
+  // An edit updates the same registration/team: no new registration, no new order_index.
+  if (editingId) {
+    if (teamFormat > 2 && !teamName.trim()) return alert('Inserisci il nome della squadra')
+    if (bMode === 'player' && !playerB) return alert('Seleziona il Giocatore B')
+    if (teamFormat >= 3 && cMode === 'player' && !playerC) return alert('Seleziona il Giocatore C')
+    if (teamFormat === 4 && dMode === 'player' && !playerD) return alert('Seleziona il Giocatore D')
+    const ids = [playerA.id, bMode === 'player' ? playerB?.id : null,
+      teamFormat >= 3 && cMode === 'player' ? playerC?.id : null,
+      teamFormat === 4 && dMode === 'player' ? playerD?.id : null].filter(Boolean)
+    if (new Set(ids).size !== ids.length) return alert('Hai selezionato lo stesso giocatore più volte')
+    setSavingEdit(true)
+    try {
+      const res = await fetch('/api/registrations/edit', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
+        body: JSON.stringify({
+          id: editingId, tournament_id: tId, team_name: teamName.trim(), team_format: teamFormat,
+          a: { id: playerA.id },
+          b: bMode === 'player' ? { existingId: playerB!.id } : { mode: bMode },
+          c: teamFormat >= 3 ? (cMode === 'player' ? { existingId: playerC!.id } : { mode: cMode }) : null,
+          d: teamFormat === 4 ? (dMode === 'player' ? { existingId: playerD!.id } : { mode: dMode }) : null,
+        }),
+      })
+      const js = await res.json().catch(() => ({}))
+      if (!res.ok) { alert(js?.error || 'Impossibile modificare la squadra'); return }
+      clearEditor()
+      await mutate()
+    } finally { setSavingEdit(false) }
+    return
+  }
 
   // ===== 2x2 (vecchio comportamento) =====
   if (teamFormat === 2) {
@@ -279,8 +337,8 @@ return
       </div>
 
       {/* NUOVA SQUADRA: A in alto (larga) + bottone a destra / B sotto con select a destra */}
-      <div className="mt-registrations-create card p-4 space-y-4">
-        <h3 className="font-semibold">Nuova squadra</h3>
+      <div id="mt-registration-editor" className="mt-registrations-create card p-4 space-y-4">
+        <div className="mt-reg-edit-header flex items-center justify-between gap-2"><h3 className="font-semibold">{editingId ? "Modifica squadra" : "Nuova squadra"}</h3>{editingId && <button type="button" className="btn" onClick={clearEditor}>Annulla modifica</button>}</div>
     {/* Formato + Nome squadra (Nome squadra solo 3x3/4x4) */}
 <div className="mt-reg-format grid grid-cols-1 md:grid-cols-12 gap-3">
   <div className="md:col-span-3">
@@ -318,7 +376,7 @@ return
             <PlayerPicker value={playerA} onChange={setPlayerA} placeholder="Cerca Giocatore A…" />
           </div>
           <div className="md:col-span-3">
-            <button className="mt-reg-add btn w-full" onClick={createTeam}>Aggiungi squadra</button>
+            <button className="mt-reg-add btn w-full" disabled={savingEdit} onClick={createTeam}>{savingEdit ? "Salvataggio…" : editingId ? "Conferma modifica" : "Aggiungi squadra"}</button>
           </div>
         </div>
 
@@ -407,7 +465,7 @@ return
           <h3 className="font-semibold text-lg">Iscritti</h3>
           <div className="text-xs text-neutral-400">Trascina per riordinare</div>
         </div>
-        <div className="mt-registrations-list"><RegistrationList items={items} onReorder={onReorder} onDelete={deleteTeam} /></div>
+        <div className="mt-registrations-list"><RegistrationList items={items} onReorder={onReorder} onDelete={deleteTeam} onEdit={startEdit} /></div>
       </div>
 
     </div>
