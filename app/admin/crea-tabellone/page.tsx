@@ -1213,7 +1213,8 @@ if (!loadedRemote) {
 
 if (!active) {
   return (
-    <div className="p-2 sm:p-3 xl:p-4 space-y-3 min-w-0">
+    <div className="mt-bracket-page mt-bracket-empty p-2 sm:p-3 xl:p-4 space-y-3 min-w-0">
+      <h1 className="mt-simple-page-title">Creazione Tabellone</h1>
       <div className="card p-6 text-sm text-neutral-400">
         Nessun tabellone ancora presente per questa tappa.
         <div className="mt-3">
@@ -1225,14 +1226,15 @@ if (!active) {
 }
 
 return (
-  <div className="p-4 space-y-3">
+  <div className="mt-bracket-page p-4 space-y-3">
+    <h1 className="mt-simple-page-title">Creazione Tabellone</h1>
     <style jsx global>{`
       .hide-letter { width:0!important; padding:0!important; margin:0!important; overflow:hidden!important; opacity:0!important; }
     `}</style>
 
     {/* Barra top (nuovo ordine + vicino a Tappa) */}
-<div className="card p-3">
-  <div className="flex flex-wrap items-end gap-2">
+<div className="mt-bracket-toolbar card p-3">
+  <div className="mt-bracket-toolbar-inner flex flex-wrap items-end gap-2">
     {/* Tour */}
     <div>
       <div className="text-xs text-neutral-400 mb-1">Tour</div>
@@ -1326,8 +1328,8 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
 
 
       {/* Header tabellone attivo */}
-      <div className="card p-3">
-        <div className="flex flex-wrap items-end gap-3">
+      <div className="mt-bracket-settings card p-3">
+        <div className="mt-bracket-config flex flex-wrap items-end gap-3">
           <div>
             <div className="text-xs text-neutral-400 mb-1">Titolo</div>
             <input className="input w-56 h-12 text-base" value={active.title} onChange={(e)=>patchActive({ title:e.target.value })} disabled={locked} />
@@ -1406,47 +1408,33 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
             <p className="text-xs text-neutral-400 mt-3">In ciascun incontro scegli liberamente una posizione dei due ITA; le posizioni già usate sono disabilitate. BYE e casella vuota restano disponibili.</p>
           </div>
         )}
-        <div className="flex items-center justify-between gap-4 ml-2 mt-3 min-h-[28px]">
-          <div className="flex items-center gap-2">
-            <input id="thirdplace" type="checkbox" className="accent-white" checked={enableThirdPlace} onChange={(e)=>setEnableThirdPlace(e.target.checked)} disabled={locked} />
-            <label htmlFor="thirdplace" className="text-sm">Match 3° / 4° posto</label>
+        <div className="mt-bracket-summary">
+          <div className="mt-bracket-options">
+            <label className="mt-bracket-option" htmlFor="thirdplace">
+              <input id="thirdplace" type="checkbox" className="accent-white" checked={enableThirdPlace} onChange={(e)=>setEnableThirdPlace(e.target.checked)} disabled={locked} />
+              <span>Match 3° / 4° posto</span>
+            </label>
+            <label className="mt-bracket-option" htmlFor="lock">
+              <input id="lock" type="checkbox" className="accent-white" checked={locked} onChange={e=>setLocked(e.target.checked)} />
+              <span>Blocca modifiche (solo lettura)</span>
+            </label>
           </div>
-          <div role="status" aria-live="polite" className="min-w-[220px] text-right text-xs sm:text-sm whitespace-nowrap">
+          <div className="mt-bracket-title-banner">
+            <div className="mt-bracket-title-chip relative flex items-center justify-center text-center px-8 py-3 rounded-xl font-extrabold uppercase tracking-wide text-2xl md:text-3xl"
+              style={{ background: active.color, color: '#000' }}>
+              <span className="pointer-events-none">{active.title}</span>
+              <span className="absolute -top-2 -right-2 text-[11px] px-2 py-[2px] rounded-md bg-neutral-900 border border-neutral-700">
+                L{Math.max(0, brackets.findIndex(b => b.id === active.id)) + 1}
+              </span>
+            </div>
+          </div>
+          <div role="status" aria-live="polite" className="mt-bracket-save-state text-xs sm:text-sm whitespace-nowrap">
             {bracketsSaveState==='saving' && <span className="text-amber-300">Salvataggio in corso…</span>}
             {bracketsSaveState==='saved' && <span className="text-emerald-400">✓ Salvato</span>}
             {bracketsSaveState==='error' && <span className="text-red-400" title="Non cambiare pagina finché il salvataggio non riesce">Errore salvataggio — riprova</span>}
           </div>
         </div>
-<div className="flex items-center gap-2 ml-2 mt-3">
-  <input
-    id="lock"
-    type="checkbox"
-    className="accent-white"
-    checked={locked}
-    onChange={e=>setLocked(e.target.checked)}
-  />
-  <label htmlFor="lock" className="text-sm">Blocca modifiche (solo lettura)</label>
-</div>
-
-
-
-
-        {/* Titolo grande colorato centrato */}
-<div className="mt-4 flex justify-center">
-  <div
-    className="relative flex items-center justify-center text-center px-8 py-3 rounded-xl font-extrabold uppercase tracking-wide text-2xl md:text-3xl"
-    style={{ background: active.color, color: '#000', minWidth: 380 }}
-  >
-    <span className="pointer-events-none">{active.title}</span>
-    <span className="absolute -top-2 -right-2 text-[11px] px-2 py-[2px] rounded-md bg-neutral-900 border border-neutral-700">
-      L{Math.max(0, brackets.findIndex(b => b.id === active.id)) + 1}
-    </span>
-  </div>
-</div>
-
-
-
-        <div className="mt-3 text-sm text-neutral-400">
+        <div className="mt-bracket-debug text-sm text-neutral-400">
           {groups.length
             ? <>Gironi caricati: {groups.map(g=>g.key).join(', ')} (N={groups.reduce((a,g)=>a+g.size,0)})</>
             : <>Nessun dato gironi trovato. Avulsa=N={tappaSize}</>
