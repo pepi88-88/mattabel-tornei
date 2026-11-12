@@ -1,17 +1,11 @@
-// app/admin/layout.tsx
-// ❌ niente AdminNav: lo togliamo per eliminare la colonna riservata
-// import AdminNav from '../../components/AdminNav'  // <-- RIMUOVI QUESTA RIGA
-
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  // ⚠️ niente <html>/<body> qui (sono nel root layout)
+  // The root layout already owns the centered container. Avoid nesting a
+  // second container with extra padding, particularly at tablet widths.
   return (
-    <div className="min-h-screen">
-      {/* contenitore centrale che si centra grazie a .container-admin in globals.css */}
-      <div className="container-admin">
-       <main className="pt-[72px] pb-6">
-  {children}
-</main>
-     </div>
+    <div className="admin-tablet-shell min-h-screen min-w-0">
+      <main className="min-w-0 pt-2 sm:pt-4 pb-6">
+        {children}
+      </main>
     </div>
   )
 }

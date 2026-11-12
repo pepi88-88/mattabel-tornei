@@ -1915,7 +1915,7 @@ const activeForDisplay = useMemo(() => {
 // UI
 // ------------------------------------------------------------
 return (
-  <div className="relative z-0 p-6 space-y-8 pointer-events-auto">
+  <div className="relative z-0 p-2 sm:p-3 xl:p-6 space-y-6 xl:space-y-8 pointer-events-auto min-w-0">
    
     {resultsSaveError && <div role="alert" className="rounded border border-amber-500 p-3 text-amber-300">{resultsSaveError}</div>}
     {/* Header filtri */}
@@ -2181,8 +2181,7 @@ return (
   {chunk(letters, 2).map((pair, idx) => (
     <div
       key={idx}
-      className="grid gap-4"
-      style={{ gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}
+      className="grid grid-cols-1 xl:grid-cols-2 gap-4"
     >
       {pair.map((L) => {
         const color = colorFor(L), rows = scheduleRows(L)

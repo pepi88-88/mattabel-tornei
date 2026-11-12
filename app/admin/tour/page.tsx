@@ -173,7 +173,7 @@ const { data: taps, mutate: refreshTaps } = useSWR(
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-2 sm:p-3 xl:p-6 space-y-6">
       <h1 className="text-xl font-semibold">Tour / Tappe</h1>
 
       {/* Crea tour */}

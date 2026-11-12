@@ -487,7 +487,7 @@ const totalsSorted = React.useMemo(() => {
 
   /* ------------------------ RENDER ------------------------ */
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-2 sm:p-3 xl:p-6 space-y-6">
       {/* top: genere + link legenda */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-xl overflow-hidden border border-neutral-700">
