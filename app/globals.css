@@ -1686,3 +1686,232 @@ html[data-mattabel-theme="blu"] .mt-groups-action-buttons {
     grid-template-columns:minmax(85px,1fr) 42px 58px 58px;
   }
 }
+
+
+/* ============================================================
+   CLASSIFICA — Compact work-first ranking dashboard.
+   Modern Dark Oro and Blu themes only. Existing points,
+   placement inputs and autosave behavior remain untouched.
+   ============================================================ */
+.mt-ranking-title{display:none}
+html[data-mattabel-theme="dark"] body:has(.mt-ranking-page) > main,
+html[data-mattabel-theme="blu"] body:has(.mt-ranking-page) > main{padding-top:0!important}
+html[data-mattabel-theme="dark"] .mt-ranking-page,
+html[data-mattabel-theme="blu"] .mt-ranking-page{
+  padding:0 4px 18px!important;margin:0!important;
+  display:flex;flex-direction:column;gap:10px!important;
+  min-width:0;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-page > * + *,
+html[data-mattabel-theme="blu"] .mt-ranking-page > * + *{margin-top:0!important}
+html[data-mattabel-theme="dark"] .mt-ranking-title,
+html[data-mattabel-theme="blu"] .mt-ranking-title{
+  display:block;font-size:19px;font-weight:750;line-height:1.45;
+  letter-spacing:-.02em;margin:0 2px 1px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-page > .card,
+html[data-mattabel-theme="blu"] .mt-ranking-page > .card{
+  padding:11px 13px!important;gap:8px!important;
+  border-radius:9px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-page > .card > * + *,
+html[data-mattabel-theme="blu"] .mt-ranking-page > .card > * + *{margin-top:0!important}
+html[data-mattabel-theme="dark"] .mt-ranking-page > .card > .text-sm.font-semibold,
+html[data-mattabel-theme="blu"] .mt-ranking-page > .card > .text-sm.font-semibold{
+  font-weight:750;letter-spacing:.005em;font-size:13px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-switch-row,
+html[data-mattabel-theme="blu"] .mt-ranking-switch-row{
+  min-height:38px;gap:8px!important;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-switch-row > a,
+html[data-mattabel-theme="blu"] .mt-ranking-switch-row > a{
+  height:34px;display:inline-flex;align-items:center;
+  border-color:var(--mt-border);font-size:12px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-gender,
+html[data-mattabel-theme="blu"] .mt-ranking-gender{
+  border-color:var(--mt-border);border-radius:8px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-gender button,
+html[data-mattabel-theme="blu"] .mt-ranking-gender button{
+  padding:8px 13px!important;min-height:35px;
+  background:var(--mt-elevated);color:var(--mt-muted);
+  border-radius:0!important;font-size:12px;font-weight:700;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-gender button.bg-neutral-800,
+html[data-mattabel-theme="blu"] .mt-ranking-gender button.bg-neutral-800{
+  background:color-mix(in srgb,var(--mt-accent) 15%,var(--mt-elevated))!important;
+  color:var(--mt-accent)!important;
+  box-shadow:inset 0 -2px 0 var(--mt-accent);
+}
+html[data-mattabel-theme="dark"] .mt-ranking-tour-form,
+html[data-mattabel-theme="blu"] .mt-ranking-tour-form{
+  display:grid;grid-template-columns:minmax(180px,290px) minmax(180px,290px) repeat(3,max-content);
+  align-items:center;gap:8px!important;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-tour-form :is(input,select),
+html[data-mattabel-theme="blu"] .mt-ranking-tour-form :is(input,select){
+  min-width:0;width:100%;height:36px;min-height:36px!important;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-tour-form button,
+html[data-mattabel-theme="blu"] .mt-ranking-tour-form button{
+  min-width:70px;height:36px;padding:6px 12px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-tour-form button:last-child,
+html[data-mattabel-theme="blu"] .mt-ranking-tour-form button:last-child{
+  border-color:color-mix(in srgb,#f87171 35%,var(--mt-border));
+}
+html[data-mattabel-theme="dark"] .mt-ranking-tour > .text-xs,
+html[data-mattabel-theme="blu"] .mt-ranking-tour > .text-xs,
+html[data-mattabel-theme="dark"] .mt-ranking-add-player > .text-xs,
+html[data-mattabel-theme="blu"] .mt-ranking-add-player > .text-xs{
+  color:var(--mt-muted);font-size:10px;line-height:1.45;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-player-search,
+html[data-mattabel-theme="blu"] .mt-ranking-player-search{
+  width:min(100%,550px);
+}
+html[data-mattabel-theme="dark"] .mt-ranking-player-search > input,
+html[data-mattabel-theme="blu"] .mt-ranking-player-search > input{
+  height:36px;min-height:36px!important;font-size:13px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-stage-form,
+html[data-mattabel-theme="blu"] .mt-ranking-stage-form{
+  display:grid;grid-template-columns:minmax(230px,2fr) minmax(115px,.7fr) minmax(110px,.65fr) minmax(110px,.65fr) 110px!important;
+  gap:9px!important;align-items:end;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-stage-form > div,
+html[data-mattabel-theme="blu"] .mt-ranking-stage-form > div{min-width:0}
+html[data-mattabel-theme="dark"] .mt-ranking-stage-form :is(input,button),
+html[data-mattabel-theme="blu"] .mt-ranking-stage-form :is(input,button){
+  width:100%;min-width:0;height:36px;min-height:36px!important;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-stage-form button,
+html[data-mattabel-theme="blu"] .mt-ranking-stage-form button{
+  border-color:var(--mt-accent);font-weight:700;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-page .mt-ranking-table-card,
+html[data-mattabel-theme="blu"] .mt-ranking-page .mt-ranking-table-card{
+  padding:0!important;overflow:hidden;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table-bar,
+html[data-mattabel-theme="blu"] .mt-ranking-table-bar{
+  min-height:47px;padding:8px 12px!important;
+  border-color:var(--mt-border);gap:10px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table-bar > div:first-child,
+html[data-mattabel-theme="blu"] .mt-ranking-table-bar > div:first-child{
+  font-size:14px;font-weight:750;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table-bar select,
+html[data-mattabel-theme="blu"] .mt-ranking-table-bar select{
+  min-height:34px;height:34px;font-size:12px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table-bar button,
+html[data-mattabel-theme="blu"] .mt-ranking-table-bar button{
+  height:34px;font-size:12px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table-scroll,
+html[data-mattabel-theme="blu"] .mt-ranking-table-scroll{
+  padding:8px 10px 10px!important;
+  scrollbar-width:thin;scrollbar-color:var(--mt-border) transparent;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table,
+html[data-mattabel-theme="blu"] .mt-ranking-table{
+  width:100%;border-collapse:separate;border-spacing:0;
+  font-variant-numeric:tabular-nums;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table thead,
+html[data-mattabel-theme="blu"] .mt-ranking-table thead{
+  opacity:1;color:var(--mt-muted);background:var(--mt-elevated);
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table thead th,
+html[data-mattabel-theme="blu"] .mt-ranking-table thead th{
+  padding:9px 8px;text-align:left;
+  font-size:11px;font-weight:750;letter-spacing:.025em;
+  border-bottom:1px solid var(--mt-border);
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table thead th:nth-child(3),
+html[data-mattabel-theme="blu"] .mt-ranking-table thead th:nth-child(3){
+  text-align:right;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table tbody td,
+html[data-mattabel-theme="blu"] .mt-ranking-table tbody td{
+  padding-top:6px;padding-bottom:6px;
+  border-bottom:1px solid var(--mt-border);
+  font-size:13px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table tbody td:nth-child(2),
+html[data-mattabel-theme="blu"] .mt-ranking-table tbody td:nth-child(2){
+  font-weight:600;min-width:230px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table tbody td:nth-child(3),
+html[data-mattabel-theme="blu"] .mt-ranking-table tbody td:nth-child(3){
+  font-size:15px;font-weight:850;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-position,
+html[data-mattabel-theme="blu"] .mt-ranking-position{
+  min-width:30px;height:29px;border-radius:6px;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-remove-player,
+html[data-mattabel-theme="blu"] .mt-ranking-remove-player{
+  font-size:10px;padding:4px 7px;min-height:26px;
+  color:var(--mt-muted);
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table tbody select,
+html[data-mattabel-theme="blu"] .mt-ranking-table tbody select{
+  min-height:33px;height:33px;width:67px;
+  text-align:center;font-weight:650;
+}
+html[data-mattabel-theme="dark"] .mt-ranking-table tbody tr:hover,
+html[data-mattabel-theme="blu"] .mt-ranking-table tbody tr:hover{
+  background-color:color-mix(in srgb,var(--mt-accent) 7%,transparent);
+}
+/* Preserve gold first place and blue 2–8 while subtly adjusting for the two themes. */
+html[data-mattabel-theme="dark"] .mt-ranking-table tbody tr:first-child .mt-ranking-position{
+  border-color:#d9b46d;color:#fbe3a5;
+}
+html[data-mattabel-theme="blu"] .mt-ranking-table tbody tr:first-child .mt-ranking-position{
+  border-color:#ffae45;color:#ffcf89;
+}
+@media(max-width:1050px){
+  html[data-mattabel-theme="dark"] .mt-ranking-tour-form,
+  html[data-mattabel-theme="blu"] .mt-ranking-tour-form{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  html[data-mattabel-theme="dark"] .mt-ranking-tour-form button,
+  html[data-mattabel-theme="blu"] .mt-ranking-tour-form button{
+    min-width:0;
+  }
+  html[data-mattabel-theme="dark"] .mt-ranking-stage-form,
+  html[data-mattabel-theme="blu"] .mt-ranking-stage-form{
+    grid-template-columns:minmax(170px,2fr) repeat(3,minmax(95px,1fr))!important;
+  }
+  html[data-mattabel-theme="dark"] .mt-ranking-stage-form > div:last-child,
+  html[data-mattabel-theme="blu"] .mt-ranking-stage-form > div:last-child{
+    grid-column:1/-1;
+  }
+}
+@media(max-width:650px){
+  html[data-mattabel-theme="dark"] .mt-ranking-tour-form,
+  html[data-mattabel-theme="blu"] .mt-ranking-tour-form{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  html[data-mattabel-theme="dark"] .mt-ranking-stage-form,
+  html[data-mattabel-theme="blu"] .mt-ranking-stage-form{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  html[data-mattabel-theme="dark"] .mt-ranking-stage-form > div:first-child,
+  html[data-mattabel-theme="blu"] .mt-ranking-stage-form > div:first-child{
+    grid-column:1/-1;
+  }
+  html[data-mattabel-theme="dark"] .mt-ranking-table,
+  html[data-mattabel-theme="blu"] .mt-ranking-table{
+    min-width:540px;
+  }
+  html[data-mattabel-theme="dark"] .mt-ranking-table-bar,
+  html[data-mattabel-theme="blu"] .mt-ranking-table-bar{
+    align-items:flex-start;flex-wrap:wrap;
+  }
+}
