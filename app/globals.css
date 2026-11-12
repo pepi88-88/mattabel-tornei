@@ -2199,3 +2199,176 @@ html[data-mattabel-theme="blu"] .mt-waiting-page section > button{
     display:none!important;
   }
 }
+
+
+/* ============================================================
+   CREAZIONE TABELLONE — space-saving final editor UI.
+   Scoped to Dark Oro and Blu, unchanged tournament/bracket logic.
+   ============================================================ */
+html[data-mattabel-theme="dark"] body:has(.mt-bracket-page) > main,
+html[data-mattabel-theme="blu"] body:has(.mt-bracket-page) > main{
+  padding-top:0!important;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-page,
+html[data-mattabel-theme="blu"] .mt-bracket-page{
+  padding:0 4px 20px!important;margin:0!important;
+  display:flex;flex-direction:column;gap:10px!important;
+  min-width:0;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-page > * + *,
+html[data-mattabel-theme="blu"] .mt-bracket-page > * + *{
+  margin-top:0!important;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-page > .card,
+html[data-mattabel-theme="blu"] .mt-bracket-page > .card{
+  border-radius:10px;padding:10px 12px!important;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-toolbar-inner,
+html[data-mattabel-theme="blu"] .mt-bracket-toolbar-inner{
+  display:flex;flex-wrap:wrap;align-items:end;gap:7px!important;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-toolbar-inner > div:first-child,
+html[data-mattabel-theme="blu"] .mt-bracket-toolbar-inner > div:first-child,
+html[data-mattabel-theme="dark"] .mt-bracket-toolbar-inner > div:nth-child(2),
+html[data-mattabel-theme="blu"] .mt-bracket-toolbar-inner > div:nth-child(2){
+  flex:0 1 190px;min-width:135px;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-toolbar-inner :is(select,button),
+html[data-mattabel-theme="blu"] .mt-bracket-toolbar-inner :is(select,button){
+  height:36px!important;min-height:36px!important;
+  min-width:0;font-size:12px;
+  padding:6px 10px;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-toolbar-inner select,
+html[data-mattabel-theme="blu"] .mt-bracket-toolbar-inner select{
+  width:100%!important;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-toolbar-inner > div:last-child,
+html[data-mattabel-theme="blu"] .mt-bracket-toolbar-inner > div:last-child{
+  gap:7px!important;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-toolbar-inner .text-xs,
+html[data-mattabel-theme="blu"] .mt-bracket-toolbar-inner .text-xs{
+  color:var(--mt-muted);font-size:11px;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-config,
+html[data-mattabel-theme="blu"] .mt-bracket-config{
+  display:flex;align-items:end;gap:9px!important;
+  flex-wrap:wrap;min-width:0;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-config > div,
+html[data-mattabel-theme="blu"] .mt-bracket-config > div{
+  min-width:0;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-config > div:first-child,
+html[data-mattabel-theme="blu"] .mt-bracket-config > div:first-child{
+  flex:0 1 165px;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-config > div:nth-child(2),
+html[data-mattabel-theme="blu"] .mt-bracket-config > div:nth-child(2){
+  flex:0 1 auto;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-config > div:nth-child(3),
+html[data-mattabel-theme="blu"] .mt-bracket-config > div:nth-child(3){
+  flex:0 1 210px;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-config > div:nth-child(4),
+html[data-mattabel-theme="blu"] .mt-bracket-config > div:nth-child(4){
+  flex:0 0 90px;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-config > div:nth-child(5),
+html[data-mattabel-theme="blu"] .mt-bracket-config > div:nth-child(5){
+  flex:0 1 225px;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-config :is(select,input:not([type="color"])),
+html[data-mattabel-theme="blu"] .mt-bracket-config :is(select,input:not([type="color"])){
+  width:100%!important;max-width:100%;
+  min-width:0;min-height:36px!important;height:36px!important;
+  font-size:12px!important;padding:6px 9px!important;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-config input[type="color"],
+html[data-mattabel-theme="blu"] .mt-bracket-config input[type="color"]{
+  width:56px!important;height:36px!important;min-height:36px!important;
+  padding:3px!important;flex-shrink:0;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-config .text-xs,
+html[data-mattabel-theme="blu"] .mt-bracket-config .text-xs{
+  color:var(--mt-muted);font-size:11px;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-config button,
+html[data-mattabel-theme="blu"] .mt-bracket-config button{
+  min-height:32px;height:32px;font-size:11px;
+  padding-inline:9px;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-settings,
+html[data-mattabel-theme="blu"] .mt-bracket-settings{
+  display:flex;flex-direction:column;gap:10px!important;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-summary,
+html[data-mattabel-theme="blu"] .mt-bracket-summary{
+  display:grid;grid-template-columns:minmax(210px,1fr) minmax(195px,290px) minmax(120px,1fr);
+  align-items:center;gap:15px;min-width:0;
+  padding:5px 2px 2px;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-options,
+html[data-mattabel-theme="blu"] .mt-bracket-options{
+  display:flex;flex-direction:column;gap:9px;
+  justify-content:center;min-width:0;
+}
+.mt-bracket-option{
+  display:flex;gap:8px;align-items:center;cursor:pointer;
+  font-size:12px;line-height:1.3;
+}
+.mt-bracket-option input{flex:none}
+html[data-mattabel-theme="dark"] .mt-bracket-title-banner,
+html[data-mattabel-theme="blu"] .mt-bracket-title-banner{
+  display:flex;justify-content:center;min-width:0;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-title-chip,
+html[data-mattabel-theme="blu"] .mt-bracket-title-chip{
+  width:100%;min-width:0!important;max-width:290px;
+  min-height:43px;height:auto;padding:7px 24px!important;
+  border-radius:10px!important;
+  font-size:20px!important;line-height:1.2;
+  overflow:visible;overflow-wrap:anywhere;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-save-state,
+html[data-mattabel-theme="blu"] .mt-bracket-save-state{
+  text-align:right;justify-self:end;min-width:0;
+  font-size:11px!important;white-space:normal;
+}
+html[data-mattabel-theme="dark"] .mt-bracket-debug,
+html[data-mattabel-theme="blu"] .mt-bracket-debug{
+  display:none!important;
+}
+/* On the tablet the banner remains above the bracket while controls wrap
+   into two rows if necessary, without compressing interactive fields. */
+@media(max-width:1000px){
+  html[data-mattabel-theme="dark"] .mt-bracket-summary,
+  html[data-mattabel-theme="blu"] .mt-bracket-summary{
+    grid-template-columns:minmax(0,1fr) minmax(180px,270px);
+    gap:10px;
+  }
+  html[data-mattabel-theme="dark"] .mt-bracket-save-state,
+  html[data-mattabel-theme="blu"] .mt-bracket-save-state{
+    grid-column:1/-1;justify-self:end;
+  }
+}
+@media(max-width:600px){
+  html[data-mattabel-theme="dark"] .mt-bracket-summary,
+  html[data-mattabel-theme="blu"] .mt-bracket-summary{
+    grid-template-columns:minmax(0,1fr);gap:10px;
+  }
+  html[data-mattabel-theme="dark"] .mt-bracket-title-banner,
+  html[data-mattabel-theme="blu"] .mt-bracket-title-banner{
+    grid-row:1;
+  }
+  html[data-mattabel-theme="dark"] .mt-bracket-save-state,
+  html[data-mattabel-theme="blu"] .mt-bracket-save-state{
+    grid-column:1;justify-self:start;
+  }
+  html[data-mattabel-theme="dark"] .mt-bracket-title-chip,
+  html[data-mattabel-theme="blu"] .mt-bracket-title-chip{
+    max-width:100%;
+  }
+}
