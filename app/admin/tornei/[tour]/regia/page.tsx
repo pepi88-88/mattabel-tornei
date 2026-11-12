@@ -543,7 +543,8 @@ function rowBg(status: RegiaStatus, tournamentId?: string) {
 
 
   return (
-    <div className="min-h-screen min-w-0 bg-neutral-950 p-2 sm:p-3 xl:p-6 text-white">
+    <div className="mt-regia-page min-h-screen min-w-0 bg-neutral-950 p-2 sm:p-3 xl:p-6 text-white">
+      <h1 className="mt-simple-page-title">Regia</h1>
       <div className="mb-5 rounded-2xl border border-neutral-800 bg-neutral-900 p-4 shadow-sm">
       <div className="mb-4 grid gap-3 md:grid-cols-2">
   <div>
