@@ -423,3 +423,173 @@ html[data-mattabel-theme="blu"] .athlete-topbar .brand-strip{
   html[data-mattabel-theme="dark"] .athlete-navigation a,
   html[data-mattabel-theme="blu"] .athlete-navigation a{font-size:12px;padding-inline:8px!important}
 }
+
+
+/* ============================================================
+   MATTABEL DESIGN REFINEMENT / PREVIEW v2
+   Original brand asset, icon-based navigation and consistent
+   working density. Applies ONLY to Dark and Blu, never Normale.
+   ============================================================ */
+.mt-header-brand,.mt-athlete-brand{display:none}
+.mt-nav-icon{display:none;align-items:center;justify-content:center;flex:0 0 auto}
+html[data-mattabel-theme="dark"] .mt-nav-icon,
+html[data-mattabel-theme="blu"] .mt-nav-icon{display:inline-flex}
+html[data-mattabel-theme="dark"] .mt-header-brand,
+html[data-mattabel-theme="blu"] .mt-header-brand,
+html[data-mattabel-theme="dark"] .mt-athlete-brand,
+html[data-mattabel-theme="blu"] .mt-athlete-brand {
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;width:136px;height:56px;
+  border-right:1px solid var(--mt-border);
+  padding-right:14px;
+}
+html[data-mattabel-theme="dark"] .mt-header-brand-img,
+html[data-mattabel-theme="blu"] .mt-header-brand-img{
+  display:block;width:112px;height:54px;max-width:100%;
+  object-fit:contain;filter:none;
+}
+html[data-mattabel-theme="dark"] .admin-topline::before,
+html[data-mattabel-theme="blu"] .admin-topline::before{display:none!important}
+html[data-mattabel-theme="dark"] .mt-tablet-name,
+html[data-mattabel-theme="blu"] .mt-tablet-name{display:none!important}
+html[data-mattabel-theme="dark"] .admin-topline,
+html[data-mattabel-theme="blu"] .admin-topline{
+  gap:12px;padding-inline:clamp(10px,1.25vw,22px);
+}
+html[data-mattabel-theme="dark"] .admin-nav-desktop,
+html[data-mattabel-theme="blu"] .admin-nav-desktop{
+  width:100%;min-width:0;overscroll-behavior-x:contain;
+}
+html[data-mattabel-theme="dark"] .admin-nav-desktop button,
+html[data-mattabel-theme="blu"] .admin-nav-desktop button{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  font-size:12px!important;font-weight:650;line-height:1.2;
+  padding:0 9px!important;border-radius:7px!important;
+}
+html[data-mattabel-theme="dark"] .admin-nav-desktop button svg,
+html[data-mattabel-theme="blu"] .admin-nav-desktop button svg{width:15px;height:15px}
+html[data-mattabel-theme="dark"] .admin-nav-tablet button,
+html[data-mattabel-theme="blu"] .admin-nav-tablet button{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  white-space:nowrap;border-radius:7px!important;
+}
+html[data-mattabel-theme="dark"] .admin-nav-tablet select,
+html[data-mattabel-theme="blu"] .admin-nav-tablet select{
+  min-width:125px;max-width:260px;flex:1 1 170px;
+}
+html[data-mattabel-theme="dark"] .mattabel-theme-picker,
+html[data-mattabel-theme="blu"] .mattabel-theme-picker{
+  border-left:1px solid var(--mt-border);padding-left:10px;
+}
+html[data-mattabel-theme="dark"] .mattabel-theme-picker select,
+html[data-mattabel-theme="blu"] .mattabel-theme-picker select{
+  height:35px;font-weight:700;padding:0 8px;
+}
+html[data-mattabel-theme="dark"] .athlete-navigation :is(a,button),
+html[data-mattabel-theme="blu"] .athlete-navigation :is(a,button){
+  display:inline-flex;gap:8px;align-items:center;justify-content:center;
+}
+html[data-mattabel-theme="dark"] .athlete-topline,
+html[data-mattabel-theme="blu"] .athlete-topline{max-width:1800px;padding-inline:clamp(8px,2vw,24px)}
+html[data-mattabel-theme="dark"] .athlete-navigation,
+html[data-mattabel-theme="blu"] .athlete-navigation{gap:8px}
+html[data-mattabel-theme="dark"] .mt-athlete-brand,
+html[data-mattabel-theme="blu"] .mt-athlete-brand{height:56px}
+@media (max-width:1250px){
+ html[data-mattabel-theme="dark"] .mt-header-brand,
+ html[data-mattabel-theme="blu"] .mt-header-brand{width:105px;padding-right:9px}
+ html[data-mattabel-theme="dark"] .mt-header-brand-img,
+ html[data-mattabel-theme="blu"] .mt-header-brand-img{width:95px}
+}
+@media(max-width:760px){
+ html[data-mattabel-theme="dark"] .mt-header-brand,
+ html[data-mattabel-theme="blu"] .mt-header-brand{width:86px;padding-right:5px}
+ html[data-mattabel-theme="dark"] .mt-header-brand-img,
+ html[data-mattabel-theme="blu"] .mt-header-brand-img{width:80px}
+ html[data-mattabel-theme="dark"] .admin-topline,
+ html[data-mattabel-theme="blu"] .admin-topline{gap:6px}
+ html[data-mattabel-theme="dark"] .admin-nav-tablet,
+ html[data-mattabel-theme="blu"] .admin-nav-tablet{gap:4px}
+ html[data-mattabel-theme="dark"] .admin-nav-tablet button,
+ html[data-mattabel-theme="blu"] .admin-nav-tablet button{padding-inline:7px}
+ html[data-mattabel-theme="dark"] .mt-athlete-brand,
+ html[data-mattabel-theme="blu"] .mt-athlete-brand{width:80px;padding-right:6px}
+ html[data-mattabel-theme="dark"] .athlete-navigation,
+ html[data-mattabel-theme="blu"] .athlete-navigation{gap:4px}
+}
+@media(max-width:540px){
+ html[data-mattabel-theme="dark"] .admin-nav-tablet select,
+ html[data-mattabel-theme="blu"] .admin-nav-tablet select{min-width:90px}
+ html[data-mattabel-theme="dark"] .mt-header-brand,
+ html[data-mattabel-theme="blu"] .mt-header-brand{width:69px;padding-right:3px}
+ html[data-mattabel-theme="dark"] .mt-header-brand-img,
+ html[data-mattabel-theme="blu"] .mt-header-brand-img{width:64px}
+ html[data-mattabel-theme="dark"] .mt-athlete-brand,
+ html[data-mattabel-theme="blu"] .mt-athlete-brand{display:none}
+}
+
+/* Forms and tables: deliberate hierarchy rather than broad decoration. */
+html[data-mattabel-theme="dark"] body,
+html[data-mattabel-theme="blu"] body{
+  font-feature-settings:"tnum" 1;
+  -webkit-font-smoothing:antialiased;
+}
+html[data-mattabel-theme="dark"] .card,
+html[data-mattabel-theme="blu"] .card{
+  border-radius:10px;box-shadow:none;
+}
+html[data-mattabel-theme="dark"] .card:has(> table),
+html[data-mattabel-theme="blu"] .card:has(> table){
+  overflow-x:auto;
+}
+html[data-mattabel-theme="dark"] :is(h1,h2,h3),
+html[data-mattabel-theme="blu"] :is(h1,h2,h3){
+  letter-spacing:-.018em;color:var(--mt-ink);
+}
+html[data-mattabel-theme="dark"] :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]),
+html[data-mattabel-theme="blu"] :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]){
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.10);
+  min-height:34px;
+}
+html[data-mattabel-theme="dark"] :is(input,textarea)::placeholder,
+html[data-mattabel-theme="blu"] :is(input,textarea)::placeholder{
+  color:var(--mt-muted);opacity:.83;
+}
+html[data-mattabel-theme="dark"] :is(th,td),
+html[data-mattabel-theme="blu"] :is(th,td){font-variant-numeric:tabular-nums}
+html[data-mattabel-theme="dark"] :is(th,thead),
+html[data-mattabel-theme="blu"] :is(th,thead){
+  background:color-mix(in srgb,var(--mt-elevated) 68%,transparent);
+}
+html[data-mattabel-theme="dark"] :is(button,.btn):focus-visible,
+html[data-mattabel-theme="blu"] :is(button,.btn):focus-visible{
+  outline:2px solid var(--mt-accent);outline-offset:2px;
+}
+html[data-mattabel-theme="dark"] :is(button,.btn):disabled,
+html[data-mattabel-theme="blu"] :is(button,.btn):disabled{
+  cursor:not-allowed;opacity:.48;
+}
+html[data-mattabel-theme="dark"] .admin-tablet-shell,
+html[data-mattabel-theme="blu"] .admin-tablet-shell{
+  min-width:0;
+}
+html[data-mattabel-theme="dark"] .admin-tablet-shell .card,
+html[data-mattabel-theme="blu"] .admin-tablet-shell .card{
+  border-color:var(--mt-border)!important;
+}
+html[data-mattabel-theme="dark"] .admin-tablet-shell .tablet-table-scroll,
+html[data-mattabel-theme="blu"] .admin-tablet-shell .tablet-table-scroll{
+  scrollbar-color:var(--mt-border) transparent;
+}
+html[data-mattabel-theme="dark"] .btn:hover,
+html[data-mattabel-theme="blu"] .btn:hover{transform:none}
+@media (prefers-reduced-motion:reduce){
+  html[data-mattabel-theme="dark"] *,
+  html[data-mattabel-theme="blu"] *{scroll-behavior:auto!important;transition-duration:.01ms!important}
+}
+
+/* Safeguards: group colors and alert colors always win over global surfaces. */
+html[data-mattabel-theme="dark"] :is(.bg-red-500,.bg-red-600,.bg-green-500,.bg-green-600,.bg-blue-500,.bg-blue-600,.bg-orange-500,.bg-purple-500),
+html[data-mattabel-theme="blu"] :is(.bg-red-500,.bg-red-600,.bg-green-500,.bg-green-600,.bg-blue-500,.bg-blue-600,.bg-orange-500,.bg-purple-500){
+  background-color:revert-layer;
+}
