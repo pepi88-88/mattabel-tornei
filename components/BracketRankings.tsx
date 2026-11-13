@@ -85,7 +85,7 @@ function categoryProposal(
 
 
 export default function BracketRankings({
-  brackets, winnersById, tourId, tId, resolveToken, onClose, selection, floating = false,
+  brackets, winnersById, tourId, tId, resolveToken, onClose, selection, floating = false, readOnly = false,
 }: {
   brackets: Bracket[]
   winnersById: Winners
@@ -95,6 +95,7 @@ export default function BracketRankings({
   onClose: () => void
   selection?: ReactNode
   floating?: boolean
+  readOnly?: boolean
 }) {
   const [overrides, setOverrides] = useState<Overrides>({})
   const [loaded, setLoaded] = useState(false)
@@ -102,6 +103,7 @@ export default function BracketRankings({
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [drafts, setDrafts] = useState<Record<string,string>>({})
+  const [regenerating,setRegenerating] = useState(false)
   const [panelPosition,setPanelPosition] = useState<{x:number;y:number}|null>(null)
   const drag = useRef<{x:number;y:number;left:number;top:number}|null>(null)
   const panelRef = useRef<HTMLElement|null>(null)
@@ -264,7 +266,7 @@ export default function BracketRankings({
         onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
         <div>
           <h2>{floating?'⠿ Classifica tabelloni':'Classifica tabelloni'}</h2>
-          <p>Provvisoria e modificabile · Indipendente dalla classifica stagionale</p>
+          <p>{readOnly?'Solo consultazione · Non modifica i punti stagionali':'Classifica di servizio modificabile · Indipendente dai punti stagionali'}</p>
         </div>
         <button type="button" className="btn" onClick={close} aria-label="Chiudi classifica">✕</button>
       </header>
@@ -276,9 +278,9 @@ export default function BracketRankings({
             () => setMessage('Copia non disponibile in questo browser.')
           )
         }}>Copia lista per social</button>
-        <button type="button" className="btn" onClick={save} disabled={!loaded || !dirty || saving}>
+        {!readOnly && <button type="button" className="btn" onClick={save} disabled={!loaded || !dirty || saving}>
           {saving ? 'Salvataggio…' : 'Salva classifica'}
-        </button>
+        </button>}
       </div>
       <div className="mt-rankings-dialog-scroll">
         {!loaded ? <p role="status" className="p-4 text-sm text-amber-400">{message || 'Caricamento classifica…'}</p> : <>
@@ -291,32 +293,36 @@ export default function BracketRankings({
             <div className="mt-rankings-lines">
               {group.rows.map(row => <div className="mt-rankings-line" key={row.sourceId+'/'+row.team}>
                 <span className="mt-rankings-overall" title="Posizione totale, calcolata automaticamente">{row.total}°</span>
-                <input type="text" inputMode="numeric" pattern="[0-9]*"
-                  className="input mt-rankings-place"
-                  aria-label={'Posizione ' + group.bracket.title + ': ' + row.team}
-                  value={drafts[editKey(row.sourceId,row.team)] ?? String(row.local)}
-                  onChange={event=>setDrafts(prev=>({...prev,[editKey(row.sourceId,row.team)]:event.target.value.replace(/[^0-9]/g,'').slice(0,4)}))}
-                  onBlur={()=>commitNumber(row.sourceId,row.team,row.local)}
-                  onKeyDown={event=>{if(event.key==='Enter')event.currentTarget.blur()}}
-                />
+                {readOnly
+                  ? <span className="mt-rankings-place-readonly" title="Piazzamento del tabellone">{row.local}°</span>
+                  : <input type="text" inputMode="numeric" pattern="[0-9]*"
+                    className="input mt-rankings-place"
+                    aria-label={'Posizione ' + group.bracket.title + ': ' + row.team}
+                    value={drafts[editKey(row.sourceId,row.team)] ?? String(row.local)}
+                    onChange={event=>setDrafts(prev=>({...prev,[editKey(row.sourceId,row.team)]:event.target.value.replace(/[^0-9]/g,'').slice(0,4)}))}
+                    onBlur={()=>commitNumber(row.sourceId,row.team,row.local)}
+                    onKeyDown={event=>{if(event.key==='Enter')event.currentTarget.blur()}}
+                  />}
                 <span className="mt-rankings-name">
                   {row.team}{row.provisional && <small>provvisoria</small>}
                 </span>
-                <select className="input mt-rankings-move" aria-label={'Sposta '+row.team+' in categoria'}
-                  title="Cambia tabellone nella classifica"
-                  value={row.categoryId}
-                  onChange={event=>transfer(row.sourceId,row.team,event.target.value)}>
-                  {brackets.map((bracket,i)=><option key={bracket.id} value={bracket.id}>
-                    L{i+1} · {bracket.title}
-                  </option>)}
-                </select>
+                {readOnly
+                  ? <span className="mt-rankings-category-readonly">L{group.index+1}</span>
+                  : <select className="input mt-rankings-move" aria-label={'Sposta '+row.team+' in categoria'}
+                    title="Cambia tabellone nella classifica"
+                    value={row.categoryId}
+                    onChange={event=>transfer(row.sourceId,row.team,event.target.value)}>
+                    {brackets.map((bracket,i)=><option key={bracket.id} value={bracket.id}>
+                      L{i+1} · {bracket.title}
+                    </option>)}
+                  </select>}
               </div>)}
             </div>
           </section>)}
           <p className="mt-rankings-note">
-            A sinistra: posizione totale automatica (pari merito in caso di uguale posizione nello stesso tabellone).
-            Il numero centrale si modifica scrivendo e si riordina quando esci dal campo.
-            L'ultima tendina consente di spostare una coppia tra tabelloni senza modificare le partite.
+            {readOnly
+              ? 'Vista di consultazione: per correggere e rigenerare i piazzamenti usa Risultati → Tabellone.'
+              : 'A sinistra la posizione totale automatica. Modifica soltanto il numero della coppia desiderata: gli altri rimangono invariati, anche in caso di pari merito.'}
           </p>
         </>}
       </div>
