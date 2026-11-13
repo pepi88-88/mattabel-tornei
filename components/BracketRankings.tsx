@@ -148,7 +148,7 @@ function computeRankingGroups(brackets: Bracket[], winnersById: Winners, resolve
 }
 
 export default function BracketRankings({
-  brackets, winnersById, tourId, tId, resolveToken, onClose, selection, floating = false, readOnly = false,
+  brackets, winnersById, tourId, tId, resolveToken, onClose, selection, floating = false, readOnly = false, loading = false, loadError = '',
 }: {
   brackets: Bracket[]
   winnersById: Winners
@@ -159,6 +159,8 @@ export default function BracketRankings({
   selection?: ReactNode
   floating?: boolean
   readOnly?: boolean
+  loading?: boolean
+  loadError?: string
 }) {
   const [overrides, setOverrides] = useState<Overrides>({})
   const [loaded, setLoaded] = useState(false)
@@ -197,6 +199,11 @@ export default function BracketRankings({
     let cancelled = false
     setLoaded(false)
     setDrafts({})
+    setMessage('')
+    setOverrides({})
+    setDirty(false)
+    setFreshData(null)
+    if (!tId) return () => { cancelled = true }
     fetch('/api/brackets/state?tournament_id=' + encodeURIComponent(tId), {
       headers: { 'x-role': 'admin' }, cache: 'no-store'
     }).then(async response => {
@@ -367,7 +374,7 @@ export default function BracketRankings({
         </button>}
       </div>
       <div className="mt-rankings-dialog-scroll">
-        {!loaded ? <p role="status" className="p-4 text-sm text-amber-400">{message || 'Caricamento classifica…'}</p> : <>
+        {loading || !tId || !loaded || !!loadError ? <p role="status" className="p-4 text-sm text-amber-400">{loadError || message || (loading || tId ? 'Caricamento classifica…' : 'Seleziona un torneo e una tappa aperta.')}</p> : <>
           {groups.map(group => <section className="mt-rankings-group" key={group.bracket.id}>
             <div className="mt-rankings-group-heading" style={{ borderLeftColor: group.bracket.color }}>
               <strong>L{group.index + 1} · {group.bracket.title.toUpperCase()}</strong>
