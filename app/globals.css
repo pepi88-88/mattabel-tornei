@@ -2372,3 +2372,97 @@ html[data-mattabel-theme="blu"] .mt-bracket-debug{
     max-width:100%;
   }
 }
+
+
+/* ============================================================
+   RISULTATI GIRONI / TABELLONE — final operations UI
+   Visible in Dark Oro / Blu only; publication state works for all.
+   ============================================================ */
+.mt-results-title{display:none}
+html[data-mattabel-theme="dark"] body:has(.mt-results-page) > main,
+html[data-mattabel-theme="blu"] body:has(.mt-results-page) > main{padding-top:0!important}
+html[data-mattabel-theme="dark"] .mt-results-page,
+html[data-mattabel-theme="blu"] .mt-results-page{
+  padding:0 4px 20px!important;display:flex;
+  flex-direction:column;gap:12px!important;
+}
+html[data-mattabel-theme="dark"] .mt-results-page > * + *,
+html[data-mattabel-theme="blu"] .mt-results-page > * + *{
+  margin-top:0!important;
+}
+html[data-mattabel-theme="dark"] .mt-results-title,
+html[data-mattabel-theme="blu"] .mt-results-title{
+  display:block;font-size:19px;font-weight:750;
+  line-height:1.45;margin:0 2px 1px;letter-spacing:-.02em;
+}
+html[data-mattabel-theme="dark"] .mt-results-controls,
+html[data-mattabel-theme="blu"] .mt-results-controls{
+  display:flex;align-items:end;flex-wrap:wrap;
+  column-gap:10px!important;row-gap:8px!important;
+}
+html[data-mattabel-theme="dark"] .mt-results-controls > div:first-child,
+html[data-mattabel-theme="blu"] .mt-results-controls > div:first-child{
+  flex:0 1 210px;min-width:150px;
+}
+html[data-mattabel-theme="dark"] .mt-results-controls > div:nth-child(2),
+html[data-mattabel-theme="blu"] .mt-results-controls > div:nth-child(2){
+  flex:0 1 260px;min-width:165px;
+}
+html[data-mattabel-theme="dark"] .mt-results-controls select,
+html[data-mattabel-theme="blu"] .mt-results-controls select{
+  height:36px;min-height:36px!important;
+  min-width:0;width:100%;font-size:12px;
+}
+html[data-mattabel-theme="dark"] .mt-results-actions,
+html[data-mattabel-theme="blu"] .mt-results-actions{
+  display:flex;align-items:center;flex-wrap:wrap;gap:9px!important;
+}
+.mt-results-view-switch{isolation:isolate}
+.mt-results-view-btn{min-height:36px;transition:background .15s,color .15s}
+.mt-results-view-btn[aria-pressed="true"]{font-weight:800}
+html[data-mattabel-theme="dark"] .mt-results-view-switch,
+html[data-mattabel-theme="blu"] .mt-results-view-switch{
+  border-color:var(--mt-border);border-radius:8px;
+  background:var(--mt-elevated);
+}
+html[data-mattabel-theme="dark"] .mt-results-view-btn,
+html[data-mattabel-theme="blu"] .mt-results-view-btn{
+  padding:8px 15px!important;font-size:12px;
+  color:var(--mt-muted);background:transparent!important;
+}
+html[data-mattabel-theme="dark"] .mt-results-view-btn[aria-pressed="true"],
+html[data-mattabel-theme="blu"] .mt-results-view-btn[aria-pressed="true"]{
+  background:color-mix(in srgb,var(--mt-accent) 18%,var(--mt-elevated))!important;
+  color:var(--mt-accent)!important;
+  box-shadow:inset 0 -3px 0 var(--mt-accent);
+}
+html[data-mattabel-theme="dark"] .mt-results-view-btn[aria-pressed="false"]:hover,
+html[data-mattabel-theme="blu"] .mt-results-view-btn[aria-pressed="false"]:hover{
+  background:color-mix(in srgb,var(--mt-accent) 7%,var(--mt-elevated))!important;
+}
+.mt-results-publish{
+  font-weight:700;min-height:36px;
+  border:1px solid transparent;
+  white-space:nowrap;cursor:pointer;
+}
+.mt-results-publish.mt-results-published{
+  background:#0f6650;color:#edfff7;border-color:#239c7d;
+}
+.mt-results-publish.mt-results-hidden{
+  background:#423322;color:#ffe2ad;border-color:#ad7b35;
+}
+.mt-results-publish:disabled{opacity:.55;cursor:wait}
+html[data-mattabel-theme="dark"] .mt-results-publish,
+html[data-mattabel-theme="blu"] .mt-results-publish{
+  padding:8px 13px;font-size:12px;border-radius:8px;
+}
+@media(max-width:700px){
+  html[data-mattabel-theme="dark"] .mt-results-controls > div:first-child,
+  html[data-mattabel-theme="blu"] .mt-results-controls > div:first-child,
+  html[data-mattabel-theme="dark"] .mt-results-controls > div:nth-child(2),
+  html[data-mattabel-theme="blu"] .mt-results-controls > div:nth-child(2){
+    flex:1 1 45%;
+  }
+  html[data-mattabel-theme="dark"] .mt-results-actions,
+  html[data-mattabel-theme="blu"] .mt-results-actions{flex-basis:100%}
+}
