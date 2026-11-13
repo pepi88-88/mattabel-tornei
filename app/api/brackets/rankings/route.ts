@@ -21,6 +21,10 @@ export async function PATCH(req: NextRequest) {
     for (const [team, values] of Object.entries(players as Record<string,any>)) {
       if (!team || team.length > 300 || !values || typeof values !== 'object' || Array.isArray(values))
         return NextResponse.json({ error: 'Squadra non valida' }, { status: 400 })
+      const targetCategory = (values as any).category
+      if (targetCategory !== undefined && (typeof targetCategory !== 'string' || targetCategory.length > 200)) {
+        return NextResponse.json({ error: 'Destinazione categoria non valida' }, { status: 400 })
+      }
       for (const key of ['local','total'] as const) {
         const number = (values as any)[key]
         if (number !== undefined && (!Number.isInteger(number) || number < 1 || number > 1024))
@@ -35,6 +39,11 @@ export async function PATCH(req: NextRequest) {
   if (!current) return NextResponse.json({ error: 'Tabelloni non trovati' }, { status: 404 })
   const previous = Array.isArray(current.state) ? { items: current.state } : (current.state || {})
   const knownIds = new Set((previous.items || []).map((item: any) => String(item.id)))
+  if (Object.values(rankingOverrides).some(players =>
+    Object.values(players as Record<string,any>).some((values:any) =>
+      values.category && !knownIds.has(values.category)))) {
+    return NextResponse.json({ error: 'Categoria di destinazione inesistente' }, { status: 409 })
+  }
   if (Object.keys(rankingOverrides).some(id => !knownIds.has(id))) {
     return NextResponse.json({ error: 'Tabellone non trovato, ricarica la pagina' }, { status: 409 })
   }
