@@ -1442,6 +1442,9 @@ async function persistStates(
   const bPayload = {
     tournament_id,
     state: {
+      // Regia must never erase unrelated bracket metadata (for example the
+      // manually saved classification snapshot in rankingOverrides).
+      ...(bData?.state && !Array.isArray(bData.state) ? bData.state : {}),
       items: bracketState.items || [],
       winnersById: bracketState.winnersById || {},
       itaScoresById: bracketState.itaScoresById || {},
