@@ -45,7 +45,17 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Missing tournament_id' }, { status: 400 })
   }
 
-  const payload: any = { tournament_id, state, updated_at: new Date().toISOString() }
+  // The staff bracket editor sends the whole bracket state. Preserve any
+  // independently saved event standings, which must not be overwritten by
+  // a later bracket edit or auto-save from another page.
+  const { data: previous, error: readError } = await s.from('bracket_states')
+    .select('state').eq('tournament_id', tournament_id).maybeSingle()
+  if (readError) return NextResponse.json({ error: readError.message }, { status: 500 })
+  const previousRankings = !Array.isArray(previous?.state)
+    ? previous?.state?.rankingOverrides : undefined
+  const nextState = !Array.isArray(state) && state && typeof state === 'object' && previousRankings
+    ? { ...state, rankingOverrides: previousRankings } : state
+  const payload: any = { tournament_id, state: nextState, updated_at: new Date().toISOString() }
   if (is_public !== undefined) payload.is_public = is_public   // opzionale
 
   const { error } = await s.from('bracket_states').upsert(payload)
