@@ -1272,6 +1272,13 @@ function scheduleRows(L: string): ScheduleRow[] {
 }
 
  
+// Un girone è incompleto se esiste almeno una partita ancora senza vincitore.
+const missingGroupMatches = letters.map((letter) => {
+  const matchIndexes = Array.from(new Set(scheduleRows(letter).map(row => row.matchIdx)))
+  const count = matchIndexes.filter(index => !matchWinnerFromScores(letter, index).winner).length
+  return { letter, count }
+}).filter(group => group.count > 0)
+
 // Risultati: aggiornamento parziale. Non riscrivere mai gruppi, assegnazioni o conferme.
 const lastResultsSnapshot = useRef<string>('')
 const [resultsSaveError, setResultsSaveError] = useState('')
@@ -2104,6 +2111,13 @@ return (
       {smartMessage && <div role="status" className="text-sm text-amber-300">{smartMessage}</div>}
       </div>}
     </div>}
+    <div className="mt-results-bracket-visual">
+      {missingGroupMatches.length > 0 && (
+        <div className="mt-results-incomplete" role="status">
+          <strong>MANCANO DEI RISULTATI</strong>
+          <span>{missingGroupMatches.map(group => `Girone ${group.letter}: ${group.count} ${group.count === 1 ? 'partita' : 'partite'}`).join(' · ')}</span>
+        </div>
+      )}
     {active.type === 'ITA' ? (
       <ItaEditor
         bracket={active}
@@ -2162,6 +2176,7 @@ return (
         externalResolver={resolveToken}       // ok tenerlo per Winner/Loser
       />
     )}
+    </div>
   </div>
 ) : null}
 
