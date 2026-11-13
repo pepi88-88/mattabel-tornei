@@ -1338,13 +1338,13 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
     <div className="mt-bracket-draggable-list flex flex-wrap items-end gap-2">
       {brackets.map((b, index) => (
         <div key={b.id} data-bracket-drop-id={b.id}
-          className={\`mt-bracket-reorder-item flex items-center gap-1 \${dragTargetId === b.id ? 'mt-bracket-drop-target' : ''}\`}>
+          className={`mt-bracket-reorder-item flex items-center gap-1 ${dragTargetId === b.id ? 'mt-bracket-drop-target' : ''}`}>
           <button type="button"
             className="mt-bracket-grip btn"
             disabled={locked}
             style={{ touchAction:'none' }}
             title="Trascina per riordinare i livelli L1, L2, L3"
-            aria-label={\`Trascina \${b.title} per riordinare. Usa freccia sinistra/destra da tastiera.\`}
+            aria-label={`Trascina ${b.title} per riordinare. Usa freccia sinistra/destra da tastiera.`}
             onPointerDown={event => {
               if (locked) return
               dragBracketId.current = b.id
@@ -1374,7 +1374,7 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
             }}>⠿</button>
           <button type="button" className="btn"
             onClick={() => setActiveId(b.id)}
-            style={b.id === activeId ? { outline: \`2px solid \${b.color}\`, outlineOffset: 2 } : {}}
+            style={b.id === activeId ? { outline: `2px solid ${b.color}`, outlineOffset: 2 } : {}}
             title={b.title} aria-pressed={b.id === activeId}>
             {b.title}
             <span className="ml-2 text-[10px] opacity-70">L{bracketLevels.order[b.id] ?? index + 1}</span>
