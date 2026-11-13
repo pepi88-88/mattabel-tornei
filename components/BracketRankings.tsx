@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Bracket } from './BracketCanvas'
 
@@ -85,7 +85,7 @@ function categoryProposal(
 
 
 export default function BracketRankings({
-  brackets, winnersById, tourId, tId, resolveToken, onClose, selection,
+  brackets, winnersById, tourId, tId, resolveToken, onClose, selection, floating = false,
 }: {
   brackets: Bracket[]
   winnersById: Winners
@@ -94,6 +94,7 @@ export default function BracketRankings({
   resolveToken: (s: string) => string
   onClose: () => void
   selection?: ReactNode
+  floating?: boolean
 }) {
   const [overrides, setOverrides] = useState<Overrides>({})
   const [loaded, setLoaded] = useState(false)
@@ -101,6 +102,31 @@ export default function BracketRankings({
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [drafts, setDrafts] = useState<Record<string,string>>({})
+  const [panelPosition,setPanelPosition] = useState<{x:number;y:number}|null>(null)
+  const drag = useRef<{x:number;y:number;left:number;top:number}|null>(null)
+  const panelRef = useRef<HTMLElement|null>(null)
+  const startDrag=(event:React.PointerEvent<HTMLElement>)=>{
+    if(!floating || event.button!==0 || (event.target as HTMLElement).closest('button,input,select'))return
+    const rect=panelRef.current?.getBoundingClientRect()
+    if(!rect)return
+    drag.current={x:event.clientX,y:event.clientY,left:rect.left,top:rect.top}
+    event.currentTarget.setPointerCapture(event.pointerId)
+    event.preventDefault()
+  }
+  const moveDrag=(event:React.PointerEvent<HTMLElement>)=>{
+    if(!drag.current)return
+    const width=panelRef.current?.offsetWidth||600
+    const height=panelRef.current?.offsetHeight||450
+    setPanelPosition({
+      x:Math.max(0,Math.min(window.innerWidth-width,drag.current.left+event.clientX-drag.current.x)),
+      y:Math.max(0,Math.min(window.innerHeight-Math.min(height,80),drag.current.top+event.clientY-drag.current.y))
+    })
+  }
+  const endDrag=(event:React.PointerEvent<HTMLElement>)=>{
+    drag.current=null
+    if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
 
   useEffect(() => {
     let cancelled = false
@@ -145,16 +171,17 @@ export default function BracketRankings({
     let offset = 0
     return categoryInputs.map(cat=>{
       const entries=buckets.get(cat.bracket.id)||[]
-      // Unresolved games receive a *provisional* sequence.
-      // Rank edits are applied only on blur, so editing does not jump the row.
-      entries.sort((a,b)=>(a.edit.local??a.auto??999)-(b.edit.local??b.auto??999)
+      // Stable provisional rank is determined BEFORE manual edits.
+      // Editing one team's position must NEVER renumber another team.
+      const base=entries.slice().sort((a,b)=>(a.auto??999)-(b.auto??999)
         ||a.inputOrder-b.inputOrder||a.team.localeCompare(b.team))
-      const rows=entries.map((entry,index)=>({
+      const rows=base.map((entry,index)=>({
         ...entry,categoryId:cat.bracket.id,
         local:entry.edit.local??entry.auto??index+1,
         provisional:entry.edit.local==null&&entry.auto==null,
         total:0
       }))
+      // Reorder rows only after the edit is committed (onBlur).
       rows.sort((a,b)=>a.local-b.local||a.inputOrder-b.inputOrder||a.team.localeCompare(b.team))
       // Competition ranks: if two teams are 3rd, both have total rank 3;
       // next bracket starts after all entrants (e.g. 5th for four teams).
@@ -227,13 +254,16 @@ export default function BracketRankings({
     ...group.rows.map(row=>row.total+'° totale | '+row.local+'° '+row.team)
   ].join('\n')).join('\n\n')
 
-  return <div className="mt-rankings-overlay" role="presentation" onMouseDown={event => {
-    if (event.target === event.currentTarget) close()
+  return <div className={floating?'mt-rankings-overlay mt-rankings-floating-overlay':'mt-rankings-overlay'} role="presentation" onMouseDown={event => {
+    if (!floating && event.target === event.currentTarget) close()
   }}>
-    <section className="mt-rankings-dialog" role="dialog" aria-modal="true" aria-label="Classifica tabelloni">
-      <header className="mt-rankings-dialog-header">
+    <section ref={panelRef} className={floating?'mt-rankings-dialog mt-rankings-floating-dialog':'mt-rankings-dialog'}
+      role="dialog" aria-modal={!floating} aria-label="Classifica tabelloni"
+      style={floating?{left:panelPosition?.x,top:panelPosition?.y??112,right:panelPosition?undefined:20}:undefined}>
+      <header className={floating?'mt-rankings-dialog-header mt-rankings-drag-handle':'mt-rankings-dialog-header'}
+        onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
         <div>
-          <h2>Classifica tabelloni</h2>
+          <h2>{floating?'⠿ Classifica tabelloni':'Classifica tabelloni'}</h2>
           <p>Provvisoria e modificabile · Indipendente dalla classifica stagionale</p>
         </div>
         <button type="button" className="btn" onClick={close} aria-label="Chiudi classifica">✕</button>
