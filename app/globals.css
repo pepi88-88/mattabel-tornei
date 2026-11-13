@@ -2566,3 +2566,29 @@ html[data-mattabel-theme="blu"] .mt-results-publish{
   }
   .mt-bracket-rankings-final-row small{grid-column:2;text-align:left}
 }
+
+
+/* Bracket viewport: center small 4/8-team layouts without moving SVG connector
+   coordinates; let larger 16/32-team layouts scroll in their own board. */
+.mt-results-bracket-chip{
+  max-width:calc(100% - 12px);
+  margin-inline:auto;
+  text-align:center!important;
+}
+.mt-bracket-board-viewport{
+  width:100%;max-width:100%;overflow-x:auto;scrollbar-width:thin;
+}
+.mt-bracket-board-inner{
+  margin-left:auto;margin-right:auto;
+}
+@media(max-width:650px){
+  .mt-results-bracket-chip{
+    min-width:0!important;
+    width:min(100% - 16px,350px);
+    font-size:22px!important;
+    padding:9px 14px!important;
+  }
+  .mt-results-bracket-visual .bracket-scope{
+    min-width:0;
+  }
+}
