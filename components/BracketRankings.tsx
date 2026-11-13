@@ -5,7 +5,7 @@ import type { Bracket } from './BracketCanvas'
 
 type Side = 'A' | 'B' | undefined
 type Winners = Record<string, Record<string, Side>>
-type Placement = { local?: number; total?: number; category?: string }
+type Placement = { local?: number; total?: number; category?: string; frozen?: boolean }
 type Overrides = Record<string, Record<string, Placement>>
 type Row = {
   bracketId: string
@@ -90,8 +90,26 @@ function computeRankingGroups(brackets: Bracket[], winnersById: Winners, resolve
     }))
     // Exactly one team per EVENT: the lowest bracket it actually entered wins.
     const unique = new Map<string,{team:string;sourceId:string;inputOrder:number}>()
-    for (const cat of categoryInputs) cat.teams.forEach((team,index) =>
-      unique.set(team,{team,sourceId:cat.bracket.id,inputOrder:index}))
+    // An explicitly saved snapshot is frozen until the operator presses
+    // Rigenera. New results must not silently change the list or its ranks.
+    const frozen=Object.values(overrides).some(category =>
+      Object.values(category).some(value=>value.frozen===true))
+    if(frozen){
+      for(const cat of categoryInputs){
+        for(const [team,value] of Object.entries(overrides[cat.bracket.id]||{})){
+          if(value.frozen!==true)continue
+          unique.set(team,{team,sourceId:cat.bracket.id,inputOrder:unique.size})
+        }
+      }
+    }else{
+      for (const cat of categoryInputs) cat.teams.forEach((team,index) =>
+        unique.set(team,{team,sourceId:cat.bracket.id,inputOrder:index}))
+      // Old hand-edited standings can contain teams whose bracket slots were
+      // later modified. Keep those teams visible until an explicit regenerate.
+      for(const cat of categoryInputs)for(const team of Object.keys(overrides[cat.bracket.id]||{})){
+        if(!unique.has(team))unique.set(team,{team,sourceId:cat.bracket.id,inputOrder:unique.size})
+      }
+    }
     const buckets = new Map(brackets.map(bracket=>[bracket.id,[] as Array<{
       team:string;sourceId:string;inputOrder:number;auto:number|null;edit:Placement
     }>]))
@@ -206,6 +224,7 @@ export default function BracketRankings({
       result[row.sourceId]??={}
       result[row.sourceId][row.team]={
         local:row.local,
+        frozen:true,
         ...(row.categoryId!==row.sourceId?{category:row.categoryId}:{})
       }
     }
@@ -236,7 +255,7 @@ export default function BracketRankings({
   const transfer=(sourceId:string,team:string,target:string)=>{
     setOverrides(prev=>({
       ...prev,[sourceId]:{
-        ...(prev[sourceId]||{}),[team]:{category:target}
+        ...(prev[sourceId]||{}),[team]:{...(prev[sourceId]?.[team]||{}),category:target}
       }
     }))
     setDrafts({})
