@@ -2759,3 +2759,37 @@ html[data-mattabel-theme="blu"] .mt-results-publish{
   .mt-rankings-move{width:85px!important;max-width:85px!important}
   .mt-rankings-selection-fields label{flex-basis:135px}
 }
+
+/* Work-alongside-classifica floating standings. The transparent fixed layer
+   does not block the ranking page, while the movable panel remains interactive. */
+.mt-rankings-floating-overlay{
+  position:fixed!important;inset:0!important;
+  display:block!important;padding:0!important;
+  background:transparent!important;
+  pointer-events:none!important;
+  z-index:12000!important;
+}
+.mt-rankings-floating-dialog{
+  position:fixed!important;
+  width:min(600px,calc(100vw - 24px))!important;
+  height:min(730px,calc(100dvh - 120px));
+  max-height:calc(100dvh - 20px)!important;
+  margin:0!important;
+  pointer-events:auto!important;
+  box-shadow:0 12px 46px rgba(0,0,0,.52);
+}
+.mt-rankings-floating-dialog .mt-rankings-drag-handle{
+  cursor:grab;
+  touch-action:none;
+  user-select:none;
+  border-bottom:1px solid var(--mt-accent,#dcb96f);
+}
+.mt-rankings-floating-dialog .mt-rankings-drag-handle:active{cursor:grabbing}
+.mt-rankings-floating-dialog .mt-rankings-dialog-scroll{overscroll-behavior:contain}
+@media(max-width:700px){
+  .mt-rankings-floating-dialog{
+    width:min(96vw,600px)!important;
+    height:min(76dvh,680px);
+    max-height:calc(100dvh - 85px)!important;
+  }
+}
