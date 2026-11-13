@@ -296,6 +296,14 @@ const thirdB = SF2 ? (loserOfNode(SF2) || `Loser ${SF2.code} — ${bracket.title
 
     const thirdWin = localWinners[thirdCode]
 
+    // The 3rd/4th-place card is below the final: it must be included
+    // in the scroll area's height, otherwise the card is clipped.
+    const finalNode = se.nodes[se.nodes.length - 1]
+    const extraThirdBottom = finalNode && SF1 && SF2
+      ? 16 + finalNode.top + CARD_H + 48 + CARD_H + 24
+      : 0
+    const safeBoardHeight = Math.max(se.height + 120, extraThirdBottom)
+
   return (
    <div className="bracket-scope relative">
         {/* Titolo */}
@@ -308,8 +316,8 @@ const thirdB = SF2 ? (loserOfNode(SF2) || `Loser ${SF2.code} — ${bracket.title
           </div>
         </div>
 
-        <div className="mt-bracket-board-viewport relative overflow-x-auto overflow-y-hidden card" style={{ height: se.height + 120 }}>
-          <div className="mt-bracket-board-inner relative" style={{ width: se.width + HSCROLL_PAD, height: se.height + 100 }}>
+        <div className="mt-bracket-board-viewport relative overflow-x-auto overflow-y-auto card" style={{ minHeight: safeBoardHeight, height: safeBoardHeight }}>
+          <div className="mt-bracket-board-inner relative" style={{ width: se.width + HSCROLL_PAD, minHeight: safeBoardHeight - 16, height: safeBoardHeight - 16 }}>
             {/* linee */}
             <svg width={se.width} height={se.height} className="absolute top-4 left-4" style={{ overflow:'visible' }}>
               {se.nodes.map((n, idx) => {
