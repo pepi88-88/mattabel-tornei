@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import useSWR from 'swr'
+import BracketRankingsLauncher from '../../../components/BracketRankingsLauncher'
 
 /** Costante usata dalle API delle edizioni (la tua GET richiede tour_id) */
 const TOUR_ID = 'GLOBAL'
@@ -495,7 +496,7 @@ const totalsSorted = React.useMemo(() => {
           <button className={`px-3 py-2 text-sm ${gender==='M'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`} onClick={()=>setGender('M')}>Maschile</button>
           <button className={`px-3 py-2 text-sm ${gender==='F'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`} onClick={()=>setGender('F')}>Femminile</button>
         </div>
-        <a className="btn btn-outline btn-sm ml-auto" href="/admin/risultati?classificaTabelloni=1" title="Elenco della tappa separato dalla classifica stagionale">🏆 Classifica tabelloni</a>
+        <BracketRankingsLauncher />
         <a className="btn btn-outline btn-sm" href="/admin/classifica/legenda">Legenda punti</a>
       </div>
 
