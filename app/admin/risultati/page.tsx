@@ -7,6 +7,7 @@ import BracketCanvas, {
   type Bracket as BracketType,
 } from '../../../components/BracketCanvas'
 import PreliminaryBracket from '../../../components/PreliminaryBracket'
+import BracketRankings from '../../../components/BracketRankings'
 import { parseItaPositionToken, resolveItaPosition } from '../../../lib/itaSources'
 import {
   colorForLetter as colorFor,
@@ -2176,6 +2177,14 @@ return (
         externalResolver={resolveToken}       // ok tenerlo per Winner/Loser
       />
     )}
+    <BracketRankings
+      key={tourId + ':' + tId}
+      brackets={brackets}
+      winnersById={winnersById}
+      tourId={tourId}
+      tId={tId}
+      resolveToken={resolveToken}
+    />
     </div>
   </div>
 ) : null}
