@@ -3,7 +3,6 @@
 import * as React from 'react'
 import useSWR from 'swr'
 import { useSearchParams } from 'next/navigation'
-import ResponsiveDesktopTableWrapper from '../../../../../components/ResponsiveDesktopTable'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -119,14 +118,14 @@ const list: RegItemUI[] = React.useMemo(() => {
   }
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto space-y-6">
+    <div className="mt-athlete-registrations p-6 max-w-[1400px] mx-auto space-y-6">
       {/* Titolo */}
-      <div className="text-2xl md:text-3xl font-semibold text-center">
+      <h1 className="mt-athlete-page-title text-2xl md:text-3xl font-semibold text-center">
         {title || 'Iscritti'}
-      </div>
+      </h1>
 
       {/* Lista iscritti - SOLO LETTURA */}
-      <div className="card p-4 space-y-3">
+      <div className="mt-athlete-registration-list card p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Iscritti</h3>
       <div className="text-xs text-neutral-400">
@@ -145,7 +144,7 @@ const list: RegItemUI[] = React.useMemo(() => {
         {list.length === 0 ? (
           <div className="text-sm text-neutral-500">Nessun iscritto per questa tappa.</div>
         ) : (
-         <ResponsiveDesktopTableWrapper minWidthPx={900}>
+         <div className="mt-athlete-registration-scroll">
  <ul className="space-y-1">
   {list.map((r, idx) => {
     const waiting = r.isWaiting
@@ -154,7 +153,7 @@ const list: RegItemUI[] = React.useMemo(() => {
         key={r.id}
         className={[
           // ↓ un filo più compatta
-          'flex items-center justify-between py-1.5 px-2 rounded-lg',
+          'mt-athlete-registration-row flex items-center justify-between py-1.5 px-2 rounded-lg',
           waiting ? 'bg-amber-500/10' : '',
         ].join(' ')}
       >
@@ -168,7 +167,7 @@ const list: RegItemUI[] = React.useMemo(() => {
           {/* Nome: font un filo più piccolo e tight */}
           <div
             className={[
-              'truncate font-medium leading-tight tracking-tight',
+              'mt-athlete-registration-name font-medium leading-tight tracking-tight',
               // ↓ leggermente downgrade del font
               'text-sm md:text-base lg:text-lg',
               waiting ? 'text-amber-400' : 'text-white',
@@ -192,7 +191,7 @@ const list: RegItemUI[] = React.useMemo(() => {
   })}
 </ul>
 
-</ResponsiveDesktopTableWrapper>
+</div>
 
         )}
       </div>
