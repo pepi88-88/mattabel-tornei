@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
 import type { Bracket } from './BracketCanvas'
 
 type Side = 'A' | 'B' | undefined
@@ -105,7 +105,7 @@ export default function BracketRankings({
   const [panelPosition,setPanelPosition] = useState<{x:number;y:number}|null>(null)
   const drag = useRef<{x:number;y:number;left:number;top:number}|null>(null)
   const panelRef = useRef<HTMLElement|null>(null)
-  const startDrag=(event:React.PointerEvent<HTMLElement>)=>{
+  const startDrag=(event:ReactPointerEvent<HTMLElement>)=>{
     if(!floating || event.button!==0 || (event.target as HTMLElement).closest('button,input,select'))return
     const rect=panelRef.current?.getBoundingClientRect()
     if(!rect)return
@@ -113,7 +113,7 @@ export default function BracketRankings({
     event.currentTarget.setPointerCapture(event.pointerId)
     event.preventDefault()
   }
-  const moveDrag=(event:React.PointerEvent<HTMLElement>)=>{
+  const moveDrag=(event:ReactPointerEvent<HTMLElement>)=>{
     if(!drag.current)return
     const width=panelRef.current?.offsetWidth||600
     const height=panelRef.current?.offsetHeight||450
@@ -122,7 +122,7 @@ export default function BracketRankings({
       y:Math.max(0,Math.min(window.innerHeight-Math.min(height,80),drag.current.top+event.clientY-drag.current.y))
     })
   }
-  const endDrag=(event:React.PointerEvent<HTMLElement>)=>{
+  const endDrag=(event:ReactPointerEvent<HTMLElement>)=>{
     drag.current=null
     if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId)
   }
