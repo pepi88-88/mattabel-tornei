@@ -86,21 +86,40 @@ export default function BracketRankingsLauncher(){
       try{storedRank=JSON.parse(localStorage.getItem('groups_rank:'+tourId+':'+stageId)||'{}')}catch{}
       try{avulsa=JSON.parse(localStorage.getItem('classifica_avulsa:'+tourId+':'+stageId)||localStorage.getItem('avulsa:'+tourId+':'+stageId)||'[]')}catch{}
     }
-    return (token:string)=>{
+    const byTitle=new Map(brackets.map(bracket=>[bracket.title.trim().toUpperCase(),bracket]))
+    const read=(token:string,seen:Set<string>):string=>{
       const raw=String(token||'').trim()
-      const match=raw.match(/^([A-Z])\s*(\d{1,2})$/i) || raw.match(/^(\d{1,2})\s*([A-Z])$/i)
-      if(match){
-        const letter=/^[A-Z]/i.test(match[1])?match[1].toUpperCase():match[2].toUpperCase()
-        const position=Number(/^[A-Z]/i.test(match[1])?match[2]:match[1])
-        const ranked=ranking[letter]?.[position-1]||storedRank[letter]?.[position-1]
-        if(ranked)return names(ranked)
-        const id=entries[letter+'-'+position]
-        if(id)return names(labels[id]||id)
+      if(!raw||seen.has(raw))return raw
+      seen.add(raw)
+      // Same winner/loser references used by the Resultati tabellone renderer.
+      const cross=raw.match(/^(Perdente|Loser|Vincente|Winner)\s+(.+?)\s+([A-Za-z])?(\d+)$/i)
+      if(cross){
+        const bracket=byTitle.get(cross[2].trim().toUpperCase())
+        const codeLetter=['M','G','S','F'].includes(String(cross[3]||'R').toUpperCase())
+          ? 'R':String(cross[3]||'R').toUpperCase()
+        const index=Number(cross[4])-1
+        const pairing=codeLetter==='P'?bracket?.prelims?.[index]:bracket?.r1?.[index]
+        const side=bracket?winners[bracket.id]?.[codeLetter+(index+1)]:undefined
+        if(pairing&&side){
+          const isLoser=/^(Perdente|Loser)$/i.test(cross[1])
+          const selected=(side==='A')!==isLoser?pairing.A:pairing.B
+          return read(selected,seen)
+        }
       }
-      if(/^\d+$/.test(raw) && avulsa[Number(raw)-1])return names(avulsa[Number(raw)-1])
+      const m=raw.match(/^([A-Z])\s*(\d{1,2})$/i) || raw.match(/^(\d{1,2})\s*([A-Z])$/i)
+      if(m){
+        const letter=/^[A-Z]/i.test(m[1])?m[1].toUpperCase():m[2].toUpperCase()
+        const pos=Number(/^[A-Z]/i.test(m[1])?m[2]:m[1])
+        const ranked=ranking[letter]?.[pos-1]||storedRank[letter]?.[pos-1]
+        if(ranked)return names(ranked)
+        const id=entries[letter+'-'+pos]
+        if(id&&labels[id])return names(labels[id])
+      }
+      if(/^\d+$/.test(raw)&&avulsa[Number(raw)-1])return names(avulsa[Number(raw)-1])
       return raw
     }
-  },[groupState,stageId,tourId])
+    return (token:string)=>read(token,new Set<string>())
+  },[groupState,stageId,tourId,brackets,winners])
 
   const selector=<div className="mt-rankings-selection-fields">
     <label>Tour
