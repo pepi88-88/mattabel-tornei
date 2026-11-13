@@ -84,6 +84,51 @@ function categoryProposal(
 }
 
 
+function computeRankingGroups(brackets: Bracket[], winnersById: Winners, resolveToken:(s:string)=>string, overrides:Overrides) {
+    const categoryInputs = brackets.map((bracket, index) => ({
+      bracket, index, ...categoryProposal(bracket,winnersById[bracket.id] || {},resolveToken)
+    }))
+    // Exactly one team per EVENT: the lowest bracket it actually entered wins.
+    const unique = new Map<string,{team:string;sourceId:string;inputOrder:number}>()
+    for (const cat of categoryInputs) cat.teams.forEach((team,index) =>
+      unique.set(team,{team,sourceId:cat.bracket.id,inputOrder:index}))
+    const buckets = new Map(brackets.map(bracket=>[bracket.id,[] as Array<{
+      team:string;sourceId:string;inputOrder:number;auto:number|null;edit:Placement
+    }>]))
+    for (const entry of unique.values()) {
+      const edit = overrides[entry.sourceId]?.[entry.team] || {}
+      const target = brackets.some(b=>b.id===edit.category) ? edit.category! : entry.sourceId
+      const source = categoryInputs.find(cat=>cat.bracket.id===entry.sourceId)
+      buckets.get(target)?.push({
+        ...entry,edit,
+        auto:target===entry.sourceId?(source?.places.get(entry.team)||null):null,
+      })
+    }
+    let offset = 0
+    return categoryInputs.map(cat=>{
+      const entries=buckets.get(cat.bracket.id)||[]
+      // Stable provisional rank is determined BEFORE manual edits.
+      // Editing one team's position must NEVER renumber another team.
+      const base=entries.slice().sort((a,b)=>(a.auto??999)-(b.auto??999)
+        ||a.inputOrder-b.inputOrder||a.team.localeCompare(b.team))
+      const rows=base.map((entry,index)=>({
+        ...entry,categoryId:cat.bracket.id,
+        local:entry.edit.local??entry.auto??index+1,
+        provisional:entry.edit.local==null&&entry.auto==null,
+        total:0
+      }))
+      // Reorder rows only after the edit is committed (onBlur).
+      rows.sort((a,b)=>a.local-b.local||a.inputOrder-b.inputOrder||a.team.localeCompare(b.team))
+      // Competition ranks: if two teams are 3rd, both have total rank 3;
+      // next bracket starts after all entrants (e.g. 5th for four teams).
+      for(const row of rows){
+        row.total=offset+rows.filter(other=>other.local<row.local).length+1
+      }
+      offset+=rows.length
+      return {...cat,rows}
+    })
+}
+
 export default function BracketRankings({
   brackets, winnersById, tourId, tId, resolveToken, onClose, selection, floating = false, readOnly = false,
 }: {
@@ -150,50 +195,22 @@ export default function BracketRankings({
     return () => { cancelled = true }
   }, [tId])
 
-  const groups = useMemo(() => {
-    const categoryInputs = brackets.map((bracket, index) => ({
-      bracket, index, ...categoryProposal(bracket,winnersById[bracket.id] || {},resolveToken)
-    }))
-    // Exactly one team per EVENT: the lowest bracket it actually entered wins.
-    const unique = new Map<string,{team:string;sourceId:string;inputOrder:number}>()
-    for (const cat of categoryInputs) cat.teams.forEach((team,index) =>
-      unique.set(team,{team,sourceId:cat.bracket.id,inputOrder:index}))
-    const buckets = new Map(brackets.map(bracket=>[bracket.id,[] as Array<{
-      team:string;sourceId:string;inputOrder:number;auto:number|null;edit:Placement
-    }>]))
-    for (const entry of unique.values()) {
-      const edit = overrides[entry.sourceId]?.[entry.team] || {}
-      const target = brackets.some(b=>b.id===edit.category) ? edit.category! : entry.sourceId
-      const source = categoryInputs.find(cat=>cat.bracket.id===entry.sourceId)
-      buckets.get(target)?.push({
-        ...entry,edit,
-        auto:target===entry.sourceId?(source?.places.get(entry.team)||null):null,
-      })
-    }
-    let offset = 0
-    return categoryInputs.map(cat=>{
-      const entries=buckets.get(cat.bracket.id)||[]
-      // Stable provisional rank is determined BEFORE manual edits.
-      // Editing one team's position must NEVER renumber another team.
-      const base=entries.slice().sort((a,b)=>(a.auto??999)-(b.auto??999)
-        ||a.inputOrder-b.inputOrder||a.team.localeCompare(b.team))
-      const rows=base.map((entry,index)=>({
-        ...entry,categoryId:cat.bracket.id,
-        local:entry.edit.local??entry.auto??index+1,
-        provisional:entry.edit.local==null&&entry.auto==null,
-        total:0
-      }))
-      // Reorder rows only after the edit is committed (onBlur).
-      rows.sort((a,b)=>a.local-b.local||a.inputOrder-b.inputOrder||a.team.localeCompare(b.team))
-      // Competition ranks: if two teams are 3rd, both have total rank 3;
-      // next bracket starts after all entrants (e.g. 5th for four teams).
-      for(const row of rows){
-        row.total=offset+rows.filter(other=>other.local<row.local).length+1
+  const [freshData,setFreshData] = useState<{brackets:Bracket[];winners:Winners}|null>(null)
+  const effectiveBrackets=freshData?.brackets||brackets
+  const effectiveWinners=freshData?.winners||winnersById
+  const groups=useMemo(()=>computeRankingGroups(effectiveBrackets,effectiveWinners,resolveToken,overrides),
+    [effectiveBrackets,effectiveWinners,resolveToken,overrides])
+  const fullSnapshot=(computed:ReturnType<typeof computeRankingGroups>):Overrides=>{
+    const result:Overrides={}
+    for(const cat of computed)for(const row of cat.rows){
+      result[row.sourceId]??={}
+      result[row.sourceId][row.team]={
+        local:row.local,
+        ...(row.categoryId!==row.sourceId?{category:row.categoryId}:{})
       }
-      offset+=rows.length
-      return {...cat,rows}
-    })
-  },[brackets,winnersById,resolveToken,overrides])
+    }
+    return result
+  }
 
   const editKey=(sourceId:string,team:string)=>sourceId+'::'+team
   const commitNumber=(sourceId:string,team:string,current:number)=>{
@@ -235,18 +252,55 @@ export default function BracketRankings({
       const response = await fetch('/api/brackets/rankings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
-        body: JSON.stringify({ tournament_id: tId, rankingOverrides: overrides })
+        body: JSON.stringify({ tournament_id: tId, rankingOverrides: fullSnapshot(groups) })
       })
       const json = await response.json().catch(() => ({}))
       if (!response.ok || !json.ok) throw new Error(json.error || 'Salvataggio classifica non riuscito')
+      setOverrides(fullSnapshot(groups))
       setDirty(false)
-      setMessage('Classifica salvata. Nessuna modifica alla classifica stagionale.')
+      setMessage('Classifica congelata e salvata. Usa Rigenera per ripartire dai risultati più recenti.')
     } catch (error: any) {
       setMessage(error?.message || 'Errore di salvataggio')
     } finally {
       setSaving(false)
     }
   }
+  const regenerate=async()=>{
+    if(!loaded || saving || regenerating || readOnly)return
+    if(!window.confirm('Rigenerare la classifica dai risultati attuali? Le posizioni e i trasferimenti manuali salvati verranno sostituiti. I tabelloni e la classifica stagionale NON cambiano.'))return
+    setRegenerating(true);setMessage('')
+    try{
+      // Get the latest bracket winners, not the snapshot from when the panel opened.
+      const response=await fetch('/api/brackets/state?tournament_id='+encodeURIComponent(tId),{
+        cache:'no-store',headers:{'x-role':'admin'}
+      })
+      const data=await response.json().catch(()=>({}))
+      if(!response.ok)throw new Error(data.error||'Impossibile aggiornare i risultati')
+      const state=data.state||{}
+      const latestBrackets=Array.isArray(state)?state:(state.items||[])
+      const latestWinners=Array.isArray(state)?{}:(state.winnersById||{})
+      if(!Array.isArray(latestBrackets)||!latestBrackets.length)throw new Error('Nessun tabellone da rigenerare')
+      const proposal=computeRankingGroups(latestBrackets,latestWinners,resolveToken,{})
+      const next=fullSnapshot(proposal)
+      const saved=await fetch('/api/brackets/rankings',{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json','x-role':'admin'},
+        body:JSON.stringify({tournament_id:tId,rankingOverrides:next})
+      })
+      const json=await saved.json().catch(()=>({}))
+      if(!saved.ok||!json.ok)throw new Error(json.error||'Rigenerazione non salvata')
+      setFreshData({brackets:latestBrackets,winners:latestWinners})
+      setDrafts({})
+      setOverrides(next)
+      setDirty(false)
+      setMessage('Classifica rigenerata e salvata dai risultati attuali.')
+    }catch(error:any){
+      setMessage(error?.message||'Errore: la vecchia classifica non è stata sostituita')
+    }finally{
+      setRegenerating(false)
+    }
+  }
+
   const close = () => {
     if (dirty && !window.confirm('Hai modifiche alla classifica non salvate. Vuoi uscire?')) return
     onClose()
@@ -272,6 +326,10 @@ export default function BracketRankings({
       </header>
       {selection && <div className="mt-rankings-selector-bar">{selection}</div>}
       <div className="mt-rankings-dialog-actions">
+        {!readOnly && <button type="button" className="btn mt-rankings-regenerate"
+          onClick={regenerate} disabled={!loaded||saving||regenerating}>
+          {regenerating?'Rigenerazione…':'↻ Rigenera classifica'}
+        </button>}
         <button type="button" className="btn" onClick={() => {
           navigator.clipboard?.writeText(textForSocial).then(
             () => setMessage('Classifica copiata negli appunti.'),
