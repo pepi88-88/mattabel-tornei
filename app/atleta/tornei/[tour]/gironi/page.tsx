@@ -231,7 +231,7 @@ export default function AthleteGironiPage(){
     return ()=> { alive=false }
   }, [tId])
 
-  if (!tId) return <div className="p-6 max-w-[1400px] mx-auto">Tappa non valida.</div>
+  if (!tId) return <div className="mt-athlete-groups p-6 max-w-[1400px] mx-auto">Tappa non valida.</div>
 
   const data = pub.state || null
   const letters = React.useMemo(
@@ -256,7 +256,7 @@ export default function AthleteGironiPage(){
 
   return (
     <div className="p-6 max-w-[1400px] mx-auto">
-      <div className="text-2xl md:text-3xl font-semibold text-center mb-3">{title || 'Gironi'}</div>
+      <h1 className="mt-athlete-page-title text-2xl md:text-3xl font-semibold text-center mb-3">{title || 'Gironi'}</h1>
 
       {loading ? (
         <div className="card p-4 text-sm text-neutral-400">Carico…</div>
@@ -333,61 +333,27 @@ export default function AthleteGironiPage(){
                         </div>
 
                         <div className="p-3">
-                          {/* scroll orizzontale se stringe */}
-                          <div className="overflow-x-auto -mx-3">
-                            <div className="inline-block min-w-[640px] w-full">
-                              <div className="space-y-2">
-                                {rows.length === 0 ? (
-  <div className="text-xs text-neutral-500">Nessuna partita.</div>
-) : rows.map((r, idx) => {
-  const showHeader = r.setNo === 1
-  const prev = idx > 0 ? rows[idx - 1] : null
-  const newMatch = !prev || prev.matchIdx !== r.matchIdx
-
-  return (
-    <div
-      key={r.key}
-      className={[
-        'grid items-center whitespace-nowrap',
-        newMatch ? 'border-t border-neutral-800 pt-2 mt-2 first:border-t-0 first:pt-0 first:mt-0' : ''
-      ].join(' ')}
-      style={{
-        gridTemplateColumns:
-          '70px 40px minmax(170px,1fr) 44px 18px 44px minmax(170px,1fr)',
-        columnGap: '.45rem',
-      }}
-    >
-      <div className={showHeader ? 'input h-8 pl-1 pr-0 text-sm tabular-nums' : 'h-8'}>
-  {showHeader ? ((data.times?.[L]?.[r.matchIdx] ?? '') || '—') : ''}
-</div>
-      <div className={showHeader ? 'h-8 flex items-center justify-center text-xs text-amber-300' : 'h-8'}>
-        {showHeader ? 'C.' + (matchCourt(data,L,r.matchIdx) || '—') : ''}
-      </div>
-
-     <div className="min-w-0 truncate text-sm text-right">
-  {showHeader ? displayTeamLabel(L, r.t1, data) : `SET ${r.setNo}`}
-</div>
-
-      <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
-        {data.scores?.[L]?.[r.scoreIdx]?.a ?? ''}
-      </div>
-
-      <div className="w-5 text-center text-[12px] text-neutral-400">
-        {showHeader ? 'vs' : ''}
-      </div>
-
-      <div className="input h-8 w-12 px-1 text-sm text-center tabular-nums">
-        {data.scores?.[L]?.[r.scoreIdx]?.b ?? ''}
-      </div>
-
-      <div className="min-w-0 truncate text-sm pl-1">
-        {showHeader ? displayTeamLabel(L, r.t2, data) : ''}
-      </div>
-    </div>
-  )
-})}
-                              </div>
-                            </div>
+                          <div className="mt-athlete-mobile-matches">
+                            {rows.length === 0 ? <p className="text-sm opacity-70">Nessuna partita.</p>
+                              : rows.map((r, idx) => {
+                                const showHeader = r.setNo === 1
+                                const prev = idx > 0 ? rows[idx - 1] : null
+                                const newMatch = !prev || prev.matchIdx !== r.matchIdx
+                                return <div key={r.key}
+                                  className={`mt-athlete-match ${newMatch ? 'mt-athlete-match-start' : 'mt-athlete-additional-set'}`}>
+                                  {showHeader ? <div className="mt-athlete-match-meta">
+                                    <span>{data.times?.[L]?.[r.matchIdx] || 'Orario da definire'}</span>
+                                    <span>Campo {matchCourt(data,L,r.matchIdx) || '—'}</span>
+                                  </div> : <div className="mt-athlete-match-set">Set {r.setNo}</div>}
+                                  <div className="mt-athlete-match-score">
+                                    <span className="mt-athlete-team-a">{showHeader ? displayTeamLabel(L,r.t1,data) : ''}</span>
+                                    <span className="mt-athlete-score">{data.scores?.[L]?.[r.scoreIdx]?.a ?? '—'}</span>
+                                    <span className="mt-athlete-versus">:</span>
+                                    <span className="mt-athlete-score">{data.scores?.[L]?.[r.scoreIdx]?.b ?? '—'}</span>
+                                    <span className="mt-athlete-team-b">{showHeader ? displayTeamLabel(L,r.t2,data) : ''}</span>
+                                  </div>
+                                </div>
+                              })}
                           </div>
                         </div>
                       </div>
