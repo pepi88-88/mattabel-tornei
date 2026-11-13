@@ -8,6 +8,7 @@ import BracketCanvas, {
 } from '../../../components/BracketCanvas'
 import PreliminaryBracket from '../../../components/PreliminaryBracket'
 import BracketRankings from '../../../components/BracketRankings'
+import AthleteBracketZoom from '../../../components/AthleteBracketZoom'
 import { parseItaPositionToken, resolveItaPosition } from '../../../lib/itaSources'
 import {
   colorForLetter as colorFor,
@@ -2143,6 +2144,7 @@ return (
           <span>{missingGroupMatches.map(group => `Girone ${group.letter}: ${group.count} ${group.count === 1 ? 'partita' : 'partite'}`).join(' · ')}</span>
         </div>
       )}
+    <AthleteBracketZoom storageId={'staff-results:' + tourId + ':' + tId + ':' + active.id}>
     {active.type === 'ITA' ? (
       <ItaEditor
         bracket={active}
@@ -2201,6 +2203,7 @@ return (
         externalResolver={resolveToken}       // ok tenerlo per Winner/Loser
       />
     )}
+    </AthleteBracketZoom>
     </div>
   </div>
 ) : null}
