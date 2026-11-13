@@ -863,6 +863,22 @@ function setItaSlot(idx:number, value:string) {
   patchActive({ slots });
 }
 
+const dragBracketId = useRef<string | null>(null)
+const [dragTargetId, setDragTargetId] = useState<string | null>(null)
+
+function moveBracketTo(fromId: string, targetId: string) {
+  if (locked || !fromId || fromId === targetId) return
+  setBrackets(items => {
+    const from = items.findIndex(item => item.id === fromId)
+    const to = items.findIndex(item => item.id === targetId)
+    if (from < 0 || to < 0 || from === to) return items
+    const reordered = [...items]
+    const [entry] = reordered.splice(from,1)
+    reordered.splice(to,0,entry)
+    return reordered
+  })
+}
+
 // Riordina i tabelloni senza cambiare ID, incontri o riferimenti ai ripescaggi.
 function moveBracket(id: string, direction: -1 | 1) {
   if (locked) return
@@ -1317,28 +1333,53 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
 </button>
 
 
-    {/* Tab dei tabelloni (dopo i 3 bottoni) */}
-    <div className="flex flex-wrap items-end gap-2">
+    {/* Ordine tabelloni: trascina l'icona ⠿ su PC o tablet.
+        Per la tastiera: freccia sinistra/destra sull'impugnatura. */}
+    <div className="mt-bracket-draggable-list flex flex-wrap items-end gap-2">
       {brackets.map((b, index) => (
-        <div key={b.id} className="mt-bracket-reorder-item flex items-center gap-1">
-          <button
-            type="button"
-            className="btn"
+        <div key={b.id} data-bracket-drop-id={b.id}
+          className={\`mt-bracket-reorder-item flex items-center gap-1 \${dragTargetId === b.id ? 'mt-bracket-drop-target' : ''}\`}>
+          <button type="button"
+            className="mt-bracket-grip btn"
+            disabled={locked}
+            style={{ touchAction:'none' }}
+            title="Trascina per riordinare i livelli L1, L2, L3"
+            aria-label={\`Trascina \${b.title} per riordinare. Usa freccia sinistra/destra da tastiera.\`}
+            onPointerDown={event => {
+              if (locked) return
+              dragBracketId.current = b.id
+              setDragTargetId(b.id)
+              event.currentTarget.setPointerCapture(event.pointerId)
+            }}
+            onPointerMove={event => {
+              if (!dragBracketId.current) return
+              const at = document.elementFromPoint(event.clientX,event.clientY)
+              const nearest = at?.closest('[data-bracket-drop-id]')
+              setDragTargetId(nearest?.getAttribute('data-bracket-drop-id') || null)
+            }}
+            onPointerUp={event => {
+              const source = dragBracketId.current
+              const at = document.elementFromPoint(event.clientX,event.clientY)
+              const target = at?.closest('[data-bracket-drop-id]')?.getAttribute('data-bracket-drop-id')
+              if (source && target) moveBracketTo(source,target)
+              dragBracketId.current = null
+              setDragTargetId(null)
+              if (event.currentTarget.hasPointerCapture(event.pointerId))
+                event.currentTarget.releasePointerCapture(event.pointerId)
+            }}
+            onPointerCancel={() => {dragBracketId.current=null;setDragTargetId(null)}}
+            onKeyDown={event => {
+              if (event.key === 'ArrowLeft') {event.preventDefault();moveBracket(b.id,-1)}
+              if (event.key === 'ArrowRight') {event.preventDefault();moveBracket(b.id,1)}
+            }}>⠿</button>
+          <button type="button" className="btn"
             onClick={() => setActiveId(b.id)}
-            style={b.id === activeId ? { outline: `2px solid ${b.color}`, outlineOffset: 2 } : {}}
-            title={b.title}
-            aria-pressed={b.id === activeId}
-          >
+            style={b.id === activeId ? { outline: \`2px solid \${b.color}\`, outlineOffset: 2 } : {}}
+            title={b.title} aria-pressed={b.id === activeId}>
             {b.title}
             <span className="ml-2 text-[10px] opacity-70">L{bracketLevels.order[b.id] ?? index + 1}</span>
             {b.id === bracketLevels.topId && <span className="ml-1">👑</span>}
           </button>
-          <div className="mt-bracket-reorder-controls flex items-center gap-1">
-            <button type="button" className="btn" title={`Sposta ${b.title} prima`} aria-label={`Sposta ${b.title} prima`}
-              disabled={locked || index === 0} onClick={() => moveBracket(b.id, -1)}>←</button>
-            <button type="button" className="btn" title={`Sposta ${b.title} dopo`} aria-label={`Sposta ${b.title} dopo`}
-              disabled={locked || index === brackets.length - 1} onClick={() => moveBracket(b.id, 1)}>→</button>
-          </div>
         </div>
       ))}
     </div>
