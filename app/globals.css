@@ -2838,3 +2838,194 @@ html[data-mattabel-theme="blu"] .mt-results-publish{
 .mt-rankings-floating-dialog{
   overflow:hidden;
 }
+
+
+/* Athlete first: compact public pages built around mobile reading.
+   All rules are scoped to the public /atleta shell. No admin changes. */
+.mt-athlete-shell{min-width:0;overflow-x:clip}
+.mt-athlete-shell .mt-athlete-main{width:100%;max-width:100%;min-width:0}
+.mt-athlete-shell .mt-athlete-page-title{
+  font-size:clamp(18px,2vw,24px);line-height:1.35;
+  font-weight:750;letter-spacing:-.02em;
+}
+.mt-athlete-tournament-item{align-items:center;min-width:0}
+.mt-athlete-tournament-actions .btn{
+  min-height:38px;padding-inline:14px;font-size:12px;font-weight:650;
+}
+.mt-athlete-registration-row{min-width:0;gap:12px}
+.mt-athlete-registration-row > div:first-child{min-width:0;flex:1 1 auto}
+.mt-athlete-registration-name{
+  min-width:0;white-space:normal;overflow-wrap:anywhere;
+  font-size:clamp(12px,1.2vw,15px);line-height:1.4;
+}
+.mt-athlete-registration-scroll{width:100%;max-width:100%;overflow:visible}
+.mt-athlete-groups{min-width:0}
+.mt-athlete-groups .card{border-radius:11px}
+.mt-athlete-mobile-matches{display:flex;flex-direction:column;gap:2px}
+.mt-athlete-match{
+  display:flex;flex-direction:column;gap:6px;
+  padding:9px 0;
+  border-bottom:1px solid rgba(160,160,160,.19);
+}
+.mt-athlete-match:last-child{border-bottom:0}
+.mt-athlete-match-meta{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  font-size:11px;letter-spacing:.01em;
+  color:var(--mt-muted,#bdb4ac);
+}
+.mt-athlete-match-set{font-size:11px;opacity:.68;text-align:center}
+.mt-athlete-match-score{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 35px 6px 35px minmax(0,1fr);
+  align-items:center;gap:6px;
+}
+.mt-athlete-team-a,.mt-athlete-team-b{
+  font-size:12px;font-weight:650;
+  line-height:1.3;overflow-wrap:anywhere;
+  min-width:0;white-space:normal;
+}
+.mt-athlete-team-a{text-align:right}
+.mt-athlete-team-b{text-align:left}
+.mt-athlete-score{
+  display:flex;align-items:center;justify-content:center;
+  width:35px;height:34px;min-width:0;border-radius:6px;
+  border:1px solid var(--mt-border,#54483d);
+  background:var(--mt-elevated,#252322);
+  font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;
+}
+.mt-athlete-versus{text-align:center;opacity:.65;font-size:13px}
+.mt-athlete-group-dot{min-width:10px;min-height:10px}
+.mt-athlete-brackets-header{display:grid!important;grid-template-columns:auto auto minmax(0,1fr);gap:8px}
+.mt-athlete-brackets-title{font-size:clamp(17px,2vw,25px);min-width:0;overflow-wrap:anywhere}
+.mt-athlete-bracket-tabs{gap:8px;scrollbar-width:thin}
+.mt-athlete-bracket-tab{min-height:37px;font-size:12px}
+.mt-athlete-bracket-board{min-width:0;overflow:hidden}
+.mt-athlete-bracket-board .mt-bracket-board-viewport{
+  max-width:100%;overflow-x:auto!important;overscroll-behavior-x:contain;
+}
+.mt-athlete-ranking-card{min-width:0}
+.mt-athlete-ranking-scroll{scrollbar-width:thin;overscroll-behavior-x:contain}
+.mt-athlete-ranking-scroll table{font-variant-numeric:tabular-nums}
+
+@media(max-width:767px){
+  .mt-athlete-shell .athlete-topbar{width:100%;max-width:100%}
+  .mt-athlete-shell .athlete-topline{
+    padding:7px 10px!important;
+    display:grid!important;
+    grid-template-columns:1fr auto;
+    align-items:center;gap:6px 10px;
+  }
+  .mt-athlete-shell .mt-athlete-brand{
+    min-width:0;display:flex;align-items:center;
+  }
+  .mt-athlete-shell .mt-athlete-brand img{
+    width:auto!important;height:37px!important;max-width:142px;object-fit:contain;
+  }
+  .mt-athlete-shell .athlete-navigation{
+    display:flex!important;grid-column:1/-1;
+    justify-content:stretch;flex-wrap:nowrap!important;
+    gap:5px!important;width:100%;min-width:0;
+    order:3;
+  }
+  .mt-athlete-shell .athlete-navigation .mt-athlete-nav-link{
+    flex:1 1 0;min-width:0!important;
+    margin:0!important;height:40px!important;
+    padding:5px 8px!important;
+    font-size:12px!important;gap:5px;
+    white-space:nowrap;
+  }
+  .mt-athlete-shell .athlete-navigation .mt-athlete-exit{
+    flex:0 0 auto;min-width:0!important;
+    height:40px!important;margin:0!important;
+    padding:5px 9px!important;font-size:12px;
+  }
+  .mt-athlete-shell .athlete-navigation .mt-athlete-nav-link .mt-nav-icon{
+    flex:0 0 auto;
+  }
+  .mt-athlete-shell .athlete-topline > :last-child{
+    grid-column:2;grid-row:1;
+  }
+  .mt-athlete-shell .athlete-logo-below{display:none!important}
+  .mt-athlete-shell .mt-athlete-main{
+    padding:10px 9px 22px!important;
+  }
+  .mt-athlete-tournaments,.mt-athlete-registrations,
+  .mt-athlete-groups,.mt-athlete-brackets,
+  .mt-athlete-standing-page{
+    padding:4px 0 14px!important;
+    margin:0 auto!important;
+  }
+  .mt-athlete-tournament-list{padding:9px!important}
+  .mt-athlete-tournament-item{
+    align-items:stretch!important;
+    padding:12px 5px!important;gap:10px!important;
+  }
+  .mt-athlete-tournament-actions{
+    display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:5px!important;width:100%;
+  }
+  .mt-athlete-tournament-actions .btn{
+    width:100%!important;min-width:0;
+    min-height:40px;padding:7px 5px!important;
+    font-size:11px!important;
+    text-align:center;white-space:normal;
+  }
+  .mt-athlete-registration-list{padding:12px!important}
+  .mt-athlete-registration-list>div:first-child{
+    flex-wrap:wrap;gap:6px;
+  }
+  .mt-athlete-registration-row{padding:8px 3px!important}
+  .mt-athlete-registration-row .badge{
+    white-space:nowrap;font-size:10px;
+  }
+  .mt-athlete-group-dot{
+    width:27px!important;height:27px!important;
+    border-radius:8px!important;
+    background:var(--mt-elevated,#46403c)!important;
+    color:var(--mt-ink,#fff);
+    font-size:11px;
+  }
+  .mt-athlete-groups .snap-x{scrollbar-width:none}
+  .mt-athlete-groups .snap-x::-webkit-scrollbar{display:none}
+  .mt-athlete-brackets-content{
+    padding:4px 0!important;
+    display:flex;flex-direction:column;gap:12px!important;
+  }
+  .mt-athlete-brackets-header{
+    grid-template-columns:1fr 1fr!important;
+    gap:6px!important;
+  }
+  .mt-athlete-brackets-header a{min-width:0;text-align:center}
+  .mt-athlete-brackets-title{
+    grid-column:1/-1;grid-row:1;
+    margin:0!important;text-align:center;
+    padding:4px 0;
+  }
+  .mt-athlete-bracket-tabs{
+    display:flex!important;flex-wrap:nowrap!important;
+    width:100%;overflow-x:auto;
+    padding:10px!important;
+    scroll-snap-type:x proximity;
+  }
+  .mt-athlete-bracket-tab{
+    flex:0 0 auto;scroll-snap-align:center;
+    min-height:42px;font-size:12px;
+  }
+  .mt-athlete-bracket-board{padding:8px 4px!important}
+  .mt-athlete-bracket-board .mt-bracket-board-viewport{
+    border-radius:8px!important;
+  }
+  .mt-athlete-ranking-filters{gap:8px!important}
+  .mt-athlete-ranking-filters>div:first-child{width:100%}
+  .mt-athlete-ranking-filters select{width:100%;max-width:100%}
+  .mt-athlete-ranking-card>.flex{gap:7px}
+  .mt-athlete-ranking-scroll{padding:5px!important}
+}
+@media(min-width:768px) and (max-width:1100px){
+  .mt-athlete-shell .athlete-navigation{gap:5px!important}
+  .mt-athlete-shell .mt-athlete-nav-link,
+  .mt-athlete-shell .mt-athlete-exit{
+    min-width:0!important;padding-inline:10px!important;
+  }
+  .mt-athlete-shell .mt-athlete-main{padding:14px 16px!important}
+}
