@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { Bracket } from './BracketCanvas'
 
 type Side = 'A' | 'B' | undefined
@@ -84,7 +85,7 @@ function categoryProposal(
 
 
 export default function BracketRankings({
-  brackets, winnersById, tourId, tId, resolveToken, onClose,
+  brackets, winnersById, tourId, tId, resolveToken, onClose, selection,
 }: {
   brackets: Bracket[]
   winnersById: Winners
@@ -92,17 +93,19 @@ export default function BracketRankings({
   tId: string
   resolveToken: (s: string) => string
   onClose: () => void
+  selection?: ReactNode
 }) {
   const [overrides, setOverrides] = useState<Overrides>({})
   const [loaded, setLoaded] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
-  const [compact, setCompact] = useState(true)
+  const [drafts, setDrafts] = useState<Record<string,string>>({})
 
   useEffect(() => {
     let cancelled = false
     setLoaded(false)
+    setDrafts({})
     fetch('/api/brackets/state?tournament_id=' + encodeURIComponent(tId), {
       headers: { 'x-role': 'admin' }, cache: 'no-store'
     }).then(async response => {
@@ -121,94 +124,78 @@ export default function BracketRankings({
 
   const groups = useMemo(() => {
     const categoryInputs = brackets.map((bracket, index) => ({
-      bracket, index, ...categoryProposal(bracket, winnersById[bracket.id] || {}, resolveToken)
+      bracket, index, ...categoryProposal(bracket,winnersById[bracket.id] || {},resolveToken)
     }))
-    // Same team in multiple brackets belongs to its last (lowest) category.
-    // Manual transfer is an override of the EVENT RANKING only: the bracket
-    // matches, live results and seasonal ranking remain unchanged.
-    const unique = new Map<string, { team: string; sourceId: string; inputOrder: number }>()
-    for (const source of categoryInputs) {
-      source.teams.forEach((team, index) => {
-        unique.set(team, { team, sourceId: source.bracket.id, inputOrder: index })
-      })
-    }
-    const byCategory = new Map(brackets.map(bracket => [bracket.id, [] as Array<{
-      team: string; sourceId: string; inputOrder: number; auto: number | null;
-      edit: Placement
+    // Exactly one team per EVENT: the lowest bracket it actually entered wins.
+    const unique = new Map<string,{team:string;sourceId:string;inputOrder:number}>()
+    for (const cat of categoryInputs) cat.teams.forEach((team,index) =>
+      unique.set(team,{team,sourceId:cat.bracket.id,inputOrder:index}))
+    const buckets = new Map(brackets.map(bracket=>[bracket.id,[] as Array<{
+      team:string;sourceId:string;inputOrder:number;auto:number|null;edit:Placement
     }>]))
     for (const entry of unique.values()) {
       const edit = overrides[entry.sourceId]?.[entry.team] || {}
-      const target = brackets.some(b => b.id === edit.category) ? edit.category! : entry.sourceId
-      const source = categoryInputs.find(cat => cat.bracket.id === entry.sourceId)
-      byCategory.get(target)?.push({
-        ...entry, edit,
-        auto: target === entry.sourceId ? (source?.places.get(entry.team) || null) : null,
+      const target = brackets.some(b=>b.id===edit.category) ? edit.category! : entry.sourceId
+      const source = categoryInputs.find(cat=>cat.bracket.id===entry.sourceId)
+      buckets.get(target)?.push({
+        ...entry,edit,
+        auto:target===entry.sourceId?(source?.places.get(entry.team)||null):null,
       })
     }
     let offset = 0
-    return categoryInputs.map(source => {
-      const items = byCategory.get(source.bracket.id) || []
-      items.sort((a,b) => {
-        const rankA = a.edit.local ?? a.auto ?? 999
-        const rankB = b.edit.local ?? b.auto ?? 999
-        return rankA - rankB || a.inputOrder - b.inputOrder || a.team.localeCompare(b.team)
-      })
-      const rows = items.map((item, index) => ({
-        ...item,
-        categoryId: source.bracket.id,
-        local: item.edit.local ?? index + 1,
-        total: item.edit.total ?? offset + index + 1,
-        provisional: item.edit.local == null && item.auto == null,
+    return categoryInputs.map(cat=>{
+      const entries=buckets.get(cat.bracket.id)||[]
+      // Unresolved games receive a *provisional* sequence.
+      // Rank edits are applied only on blur, so editing does not jump the row.
+      entries.sort((a,b)=>(a.edit.local??a.auto??999)-(b.edit.local??b.auto??999)
+        ||a.inputOrder-b.inputOrder||a.team.localeCompare(b.team))
+      const rows=entries.map((entry,index)=>({
+        ...entry,categoryId:cat.bracket.id,
+        local:entry.edit.local??entry.auto??index+1,
+        provisional:entry.edit.local==null&&entry.auto==null,
+        total:0
       }))
-      offset += rows.length
-      return { ...source, rows }
+      rows.sort((a,b)=>a.local-b.local||a.inputOrder-b.inputOrder||a.team.localeCompare(b.team))
+      // Competition ranks: if two teams are 3rd, both have total rank 3;
+      // next bracket starts after all entrants (e.g. 5th for four teams).
+      for(const row of rows){
+        row.total=offset+rows.filter(other=>other.local<row.local).length+1
+      }
+      offset+=rows.length
+      return {...cat,rows}
     })
-  }, [brackets, winnersById, resolveToken, overrides])
+  },[brackets,winnersById,resolveToken,overrides])
 
-  const modify = (sourceId: string, team: string, patch: Partial<Placement>) => {
-    setOverrides(prev => {
-      const next = { ...prev }
-      const current = { ...(next[sourceId] || {}) }
-      const edited = { ...(current[team] || {}), ...patch }
-      current[team] = edited
-      next[sourceId] = current
-      return next
-    })
-    setDirty(true)
-    setMessage('')
-  }
-  const changeNumber = (sourceId: string, team: string, key: 'local' | 'total', value: string) => {
-    if (value === '') {
-      setOverrides(prev => {
-        const next = { ...prev }
-        const item = { ...(next[sourceId] || {}) }
-        const row = { ...(item[team] || {}) }
-        delete row[key]
-        if (Object.keys(row).length) item[team] = row
-        else delete item[team]
-        if (Object.keys(item).length) next[sourceId] = item
-        else delete next[sourceId]
-        return next
-      })
-      setDirty(true)
+  const editKey=(sourceId:string,team:string)=>sourceId+'::'+team
+  const commitNumber=(sourceId:string,team:string,current:number)=>{
+    const key=editKey(sourceId,team)
+    const raw=drafts[key]
+    if(raw===undefined)return
+    setDrafts(prev=>{const next={...prev};delete next[key];return next})
+    const value=Number(raw)
+    if(!raw.trim()||!Number.isInteger(value)||value<1||value>1024){
+      setMessage('Inserisci un numero di posizione intero da 1 a 1024.')
       return
     }
-    const number = Number(value)
-    if (!Number.isInteger(number) || number < 1 || number > 1024) return
-    modify(sourceId, team, { [key]: number })
+    if(value===current)return
+    setOverrides(prev=>({
+      ...prev,[sourceId]:{
+        ...(prev[sourceId]||{}),[team]:{
+          ...(prev[sourceId]?.[team]||{}),local:value
+        }
+      }
+    }))
+    setDirty(true);setMessage('')
   }
-  const transfer = (sourceId: string, team: string, destination: string) => {
-    // Category changed => reset old placements so new proposed numbers are
-    // consistent with the destination category (still editable).
-    setOverrides(prev => {
-      const next = { ...prev }
-      const category = { ...(next[sourceId] || {}) }
-      category[team] = { category: destination }
-      next[sourceId] = category
-      return next
-    })
+  const transfer=(sourceId:string,team:string,target:string)=>{
+    setOverrides(prev=>({
+      ...prev,[sourceId]:{
+        ...(prev[sourceId]||{}),[team]:{category:target}
+      }
+    }))
+    setDrafts({})
     setDirty(true)
-    setMessage('Coppia spostata nella classifica provvisoria. Salva per confermare.')
+    setMessage('Categoria modificata solo nella classifica di servizio.')
   }
 
   const save = async () => {
@@ -235,12 +222,9 @@ export default function BracketRankings({
     if (dirty && !window.confirm('Hai modifiche alla classifica non salvate. Vuoi uscire?')) return
     onClose()
   }
-  const all = groups.flatMap(group => group.rows.map(row => ({
-    ...row, categoryName: group.bracket.title
-  }))).sort((a,b)=>a.total-b.total || a.team.localeCompare(b.team))
-  const textForSocial = groups.map(group => [
-    (group.index+1) + '. ' + group.bracket.title.toUpperCase(),
-    ...group.rows.map(row => row.local + '° ' + row.team + ' (' + row.total + '° totale)')
+  const textForSocial=groups.map(group=>[
+    'L'+(group.index+1)+' · '+group.bracket.title.toUpperCase(),
+    ...group.rows.map(row=>row.total+'° totale | '+row.local+'° '+row.team)
   ].join('\n')).join('\n\n')
 
   return <div className="mt-rankings-overlay" role="presentation" onMouseDown={event => {
@@ -254,11 +238,8 @@ export default function BracketRankings({
         </div>
         <button type="button" className="btn" onClick={close} aria-label="Chiudi classifica">✕</button>
       </header>
+      {selection && <div className="mt-rankings-selector-bar">{selection}</div>}
       <div className="mt-rankings-dialog-actions">
-        <button type="button" className="btn" aria-pressed={compact}
-          onClick={() => setCompact(value => !value)}>
-          {compact ? 'Mostra totale' : 'Vista social compatta'}
-        </button>
         <button type="button" className="btn" onClick={() => {
           navigator.clipboard?.writeText(textForSocial).then(
             () => setMessage('Classifica copiata negli appunti.'),
@@ -276,34 +257,37 @@ export default function BracketRankings({
               <strong>L{group.index + 1} · {group.bracket.title.toUpperCase()}</strong>
               <small>{group.rows.length} squadre</small>
             </div>
-            {group.rows.length === 0 && <p className="p-2 text-xs">Nessuna coppia in questa categoria.</p>}
+            {group.rows.length===0 && <p className="p-2 text-xs">Nessuna coppia in questa categoria.</p>}
             <div className="mt-rankings-lines">
-              {group.rows.map(row => <div className="mt-rankings-line" key={row.sourceId + '/' + row.team}>
-                <input type="number" className="input mt-rankings-place" min={1} max={1024}
+              {group.rows.map(row => <div className="mt-rankings-line" key={row.sourceId+'/'+row.team}>
+                <span className="mt-rankings-overall" title="Posizione totale, calcolata automaticamente">{row.total}°</span>
+                <input type="text" inputMode="numeric" pattern="[0-9]*"
+                  className="input mt-rankings-place"
                   aria-label={'Posizione ' + group.bracket.title + ': ' + row.team}
-                  value={row.local} onChange={e => changeNumber(row.sourceId,row.team,'local',e.target.value)}/>
-                <span className="mt-rankings-name">{row.team}{row.provisional && <small>provvisoria</small>}</span>
-                {!compact && <input type="number" className="input mt-rankings-total" min={1} max={1024}
-                  aria-label={'Posizione totale: ' + row.team}
-                  value={row.total} onChange={e => changeNumber(row.sourceId,row.team,'total',e.target.value)}/>}
-                {!compact && <select className="input mt-rankings-move" aria-label={'Categoria di ' + row.team}
-                  value={row.categoryId} onChange={e => transfer(row.sourceId,row.team,e.target.value)}>
-                  {brackets.map((bracket,i) => <option key={bracket.id} value={bracket.id}>L{i+1} {bracket.title}</option>)}
-                </select>}
+                  value={drafts[editKey(row.sourceId,row.team)] ?? String(row.local)}
+                  onChange={event=>setDrafts(prev=>({...prev,[editKey(row.sourceId,row.team)]:event.target.value.replace(/[^0-9]/g,'').slice(0,4)}))}
+                  onBlur={()=>commitNumber(row.sourceId,row.team,row.local)}
+                  onKeyDown={event=>{if(event.key==='Enter')event.currentTarget.blur()}}
+                />
+                <span className="mt-rankings-name">
+                  {row.team}{row.provisional && <small>provvisoria</small>}
+                </span>
+                <select className="input mt-rankings-move" aria-label={'Sposta '+row.team+' in categoria'}
+                  title="Cambia tabellone nella classifica"
+                  value={row.categoryId}
+                  onChange={event=>transfer(row.sourceId,row.team,event.target.value)}>
+                  {brackets.map((bracket,i)=><option key={bracket.id} value={bracket.id}>
+                    L{i+1} · {bracket.title}
+                  </option>)}
+                </select>
               </div>)}
             </div>
           </section>)}
           <p className="mt-rankings-note">
-            Numeri precompilati come riferimento, anche con risultati incompleti.
-            Per correggere la categoria e il piazzamento totale premi “Mostra totale”.
-            Spostare una coppia qui non cambia gli incontri del tabellone.
+            A sinistra: posizione totale automatica (pari merito in caso di uguale posizione nello stesso tabellone).
+            Il numero centrale si modifica scrivendo e si riordina quando esci dal campo.
+            L'ultima tendina consente di spostare una coppia tra tabelloni senza modificare le partite.
           </p>
-          {!compact && <section className="mt-rankings-total-list">
-            <strong>Ordine generale della tappa</strong>
-            {all.map(row => <div key={row.sourceId + row.team} className="mt-rankings-total-row">
-              <b>{row.total}°</b><span>{row.team}</span><small>{row.categoryName}</small>
-            </div>)}
-          </section>}
         </>}
       </div>
       <footer className="mt-rankings-dialog-footer">
