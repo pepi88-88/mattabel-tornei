@@ -4,7 +4,7 @@ import type { Bracket } from './BracketCanvas'
 
 type Side = 'A' | 'B' | undefined
 type Winners = Record<string, Record<string, Side>>
-type Placement = { local?: number; total?: number }
+type Placement = { local?: number; total?: number; category?: string }
 type Overrides = Record<string, Record<string, Placement>>
 type Row = {
   bracketId: string
@@ -82,177 +82,234 @@ function categoryProposal(
   }
 }
 
+
 export default function BracketRankings({
-  brackets, winnersById, tourId, tId, resolveToken,
+  brackets, winnersById, tourId, tId, resolveToken, onClose,
 }: {
   brackets: Bracket[]
   winnersById: Winners
   tourId: string
   tId: string
   resolveToken: (s: string) => string
+  onClose: () => void
 }) {
-  const [overrides,setOverrides] = useState<Overrides>({})
-  const [loaded,setLoaded] = useState(false)
-  const [dirty,setDirty] = useState(false)
-  const [saving,setSaving] = useState(false)
-  const [message,setMessage] = useState('')
-  const [show,setShow] = useState(false)
+  const [overrides, setOverrides] = useState<Overrides>({})
+  const [loaded, setLoaded] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [compact, setCompact] = useState(true)
 
-  useEffect(()=>{
+  useEffect(() => {
     let cancelled = false
-    setLoaded(false);setShow(false);setDirty(false);setMessage('');setOverrides({})
-    if (!tId) return
-    fetch('/api/brackets/state?tournament_id='+encodeURIComponent(tId),{
-      headers:{'x-role':'admin'},cache:'no-store'
+    setLoaded(false)
+    fetch('/api/brackets/state?tournament_id=' + encodeURIComponent(tId), {
+      headers: { 'x-role': 'admin' }, cache: 'no-store'
     }).then(async response => {
       if (!response.ok) throw new Error('Caricamento classifica fallito')
       return response.json()
-    }).then(json=>{
-      if(cancelled)return
-      const value = json?.state?.rankingOverrides
-      setOverrides(value && typeof value === 'object' && !Array.isArray(value) ? value : {})
+    }).then(json => {
+      if (cancelled) return
+      const data = json?.state?.rankingOverrides
+      setOverrides(data && typeof data === 'object' && !Array.isArray(data) ? data : {})
       setLoaded(true)
-    }).catch(()=>{
-      if(cancelled)return
-      setMessage('Impossibile caricare la classifica. Ricarica la pagina prima di modificarla.')
+    }).catch(() => {
+      if (!cancelled) setMessage('Impossibile leggere la classifica. Ricarica la pagina.')
     })
-    return ()=>{cancelled=true}
-  },[tId])
+    return () => { cancelled = true }
+  }, [tId])
 
-  const categories = useMemo(()=>{
-    const proposed = brackets.map((bracket,index)=>({
-      bracket,index,...categoryProposal(bracket,winnersById[bracket.id] || {},resolveToken)
+  const groups = useMemo(() => {
+    const categoryInputs = brackets.map((bracket, index) => ({
+      bracket, index, ...categoryProposal(bracket, winnersById[bracket.id] || {}, resolveToken)
     }))
-    // Se una coppia è passata a un tabellone inferiore, figura SOLO
-    // nel tabellone di livello finale, non anche nella categoria superiore.
-    return proposed.map((cat,index)=>{
-      const movedDown = new Set(proposed.slice(index+1).flatMap(c=>c.teams))
-      return {...cat, teams:cat.teams.filter(team=>!movedDown.has(team))}
-    })
-  },[brackets,winnersById,resolveToken])
-
-  const categoriesWithRows = useMemo(()=>{
-    let consumed = 0
-    return categories.map(cat=>{
-      const rows = cat.teams.map(team=>{
-        const edit = overrides[cat.bracket.id]?.[team] || {}
-        const autoLocal = cat.places.get(team) || null
-        const local = edit.local ?? autoLocal
-        return {
-          bracketId:cat.bracket.id,
-          title:cat.bracket.title,
-          team,autoLocal,local,total:null,
-          localEdited:edit.local != null,totalEdited:edit.total != null,
-        } as Row
+    // Same team in multiple brackets belongs to its last (lowest) category.
+    // Manual transfer is an override of the EVENT RANKING only: the bracket
+    // matches, live results and seasonal ranking remain unchanged.
+    const unique = new Map<string, { team: string; sourceId: string; inputOrder: number }>()
+    for (const source of categoryInputs) {
+      source.teams.forEach((team, index) => {
+        unique.set(team, { team, sourceId: source.bracket.id, inputOrder: index })
       })
-      // Posizioni ex aequo non giocati mantengono lo stesso numero (es. 3° pari).
-      const ranked = rows.filter(row=>row.local != null)
-        .sort((a,b)=>(a.local! - b.local!) || a.team.localeCompare(b.team))
-      let lastLocal = -1, lastTotal = -1
-      for(let index=0;index<ranked.length;index++){
-        const row=ranked[index]
-        if(row.local !== lastLocal){lastLocal=row.local!;lastTotal=consumed+index+1}
-        row.total=lastTotal
-      }
-      consumed += rows.length
-      for(const row of rows){
-        const globalOverride=overrides[cat.bracket.id]?.[row.team]?.total
-        if(globalOverride != null) row.total=globalOverride
-      }
-      return {...cat, rows}
+    }
+    const byCategory = new Map(brackets.map(bracket => [bracket.id, [] as Array<{
+      team: string; sourceId: string; inputOrder: number; auto: number | null;
+      edit: Placement
+    }>]))
+    for (const entry of unique.values()) {
+      const edit = overrides[entry.sourceId]?.[entry.team] || {}
+      const target = brackets.some(b => b.id === edit.category) ? edit.category! : entry.sourceId
+      const source = categoryInputs.find(cat => cat.bracket.id === entry.sourceId)
+      byCategory.get(target)?.push({
+        ...entry, edit,
+        auto: target === entry.sourceId ? (source?.places.get(entry.team) || null) : null,
+      })
+    }
+    let offset = 0
+    return categoryInputs.map(source => {
+      const items = byCategory.get(source.bracket.id) || []
+      items.sort((a,b) => {
+        const rankA = a.edit.local ?? a.auto ?? 999
+        const rankB = b.edit.local ?? b.auto ?? 999
+        return rankA - rankB || a.inputOrder - b.inputOrder || a.team.localeCompare(b.team)
+      })
+      const rows = items.map((item, index) => ({
+        ...item,
+        categoryId: source.bracket.id,
+        local: item.edit.local ?? index + 1,
+        total: item.edit.total ?? offset + index + 1,
+        provisional: item.edit.local == null && item.auto == null,
+      }))
+      offset += rows.length
+      return { ...source, rows }
     })
-  },[categories,overrides])
+  }, [brackets, winnersById, resolveToken, overrides])
 
-  const change = (bracketId:string,team:string,kind:'local'|'total',value:string)=>{
-    const num = value === '' ? undefined : Number(value)
-    if(num !== undefined && (!Number.isInteger(num)||num<1||num>1024))return
-    setOverrides(prev=>{
-      const next={...prev}
-      const category={...(next[bracketId]||{})}
-      const placement={...(category[team]||{})}
-      if(num === undefined)delete placement[kind]
-      else placement[kind]=num
-      if(Object.keys(placement).length)category[team]=placement
-      else delete category[team]
-      if(Object.keys(category).length)next[bracketId]=category
-      else delete next[bracketId]
+  const modify = (sourceId: string, team: string, patch: Partial<Placement>) => {
+    setOverrides(prev => {
+      const next = { ...prev }
+      const current = { ...(next[sourceId] || {}) }
+      const edited = { ...(current[team] || {}), ...patch }
+      current[team] = edited
+      next[sourceId] = current
       return next
     })
-    setDirty(true);setMessage('')
+    setDirty(true)
+    setMessage('')
   }
-
-  const save = async ()=>{
-    if(!loaded||saving||!tId)return
-    setSaving(true);setMessage('')
-    try{
-      const response=await fetch('/api/brackets/rankings',{
-        method:'PATCH',
-        headers:{'Content-Type':'application/json','x-role':'admin'},
-        body:JSON.stringify({tournament_id:tId,rankingOverrides:overrides})
+  const changeNumber = (sourceId: string, team: string, key: 'local' | 'total', value: string) => {
+    if (value === '') {
+      setOverrides(prev => {
+        const next = { ...prev }
+        const item = { ...(next[sourceId] || {}) }
+        const row = { ...(item[team] || {}) }
+        delete row[key]
+        if (Object.keys(row).length) item[team] = row
+        else delete item[team]
+        if (Object.keys(item).length) next[sourceId] = item
+        else delete next[sourceId]
+        return next
       })
-      const json=await response.json().catch(()=>({}))
-      if(!response.ok||!json.ok)throw new Error(json.error||'Salvataggio classifica fallito')
-      setDirty(false);setMessage('Classifica salvata. Le posizioni manuali sono conservate.')
-    }catch(error:any){setMessage(error?.message||'Errore di salvataggio')}
-    finally{setSaving(false)}
+      setDirty(true)
+      return
+    }
+    const number = Number(value)
+    if (!Number.isInteger(number) || number < 1 || number > 1024) return
+    modify(sourceId, team, { [key]: number })
   }
-  const allRows=categoriesWithRows.flatMap(cat=>cat.rows)
-  const known = allRows.filter(row=>row.total!=null)
-    .sort((a,b)=>(a.total! - b.total!)||a.bracketId.localeCompare(b.bracketId))
-  const unknown=allRows.filter(row=>row.total==null)
-  const hasCollisions = new Set(known.map(row=>row.total)).size<known.length
+  const transfer = (sourceId: string, team: string, destination: string) => {
+    // Category changed => reset old placements so new proposed numbers are
+    // consistent with the destination category (still editable).
+    setOverrides(prev => {
+      const next = { ...prev }
+      const category = { ...(next[sourceId] || {}) }
+      category[team] = { category: destination }
+      next[sourceId] = category
+      return next
+    })
+    setDirty(true)
+    setMessage('Coppia spostata nella classifica provvisoria. Salva per confermare.')
+  }
 
-  return <section className="mt-bracket-rankings card" aria-label="Classifica tabelloni">
-    <div className="mt-bracket-rankings-heading">
-      <div>
-        <strong>Classifica tabelloni e classifica totale</strong>
-        <p className="text-xs text-neutral-400">La categoria finale prevale sui tabelloni superiori. Le posizioni non certe restano da assegnare.</p>
-      </div>
-      <button type="button" className="btn" onClick={()=>setShow(x=>!x)}>{show?'Chiudi classifica':'Apri classifica'}</button>
-    </div>
-    {show&&<div className="mt-bracket-rankings-body">
-      {!loaded?<p role="status" className="text-sm text-amber-400">{message||'Caricamento classifica…'}</p>:<>
-      {categoriesWithRows.map((cat,index)=>(
-        <div className="mt-bracket-rankings-category" key={cat.bracket.id}>
-          <div className="mt-bracket-rankings-bar">
-            <strong>L{index+1} · {cat.bracket.title}</strong>
-            <span>{cat.rows.length} squadre nella categoria finale</span>
-          </div>
-          {cat.rows.length===0?<p className="text-sm text-neutral-400 p-2">Nessuna squadra risolta in questa categoria.</p>:
-          <div className="mt-bracket-rankings-table-wrap">
-            <table className="mt-bracket-rankings-table">
-              <thead><tr><th>Squadra</th><th>Pos. tabellone</th><th>Pos. totale</th></tr></thead>
-              <tbody>{cat.rows.map(row=>(
-                <tr key={row.team}>
-                  <td>{row.team}<span className="mt-ranking-proposal">{row.localEdited?'Manuale':row.autoLocal!=null?'Proposta automatica':'Da definire'}</span></td>
-                  <td><input type="number" min={1} max={1024} className="input"
-                    aria-label={'Posizione in '+cat.bracket.title+' per '+row.team}
-                    value={row.local??''} placeholder="—"
-                    onChange={e=>change(cat.bracket.id,row.team,'local',e.target.value)}/></td>
-                  <td><input type="number" min={1} max={1024} className="input"
-                    aria-label={'Posizione totale per '+row.team}
-                    value={row.total??''} placeholder="—"
-                    onChange={e=>change(cat.bracket.id,row.team,'total',e.target.value)}/></td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>}
+  const save = async () => {
+    if (!loaded || saving || !tId) return
+    setSaving(true)
+    setMessage('')
+    try {
+      const response = await fetch('/api/brackets/rankings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
+        body: JSON.stringify({ tournament_id: tId, rankingOverrides: overrides })
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!response.ok || !json.ok) throw new Error(json.error || 'Salvataggio classifica non riuscito')
+      setDirty(false)
+      setMessage('Classifica salvata. Nessuna modifica alla classifica stagionale.')
+    } catch (error: any) {
+      setMessage(error?.message || 'Errore di salvataggio')
+    } finally {
+      setSaving(false)
+    }
+  }
+  const close = () => {
+    if (dirty && !window.confirm('Hai modifiche alla classifica non salvate. Vuoi uscire?')) return
+    onClose()
+  }
+  const all = groups.flatMap(group => group.rows.map(row => ({
+    ...row, categoryName: group.bracket.title
+  }))).sort((a,b)=>a.total-b.total || a.team.localeCompare(b.team))
+  const textForSocial = groups.map(group => [
+    (group.index+1) + '. ' + group.bracket.title.toUpperCase(),
+    ...group.rows.map(row => row.local + '° ' + row.team + ' (' + row.total + '° totale)')
+  ].join('\n')).join('\n\n')
+
+  return <div className="mt-rankings-overlay" role="presentation" onMouseDown={event => {
+    if (event.target === event.currentTarget) close()
+  }}>
+    <section className="mt-rankings-dialog" role="dialog" aria-modal="true" aria-label="Classifica tabelloni">
+      <header className="mt-rankings-dialog-header">
+        <div>
+          <h2>Classifica tabelloni</h2>
+          <p>Provvisoria e modificabile · Indipendente dalla classifica stagionale</p>
         </div>
-      ))}
-      <div className="mt-bracket-rankings-preview">
-        <strong>Riepilogo generale della tappa</strong>
-        {known.map(row=><div className="mt-bracket-rankings-final-row" key={row.bracketId+'-'+row.team}>
-          <strong>{row.total}°</strong><span>{row.team}</span><small>{row.title}</small>
-        </div>)}
-        {unknown.length>0&&<p className="text-xs text-amber-300">Da definire: {unknown.length} {unknown.length===1?'squadra':'squadre'}.</p>}
-        {hasCollisions&&<p className="text-xs text-amber-300">Alcune squadre hanno la stessa posizione totale: verifica se è un pari merito intenzionale.</p>}
+        <button type="button" className="btn" onClick={close} aria-label="Chiudi classifica">✕</button>
+      </header>
+      <div className="mt-rankings-dialog-actions">
+        <button type="button" className="btn" aria-pressed={compact}
+          onClick={() => setCompact(value => !value)}>
+          {compact ? 'Mostra totale' : 'Vista social compatta'}
+        </button>
+        <button type="button" className="btn" onClick={() => {
+          navigator.clipboard?.writeText(textForSocial).then(
+            () => setMessage('Classifica copiata negli appunti.'),
+            () => setMessage('Copia non disponibile in questo browser.')
+          )
+        }}>Copia lista per social</button>
+        <button type="button" className="btn" onClick={save} disabled={!loaded || !dirty || saving}>
+          {saving ? 'Salvataggio…' : 'Salva classifica'}
+        </button>
       </div>
-      <div className="mt-bracket-rankings-footer">
-        <button type="button" className="btn" onClick={save} disabled={!dirty||saving}>{saving?'Salvataggio…':'Salva classifica'}</button>
-        <button type="button" className="btn" onClick={()=>{setOverrides({});setDirty(true);setMessage('Proposte automatiche ripristinate: salva per confermare.')}}>Ripristina proposta automatica</button>
-        <small>{dirty?'Modifiche da salvare':message||'Nessuna modifica da salvare'}</small>
+      <div className="mt-rankings-dialog-scroll">
+        {!loaded ? <p role="status" className="p-4 text-sm text-amber-400">{message || 'Caricamento classifica…'}</p> : <>
+          {groups.map(group => <section className="mt-rankings-group" key={group.bracket.id}>
+            <div className="mt-rankings-group-heading" style={{ borderLeftColor: group.bracket.color }}>
+              <strong>L{group.index + 1} · {group.bracket.title.toUpperCase()}</strong>
+              <small>{group.rows.length} squadre</small>
+            </div>
+            {group.rows.length === 0 && <p className="p-2 text-xs">Nessuna coppia in questa categoria.</p>}
+            <div className="mt-rankings-lines">
+              {group.rows.map(row => <div className="mt-rankings-line" key={row.sourceId + '/' + row.team}>
+                <input type="number" className="input mt-rankings-place" min={1} max={1024}
+                  aria-label={'Posizione ' + group.bracket.title + ': ' + row.team}
+                  value={row.local} onChange={e => changeNumber(row.sourceId,row.team,'local',e.target.value)}/>
+                <span className="mt-rankings-name">{row.team}{row.provisional && <small>provvisoria</small>}</span>
+                {!compact && <input type="number" className="input mt-rankings-total" min={1} max={1024}
+                  aria-label={'Posizione totale: ' + row.team}
+                  value={row.total} onChange={e => changeNumber(row.sourceId,row.team,'total',e.target.value)}/>}
+                {!compact && <select className="input mt-rankings-move" aria-label={'Categoria di ' + row.team}
+                  value={row.categoryId} onChange={e => transfer(row.sourceId,row.team,e.target.value)}>
+                  {brackets.map((bracket,i) => <option key={bracket.id} value={bracket.id}>L{i+1} {bracket.title}</option>)}
+                </select>}
+              </div>)}
+            </div>
+          </section>)}
+          <p className="mt-rankings-note">
+            Numeri precompilati come riferimento, anche con risultati incompleti.
+            Per correggere la categoria e il piazzamento totale premi “Mostra totale”.
+            Spostare una coppia qui non cambia gli incontri del tabellone.
+          </p>
+          {!compact && <section className="mt-rankings-total-list">
+            <strong>Ordine generale della tappa</strong>
+            {all.map(row => <div key={row.sourceId + row.team} className="mt-rankings-total-row">
+              <b>{row.total}°</b><span>{row.team}</span><small>{row.categoryName}</small>
+            </div>)}
+          </section>}
+        </>}
       </div>
-      </>}
-    </div>}
-  </section>
+      <footer className="mt-rankings-dialog-footer">
+        <small role="status">{dirty ? 'Modifiche non salvate' : message || 'Classifica di servizio per staff e social'}</small>
+        <button className="btn" type="button" onClick={close}>Chiudi</button>
+      </footer>
+    </section>
+  </div>
 }
