@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import type { Bracket } from '@/components/BracketCanvas'
+import type { Bracket } from './BracketCanvas'
 
 type Side = 'A' | 'B' | undefined
 type Winners = Record<string, Record<string, Side>>
