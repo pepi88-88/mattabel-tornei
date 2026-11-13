@@ -2466,3 +2466,103 @@ html[data-mattabel-theme="blu"] .mt-results-publish{
   html[data-mattabel-theme="dark"] .mt-results-actions,
   html[data-mattabel-theme="blu"] .mt-results-actions{flex-basis:100%}
 }
+
+
+/* Keep the title of every bracket centered; missing-score notices stay left. */
+.mt-results-bracket-visual{position:relative;min-width:0}
+.mt-results-incomplete{
+  position:absolute;z-index:3;top:11px;left:14px;
+  max-width:min(30%,285px);
+  display:flex;flex-direction:column;gap:3px;
+  color:#ff7777;text-align:left;
+  font-size:11px;line-height:1.4;
+  pointer-events:none;
+}
+.mt-results-incomplete strong{
+  font-weight:850;letter-spacing:.035em;
+}
+.mt-results-incomplete span{
+  font-size:10px;color:#ff9f9f;
+}
+.mt-results-bracket-visual .bracket-scope > .flex:first-child{
+  justify-content:center!important;
+}
+@media(max-width:950px){
+  .mt-results-incomplete{
+    position:relative;top:auto;left:auto;max-width:none;
+    padding:8px 12px;margin:0 0 5px;
+    border-bottom:1px solid rgba(248,113,113,.23);
+  }
+}
+/* Per-bracket placements + overall standings. */
+.mt-bracket-rankings{
+  margin:14px 12px 12px;
+  border:1px solid var(--mt-border,#48413a);
+  border-radius:10px;overflow:hidden;
+}
+.mt-bracket-rankings-heading{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:10px;padding:12px 14px;
+}
+.mt-bracket-rankings-heading strong{font-size:14px}
+.mt-bracket-rankings-heading p{margin:4px 0 0;line-height:1.5}
+.mt-bracket-rankings-heading button{flex:none;font-size:12px}
+.mt-bracket-rankings-body{display:flex;flex-direction:column;gap:12px;padding:0 14px 14px}
+.mt-bracket-rankings-category{border:1px solid var(--mt-border,#48413a);border-radius:8px;overflow:hidden}
+.mt-bracket-rankings-bar{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  justify-content:space-between;
+  border-bottom:1px solid var(--mt-border,#48413a);
+  background:var(--mt-elevated,#302d2b);
+  padding:9px 12px;
+}
+.mt-bracket-rankings-bar strong{font-size:13px}
+.mt-bracket-rankings-bar span{font-size:11px;color:var(--mt-muted,#beb9b3)}
+.mt-bracket-rankings-table-wrap{max-width:100%;overflow:auto}
+.mt-bracket-rankings-table{width:100%;border-collapse:collapse;min-width:410px}
+.mt-bracket-rankings-table th{
+  font-size:11px;text-align:left;font-weight:700;padding:9px 12px;
+  border-bottom:1px solid var(--mt-border,#48413a);
+}
+.mt-bracket-rankings-table td{
+  padding:6px 12px;border-bottom:1px solid var(--mt-border,#48413a);
+  font-size:12px;
+}
+.mt-bracket-rankings-table th:nth-child(n+2),
+.mt-bracket-rankings-table td:nth-child(n+2){text-align:center;width:130px}
+.mt-bracket-rankings-table td:first-child{font-weight:650}
+.mt-bracket-rankings-table td input{
+  width:78px;height:32px;min-height:32px!important;
+  padding:4px;text-align:center;font-variant-numeric:tabular-nums;
+}
+.mt-ranking-proposal{display:block;margin-top:3px;font-size:10px;font-weight:400;color:var(--mt-muted,#beb9b3)}
+.mt-bracket-rankings-preview{
+  display:flex;flex-direction:column;gap:4px;padding:12px 14px;
+  border:1px solid var(--mt-border,#48413a);border-radius:8px;
+}
+.mt-bracket-rankings-preview > strong{font-size:13px;margin-bottom:4px}
+.mt-bracket-rankings-final-row{
+  display:grid;grid-template-columns:42px minmax(0,1fr) minmax(80px,130px);
+  align-items:center;gap:9px;padding:5px 2px;font-size:12px;
+  border-top:1px solid var(--mt-border,#48413a);
+}
+.mt-bracket-rankings-final-row strong{font-variant-numeric:tabular-nums}
+.mt-bracket-rankings-final-row small{text-align:right;color:var(--mt-muted,#beb9b3)}
+.mt-bracket-rankings-footer{
+  display:flex;flex-wrap:wrap;align-items:center;gap:9px;
+}
+.mt-bracket-rankings-footer small{color:var(--mt-muted,#beb9b3)}
+.mt-bracket-reorder-item{border-radius:8px}
+.mt-bracket-reorder-controls{align-items:center}
+.mt-bracket-reorder-controls button{
+  width:30px;height:34px;min-width:0!important;padding:3px 5px!important;
+}
+@media(max-width:600px){
+  .mt-bracket-rankings{margin:12px 5px}
+  .mt-bracket-rankings-heading{padding:10px}
+  .mt-bracket-rankings-body{padding:0 9px 12px}
+  .mt-bracket-rankings-final-row{
+    grid-template-columns:32px minmax(0,1fr);
+  }
+  .mt-bracket-rankings-final-row small{grid-column:2;text-align:left}
+}
