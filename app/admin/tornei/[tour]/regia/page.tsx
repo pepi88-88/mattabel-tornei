@@ -849,15 +849,13 @@ Pulisci regia
     </div>
   ) : (
     <div className="flex flex-wrap items-center gap-2">
-      {row.sourceType === 'bracket' ? (
-        <input
+      {<input
           type="time"
           value={drafts[rowUiKey(row)]?.scheduledTime ?? ''}
           onChange={(e) => setDraft(row, { scheduledTime: e.target.value })}
           disabled={busy}
           className="rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm text-white"
-        />
-      ) : null}
+        />}
 
       <select
         value={drafts[rowUiKey(row)]?.court ?? ''}
@@ -984,15 +982,13 @@ Pulisci regia
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          {row.sourceType === 'bracket' ? (
-  <input
+                          {<input
     type="time"
     value={drafts[rowUiKey(row)]?.scheduledTime ?? ''}
     onChange={(e) => setDraft(row, { scheduledTime: e.target.value })}
     disabled={busy}
     className="rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm text-white"
-  />
-) : null}
+  />}
                           <select
                             value={drafts[rowUiKey(row)]?.court ?? ''}
                             onChange={(e) => setDraft(row, { court: e.target.value })}
