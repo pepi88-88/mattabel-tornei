@@ -1276,7 +1276,18 @@ function scheduleRows(L: string): ScheduleRow[] {
 // Un girone è incompleto se esiste almeno una partita ancora senza vincitore.
 const missingGroupMatches = letters.map((letter) => {
   const matchIndexes = Array.from(new Set(scheduleRows(letter).map(row => row.matchIdx)))
-  const count = matchIndexes.filter(index => !matchWinnerFromScores(letter, index).winner).length
+  const count = matchIndexes.filter(index => {
+    const winner = matchWinnerFromScores(letter, index).winner
+    const requiredSets = bestOfOf(letter) === 3 ? 2 : 1
+    const recorded = Array.from({ length: bestOfOf(letter) }, (_, set) => {
+      const row = scores[letter]?.[index * bestOfOf(letter) + set]
+      return row && String(row.a ?? '').trim() !== '' &&
+        String(row.b ?? '').trim() !== '' &&
+        Number.isFinite(Number(row.a)) && Number.isFinite(Number(row.b)) &&
+        Number(row.a) !== Number(row.b)
+    }).filter(Boolean).length
+    return !winner || recorded < requiredSets
+  }).length
   return { letter, count }
 }).filter(group => group.count > 0)
 
