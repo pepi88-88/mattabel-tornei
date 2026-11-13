@@ -5,7 +5,7 @@ import BracketRankings from './BracketRankings'
 import type { Bracket } from './BracketCanvas'
 
 type Tour = {id:string;name:string}
-type Stage = {id:string;name:string;event_date?:string;status?:string}
+type Stage = {id:string;name:string;tour_id:string;event_date?:string;status?:string}
 type BState = {items?:Bracket[]; winnersById?:Record<string,Record<string,'A'|'B'>>}
 const headers = {'x-role':'admin'}
 const fetchJson=async (url:string)=>{
@@ -31,29 +31,27 @@ export default function BracketRankingsLauncher(){
   const [busy,setBusy]=useState(false)
   const [loadedFor,setLoadedFor]=useState('')
 
+  // Load only tours with at least one open stage. No completed stages appear
+  // in the floating selector, even when the season itself is archived.
   useEffect(()=>{
     let live=true
-    fetchJson('/api/tours').then(data=>{
+    Promise.all([fetchJson('/api/tours'),fetchJson('/api/tournaments')]).then(([toursData,stagesData])=>{
       if(!live)return
-      const list=(data.items||[]) as Tour[]
-      setTours(list)
-      setTourId(list[0]?.id||'')
+      const openStages=((stagesData.items||[]) as Stage[]).filter(stage =>
+        stage.status !== 'closed' && stage.status !== 'finished' && stage.status !== 'completed')
+      const availableTours=((toursData.items||[]) as Tour[]).filter(tour =>
+        openStages.some(stage=>stage.tour_id===tour.id))
+      setTours(availableTours)
+      setStages(openStages)
+      setTourId(previous=>availableTours.some(t=>t.id===previous)?previous:availableTours[0]?.id||'')
     }).catch(e=>{if(live)setMessage(e.message)})
     return()=>{live=false}
   },[])
 
   useEffect(()=>{
-    let live=true
-    setStages([]);setStageId('');setBrackets([]);setLoadedFor('')
-    if(!tourId)return
-    fetchJson('/api/tournaments?include_closed=1&tour_id='+encodeURIComponent(tourId)).then(data=>{
-      if(!live)return
-      const list=(data.items||[]) as Stage[]
-      setStages(list)
-      setStageId(list.find(stage=>stage.status!=='closed')?.id||list[0]?.id||'')
-    }).catch(e=>{if(live)setMessage(e.message)})
-    return()=>{live=false}
-  },[tourId])
+    const available=stages.filter(stage=>stage.tour_id===tourId)
+    setStageId(previous=>available.some(stage=>stage.id===previous)?previous:available[0]?.id||'')
+  },[tourId,stages])
 
   useEffect(()=>{
     let live=true
@@ -127,10 +125,10 @@ export default function BracketRankingsLauncher(){
         {tours.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
       </select>
     </label>
-    <label>Tappa (anche concluse)
+    <label>Tappa aperta
       <select className="input" value={stageId} onChange={e=>setStageId(e.target.value)}>
-        {stages.map(t=><option key={t.id} value={t.id}>
-          {t.name}{t.status==='closed'?' · conclusa':''}
+        {stages.filter(t=>t.tour_id===tourId).map(t=><option key={t.id} value={t.id}>
+          {t.name}
         </option>)}
       </select>
     </label>
@@ -139,20 +137,19 @@ export default function BracketRankingsLauncher(){
   return <>
     <button className="btn btn-outline btn-sm ml-auto" type="button"
       onClick={()=>setOpen(true)}>🏆 Classifica tabelloni</button>
-    {open && (busy || loadedFor!==stageId || !stageId || !brackets.length ?
-      <div className="mt-rankings-overlay mt-rankings-floating-overlay" role="presentation">
-        <section className="mt-rankings-dialog mt-rankings-floating-dialog" role="dialog" aria-modal="false" aria-label="Seleziona torneo e tappa">
-          <header className="mt-rankings-dialog-header">
-            <h2>Classifica tabelloni</h2>
-            <button type="button" className="btn" onClick={()=>setOpen(false)}>Chiudi</button>
-          </header>
-          <div className="mt-rankings-selector-bar">{selector}</div>
-          <p className="p-4 text-sm">{busy?'Caricamento…':message||'Seleziona una tappa con tabelloni creati.'}</p>
-        </section>
-      </div> :
-      <BracketRankings key={stageId} brackets={brackets}
-        winnersById={winners} tourId={tourId} tId={stageId}
-        resolveToken={resolve} selection={selector} floating readOnly
-        onClose={()=>setOpen(false)}/>)}
+    {open && <BracketRankings
+      brackets={loadedFor===stageId&&!busy?brackets:[]}
+      winnersById={winners}
+      tourId={tourId}
+      tId={stageId}
+      resolveToken={resolve}
+      selection={selector}
+      floating
+      readOnly
+      loading={busy||loadedFor!==stageId}
+      loadError={message}
+      onClose={()=>setOpen(false)}
+    />}
+
   </>
 }
