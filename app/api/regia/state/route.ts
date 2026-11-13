@@ -1288,6 +1288,21 @@ function applyRowsBackToStates(rows: RegiaRow[], groupState: GroupState, bracket
     else bMap[r.key] = payload
   })
 
+  // Persist group-match scheduled times alongside scores, even before the
+  // winners/losers have names. The same times are read by Risultati/Gironi.
+  const nextTimes: Record<string,string[]> = { ...(groupState.times || {}) }
+  rows.filter(row => row.sourceType === 'girone').forEach(row => {
+    const match = row.key.match(/^girone:([A-Z]):(\d+)$/)
+    if (!match) return
+    const letter = match[1]
+    const index = Number(match[2])
+    if (!Number.isInteger(index) || index < 0) return
+    const values = nextTimes[letter] ? [...nextTimes[letter]] : []
+    values[index] = row.scheduledTime || ''
+    nextTimes[letter] = values
+  })
+  groupState.times = nextTimes
+
   groupState.regia = { items: gMap }
   bracketState.regia = { items: bMap }
   // Keep the results editor's field numbers in sync with Regia for PSE/PDE.
