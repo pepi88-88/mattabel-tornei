@@ -121,7 +121,7 @@ export default function BracketRankingsLauncher(){
       </div> :
       <BracketRankings key={stageId} brackets={brackets}
         winnersById={winners} tourId={tourId} tId={stageId}
-        resolveToken={resolve} selection={selector} floating
+        resolveToken={resolve} selection={selector} floating readOnly
         onClose={()=>setOpen(false)}/>)}
   </>
 }
