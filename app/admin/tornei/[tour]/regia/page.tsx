@@ -26,6 +26,7 @@ type TournamentOption = {
   date?: string
   event_date?: string
   status?: string
+  archived?: boolean | null
 }
 function rowUiKey(row: RegiaRow) {
   return `${row.tournament_id}::${row.key}`
@@ -206,61 +207,66 @@ setDirtyKeys({})
     [id]: true,
   }))
 }
+// La pagina Tour identifica come non operative anche le tappe archiviate.
+// Carichiamo tutti gli stati e applichiamo lo stesso criterio a Regia.
+const isOpenTournament = (t: TournamentOption) =>
+  !t.archived &&
+  !['closed','finished','completed','archived'].includes(String(t.status || '').toLowerCase().trim())
+
 async function loadTournamentOptions() {
   try {
-    const res = await fetch('/api/tournaments', { cache: 'no-store' })
+    const res = await fetch('/api/tournaments?include_closed=1', { cache: 'no-store' })
+    if (!res.ok) throw new Error('Impossibile caricare i tornei')
     const json = await res.json()
-    if (!res.ok) throw new Error('Impossibile caricare i tornei aperti')
-    const items = ((json?.items || []) as TournamentOption[]).filter(t =>
-      t.status !== 'closed' && t.status !== 'finished' && t.status !== 'completed'
-    )
+    const items = ((json?.items || []) as TournamentOption[]).filter(isOpenTournament)
     setAvailableTournaments(items)
-    // Remove previously saved selections when those tournaments have closed.
+
     const ids = new Set(items.map(t => t.id))
     setDraftTournamentA(previous => ids.has(previous) ? previous : '')
     setDraftTournamentB(previous => ids.has(previous) ? previous : '')
     setActiveTournamentA(previous => ids.has(previous) ? previous : '')
     setActiveTournamentB(previous => ids.has(previous) ? previous : '')
     setRows(previous => previous.filter(row => ids.has(row.tournament_id)))
+    return items
   } catch {
     setAvailableTournaments([])
+    return [] as TournamentOption[]
   }
 }
-  useEffect(() => {
-  void loadTournamentOptions()
-
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as { a?: string; b?: string }
-      const a = String(parsed?.a || '')
-      const b = String(parsed?.b || '')
-
-      setDraftTournamentA(a)
-      setDraftTournamentB(b)
-      setActiveTournamentA(a)
-      setActiveTournamentB(b)
-      return
+useEffect(() => {
+  let cancelled = false
+  // Ripristina le scelte SOLO dopo che sono stati caricati i tornei realmente
+  // aperti: il vecchio localStorage non deve reinserire tappe chiuse.
+  void loadTournamentOptions().then(items => {
+    if (cancelled) return
+    const valid = new Set(items.map(t => t.id))
+    let savedA = '', savedB = ''
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as { a?: string; b?: string }
+        savedA = String(parsed?.a || '')
+        savedB = String(parsed?.b || '')
+      } else {
+        savedA = localStorage.getItem('selectedTournamentId') || initialTournamentId
+      }
+    } catch {
+      savedA = initialTournamentId
     }
-  } catch {}
-
-  const preferred = localStorage.getItem('selectedTournamentId') || initialTournamentId
-  if (preferred) {
-    setDraftTournamentA(preferred)
-    setDraftTournamentB('')
-    setActiveTournamentA(preferred)
-    setActiveTournamentB('')
-  }
+    const a = valid.has(savedA) ? savedA : ''
+    const b = valid.has(savedB) && savedB !== a ? savedB : ''
+    setDraftTournamentA(a)
+    setDraftTournamentB(b)
+    setActiveTournamentA(a)
+    setActiveTournamentB(b)
+    // Non eliminare i dati del torneo: puliamo soltanto la selezione locale.
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ a, b }))
+    } catch {}
+  })
+  return () => { cancelled = true }
 }, [initialTournamentId])
-  useEffect(() => {
-    if (!availableTournaments.length) return
-    const ids = new Set(availableTournaments.map(t => t.id))
-    setDraftTournamentA(prev => ids.has(prev) ? prev : '')
-    setDraftTournamentB(prev => ids.has(prev) ? prev : '')
-    setActiveTournamentA(prev => ids.has(prev) ? prev : '')
-    setActiveTournamentB(prev => ids.has(prev) ? prev : '')
-  }, [availableTournaments])
-  
+
 async function mutate(
   row: RegiaRow | null,
   action:
