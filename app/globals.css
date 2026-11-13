@@ -2793,3 +2793,19 @@ html[data-mattabel-theme="blu"] .mt-results-publish{
     max-height:calc(100dvh - 85px)!important;
   }
 }
+
+.mt-rankings-regenerate{
+  border-color:color-mix(in srgb,var(--mt-accent,#deb56b) 75%,transparent)!important;
+  font-weight:750;
+}
+.mt-rankings-missing-line{opacity:.7}
+.mt-rankings-missing-line .mt-rankings-name{font-weight:450!important}
+.mt-rankings-place-readonly{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:42px;height:30px;font-size:13px;font-weight:750;
+  font-variant-numeric:tabular-nums;
+}
+.mt-rankings-category-readonly{
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:11px;opacity:.65;
+}
