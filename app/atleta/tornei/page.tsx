@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 
 type Tour = { id: string; name: string; season_start?: string|null; season_end?: string|null }
-type Tournament = { id: string; name: string; title?: string; event_date?: string|null; archived?: boolean|null; max_teams?: number|null }
+type Tournament = { id: string; name: string; title?: string; event_date?: string|null; archived?: boolean|null; status?: string|null; max_teams?: number|null }
 
 
 const fetcher = (url: string) => fetch(url, { cache: 'no-store' }).then(r => {
@@ -67,8 +67,8 @@ setTappe(visible)
   },[tourId])
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Tappe attive</h1>
+    <div className="mt-athlete-tournaments space-y-4">
+      <h1 className="mt-athlete-page-title text-xl font-semibold">Tappe attive</h1>
 
       {/* selezione tour (stesso comportamento di Iscrizioni) */}
       <div className="flex items-end gap-2">
@@ -89,7 +89,7 @@ setTappe(visible)
       </div>
 
       {/* elenco tappe del tour selezionato (solo lettura) */}
-      <div className="card p-4">
+      <div className="mt-athlete-tournament-list card p-4">
         {!tourId ? (
           <div className="text-sm text-neutral-500">Seleziona un tour.</div>
         ) : loading ? (
@@ -97,11 +97,11 @@ setTappe(visible)
         ) : tappe.length === 0 ? (
           <div className="text-sm text-neutral-500">Nessuna tappa disponibile per questo tour.</div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="mt-athlete-tournaments-list space-y-2">
             {tappe.map(t => (
              <li
   key={t.id}
-  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 border-b border-neutral-800 py-2"
+  className="mt-athlete-tournament-item flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 border-b border-neutral-800 py-2"
 >
   <div className="min-w-0">
     {/* niente truncate su mobile; da sm in su torna truncate */}
@@ -112,7 +112,7 @@ setTappe(visible)
   </div>
 
   {/* su mobile i bottoni vanno a capo e occupano tutta la riga; da sm in su tornano inline */}
-  <div className="flex flex-wrap gap-2 sm:shrink-0">
+  <div className="mt-athlete-tournament-actions flex flex-wrap gap-2 sm:shrink-0">
 
                   {/* passiamo tid = tournament_id alle pagine atleta */}
 
