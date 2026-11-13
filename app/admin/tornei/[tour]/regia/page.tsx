@@ -596,7 +596,13 @@ function rowBg(status: RegiaStatus, tournamentId?: string) {
 
   return (
     <div className="mt-regia-page min-h-screen min-w-0 bg-neutral-950 p-2 sm:p-3 xl:p-6 text-white">
-      <h1 className="mt-simple-page-title">Regia</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <h1 className="mt-simple-page-title">Regia</h1>
+        <a href="/carosello" target="_blank" rel="noopener noreferrer"
+          className="rounded-xl border border-amber-600/60 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/20">
+          Apri carosello desk ↗
+        </a>
+      </div>
       <div className="mb-5 rounded-2xl border border-neutral-800 bg-neutral-900 p-4 shadow-sm">
       <div className="mb-4 grid gap-3 md:grid-cols-2">
   <div>
