@@ -856,13 +856,13 @@ export default function AthleteTabellonePage() {
   }, [active, resolve, winnersById])
 
   return (
-    <div className="min-h-screen px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-[1400px] py-6 space-y-6">
+    <div className="mt-athlete-brackets min-h-screen px-4 sm:px-6 lg:px-8">
+      <div className="mt-athlete-brackets-content mx-auto w-full max-w-[1400px] py-6 space-y-6">
         {/* header */}
-        <div className="flex items-center gap-2">
+        <div className="mt-athlete-brackets-header flex items-center gap-2">
           <Link className="btn btn-ghost btn-sm" href="/atleta/tornei">← Tornei attivi</Link>
           <Link className="btn btn-ghost btn-sm" href="/atleta/classifica">Classifica generale</Link>
-          <div className="mx-auto text-2xl md:text-3xl font-semibold text-center">{tname || 'Tabellone finale'}</div>
+          <h1 className="mt-athlete-brackets-title mx-auto text-2xl md:text-3xl font-semibold text-center">{tname || 'Tabellone finale'}</h1>
         </div>
 
         {!tId ? (
@@ -876,13 +876,15 @@ export default function AthleteTabellonePage() {
         ) : !brackets.length ? (
           <div className="card p-6 text-sm text-neutral-400">Nessun tabellone disponibile per questa tappa.</div>
         ) : (
-          <div className="card p-0 overflow-hidden">
+          <div className="mt-athlete-bracket-card card p-0 overflow-hidden">
             {/* tabs dei tabelloni */}
-            <div className="p-3 flex flex-wrap gap-2 border-b border-neutral-800">
+            <div role="tablist" aria-label="Categorie del tabellone" className="mt-athlete-bracket-tabs p-3 flex flex-wrap gap-2 border-b border-neutral-800">
               {brackets.map((b, i) => (
                 <button
                   key={b.id}
-                  className={`btn ${b.id === activeId ? '' : 'opacity-80'}`}
+                  className={`mt-athlete-bracket-tab btn ${b.id === activeId ? '' : 'opacity-80'}`}
+                  role="tab"
+                  aria-selected={b.id === activeId}
                   onClick={() => setActiveId(b.id)}
                   title={b.title}
                   style={b.id === activeId ? { outline: `2px solid ${b.color}`, outlineOffset: 2 } : {}}
@@ -895,7 +897,7 @@ export default function AthleteTabellonePage() {
             </div>
 
             {/* contenuto */}
-            <div className="p-4">
+            <div className="mt-athlete-bracket-board p-4">
               {resolvedActive && (
                 String(resolvedActive.type).toUpperCase() === 'ITA' ? (
                   <ItaViewer
