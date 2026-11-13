@@ -10,6 +10,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import PreliminaryBracket from '../../../components/PreliminaryBracket'
+import AthleteBracketZoom from '../../../components/AthleteBracketZoom'
 import { itaPositionToken, itaPositionLabel } from '../../../lib/itaSources'
 
 /* =========================
@@ -1502,6 +1503,7 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
         </div>
       </div>
 
+      <AthleteBracketZoom storageId={'staff-create:' + tourId + ':' + tId + ':' + active.id}>
       {(active.type === 'PSE' || active.type === 'PDE') && <PreliminaryBracket
         title={active.title} color={active.color} type={active.type} nTeams={active.nTeams}
         prelims={active.prelims} r1={active.r1} winners={winnersById[active.id] || {}}
@@ -1984,6 +1986,8 @@ locked={locked}
           </div>
         </div>
       )}
+
+      </AthleteBracketZoom>
 
       {/* Drawer “vedi gironi” */}
       {showDrawer && (
