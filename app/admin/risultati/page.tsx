@@ -1026,6 +1026,8 @@ useEffect(() => {
   const [matchFields, setMatchFields] = useState<Record<string,string[]>>({})
   const [matchOrder, setMatchOrder] = useState<Record<string,number[]>>({})
   const [groupsConfirmed, setGroupsConfirmed] = useState(false)
+  const [bracketsPublic, setBracketsPublic] = useState(false)
+  const [publishingBrackets, setPublishingBrackets] = useState(false)
 // controllo caricamento per evitare cross-save fra tappe
 const [isLoadingState, setIsLoadingState] = useState(false)
 const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato è “coerente”
@@ -1102,26 +1104,33 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato �
 }, [tId])
 
 
- const confirmGroups = async () => {
-  if (!tId || !tourId) return
-  if (!window.confirm('Confermi i risultati dei gironi? Il tabellone sarà sbloccato per la compilazione.')) return
+ const toggleBracketsPublic = async () => {
+  if (!tId || !tourId || publishingBrackets || bracketsLoadKey !== tourId + ':' + tId || !!bracketsLoadError) return
+  const next = !bracketsPublic
+  if (next && !brackets.length) {
+    window.alert('Crea prima almeno un tabellone nella pagina Creazione Tabellone.')
+    return
+  }
+  const message = next
+    ? 'Pubblicare i tabelloni agli atleti? Potranno visualizzare anche gli aggiornamenti successivi.'
+    : 'Nascondere i tabelloni agli atleti? Le partite e i risultati rimarranno salvati e visibili allo staff.'
+  if (!window.confirm(message)) return
+  setPublishingBrackets(true)
   try {
-    // prendi lo stato attuale
-    const res = await fetch(`/api/groups/state?tournament_id=${encodeURIComponent(tId)}`, {
-      headers: { 'x-role': 'admin' }, cache: 'no-store'
-    })
-    const js = await res.json()
-    const prev = (js?.state || {}) as any
-    const next = { ...prev, groupsConfirmed: true }
-
-    await fetch('/api/groups/state', {
-      method: 'PUT',
+    const res = await fetch('/api/brackets/state', {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
-      body: JSON.stringify({ tournament_id: tId, state: next }),
+      body: JSON.stringify({ tournament_id: tId, is_public: next }),
     })
-    setGroupsConfirmed(true)
-  } catch {
-    setGroupsConfirmed(true) // fallback UI
+    const js = await res.json().catch(() => ({}))
+    if (!res.ok || js?.ok !== true || js?.is_public !== next) {
+      throw new Error(js?.error || 'Impossibile aggiornare la visibilità dei tabelloni')
+    }
+    setBracketsPublic(next)
+  } catch (err: any) {
+    window.alert(err?.message || 'Errore di pubblicazione: stato invariato')
+  } finally {
+    setPublishingBrackets(false)
   }
 }
 
@@ -1692,6 +1701,7 @@ const resolveToken = useMemo(() => {
   setItaScoresById({})
   setCourtsByBracket({})
   setBracketScoresById({})
+  setBracketsPublic(false)
   if (!key) return () => controller.abort()
   ;(async () => {
     try {
@@ -1716,6 +1726,7 @@ const resolveToken = useMemo(() => {
       setItaScoresById(ita)
       setCourtsByBracket(courts)
       setBracketScoresById(bracketScores)
+      setBracketsPublic(Boolean(json?.is_public))
       setBracketsLoadKey(key)
     } catch {
       if (!controller.signal.aborted && request === bracketsRequestRef.current)
@@ -1915,11 +1926,12 @@ const activeForDisplay = useMemo(() => {
 // UI
 // ------------------------------------------------------------
 return (
-  <div className="relative z-0 p-2 sm:p-3 xl:p-6 space-y-6 xl:space-y-8 pointer-events-auto min-w-0">
+  <div className="mt-results-page relative z-0 p-2 sm:p-3 xl:p-6 space-y-6 xl:space-y-8 pointer-events-auto min-w-0">
+    <h1 className="mt-results-title">Risultati Girone/Tabellone</h1>
    
     {resultsSaveError && <div role="alert" className="rounded border border-amber-500 p-3 text-amber-300">{resultsSaveError}</div>}
     {/* Header filtri */}
-    <div className="flex flex-wrap items-end gap-3">
+    <div className="mt-results-controls flex flex-wrap items-end gap-3">
       <div className="flex flex-col">
         <div className="text-xs text-neutral-400 mb-1">Tour</div>
         <select
@@ -1954,10 +1966,11 @@ return (
 
       </div>
 
-      <div className="flex items-end gap-2">
-        <div className="inline-flex rounded-xl overflow-hidden border border-neutral-700">
+      <div className="mt-results-actions flex items-end gap-2">
+        <div className="mt-results-view-switch inline-flex rounded-xl overflow-hidden border border-neutral-700">
           <button
-            className={`px-3 py-2 text-sm ${
+            aria-pressed={view === "gironi"}
+            className={`mt-results-view-btn px-3 py-2 text-sm ${
               view === 'gironi'
                 ? 'bg-neutral-800 text-white'
                 : 'bg-neutral-900 text-neutral-300'
@@ -1967,7 +1980,8 @@ return (
             Gironi
           </button>
           <button
-            className={`px-3 py-2 text-sm ${
+            aria-pressed={view === "tabellone"}
+            className={`mt-results-view-btn px-3 py-2 text-sm ${
               view === 'tabellone'
                 ? 'bg-neutral-800 text-white'
                 : 'bg-neutral-900 text-neutral-300'
@@ -1979,10 +1993,14 @@ return (
         </div>
 
         <button
-          className="px-3 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-500 text-black"
-          onClick={confirmGroups}
+          type="button"
+          className={`mt-results-publish px-3 py-2 text-sm rounded-lg ${bracketsPublic ? 'mt-results-published' : 'mt-results-hidden'}`}
+          onClick={toggleBracketsPublic}
+          disabled={!tId || publishingBrackets || bracketsLoadKey !== tourId + ':' + tId || !!bracketsLoadError}
+          aria-pressed={bracketsPublic}
+          title={bracketsPublic ? 'Clicca per nascondere i tabelloni agli atleti' : 'Clicca per pubblicare i tabelloni agli atleti'}
         >
-          Risultati gironi CONFERMATI
+          {publishingBrackets ? 'Aggiornamento…' : bracketsPublic ? 'Tabelloni ONLINE · Nascondi' : 'Tabelloni NON pubblici · Pubblica'}
         </button>
       </div>
     </div>
@@ -1997,12 +2015,7 @@ return (
 ) : view === 'tabellone' ? (
 
       <div className="card p-0 overflow-hidden">
-        {bracketsLoadError ? (<div role="alert" className="p-6 text-amber-400">{bracketsLoadError}</div>) : bracketsLoadKey !== (tourId + ':' + tId) ? (<div className="p-6 text-neutral-400">Caricamento tabelloni...</div>) : !groupsConfirmed ? (
-          <div className="p-6 text-sm text-neutral-400">
-            Il tabellone è bloccato finché non confermi i risultati dei gironi.
-            Premi <b>“Risultati gironi CONFERMATI”</b>.
-          </div>
-        ) : !brackets.length ? (
+        {bracketsLoadError ? (<div role="alert" className="p-6 text-amber-400">{bracketsLoadError}</div>) : bracketsLoadKey !== (tourId + ':' + tId) ? (<div className="p-6 text-neutral-400">Caricamento tabelloni...</div>) : !brackets.length ? (
           <div className="p-6 text-sm text-neutral-400">
             Nessun tabellone trovato. Crea tabelloni in <b>/admin/creazione tabellone</b>.
           </div>
