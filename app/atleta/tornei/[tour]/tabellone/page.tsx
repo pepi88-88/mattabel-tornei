@@ -6,6 +6,7 @@ import Link from 'next/link'
 import BracketCanvas, { type Bracket as BracketType, type WinnerMap } from '../../../../../components/BracketCanvas'
 import { parseItaPositionToken, resolveItaPosition } from '../../../../../lib/itaSources'
 import PreliminaryBracket from '../../../../../components/PreliminaryBracket'
+import AthleteBracketZoom from '../../../../../components/AthleteBracketZoom'
 
 /* ============== Helpers comuni ============== */
 
@@ -896,8 +897,9 @@ export default function AthleteTabellonePage() {
               ))}
             </div>
 
-            {/* contenuto */}
+            {/* Contenuto con zoom persistente per ogni categoria */}
             <div className="mt-athlete-bracket-board p-4">
+              <AthleteBracketZoom storageId={tId + ':' + (activeId || '')}>
               {resolvedActive && (
                 String(resolvedActive.type).toUpperCase() === 'ITA' ? (
                   <ItaViewer
@@ -930,6 +932,7 @@ export default function AthleteTabellonePage() {
                   </>
                 )
               )}
+              </AthleteBracketZoom>
             </div>
           </div>
         )}
