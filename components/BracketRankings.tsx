@@ -300,6 +300,13 @@ export default function BracketRankings({
       const latestWinners=Array.isArray(state)?{}:(state.winnersById||{})
       if(!Array.isArray(latestBrackets)||!latestBrackets.length)throw new Error('Nessun tabellone da rigenerare')
       const proposal=computeRankingGroups(latestBrackets,latestWinners,resolveToken,{})
+      const proposedCount=proposal.reduce((sum,cat)=>sum+cat.rows.length,0)
+      const previousCount=Object.values(overrides).reduce((sum,category)=>sum+
+        Object.values(category).filter(row=>row.frozen===true).length,0)
+      if(!proposedCount || (previousCount>proposedCount)){
+        throw new Error('Rigenerazione non eseguita: non tutte le squadre risultano risolte ('+
+          proposedCount+' su '+previousCount+' già salvate). Completa i risultati oppure verifica i riferimenti tra tabelloni.')
+      }
       const next=fullSnapshot(proposal)
       const saved=await fetch('/api/brackets/rankings',{
         method:'PATCH',
@@ -394,6 +401,14 @@ export default function BracketRankings({
                     </option>)}
                   </select>}
               </div>)}
+              {Array.from({length:Math.min(64,Math.max(0,(group.bracket.nTeams||0)-group.rows.length))},(_,index)=>(
+                <div className="mt-rankings-line mt-rankings-missing-line" key={'missing-'+group.bracket.id+'-'+index}>
+                  <span className="mt-rankings-overall">—</span>
+                  <span className="mt-rankings-place-readonly">—</span>
+                  <span className="mt-rankings-name">Squadra da determinare <small>in attesa dei risultati</small></span>
+                  <span className="mt-rankings-category-readonly">L{group.index+1}</span>
+                </div>
+              ))}
             </div>
           </section>)}
           <p className="mt-rankings-note">
