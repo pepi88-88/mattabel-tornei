@@ -109,8 +109,8 @@ export default function BracketRankingsLauncher(){
     <button className="btn btn-outline btn-sm ml-auto" type="button"
       onClick={()=>setOpen(true)}>🏆 Classifica tabelloni</button>
     {open && (busy || loadedFor!==stageId || !stageId || !brackets.length ?
-      <div className="mt-rankings-overlay" role="presentation">
-        <section className="mt-rankings-dialog" role="dialog" aria-modal="true" aria-label="Seleziona torneo e tappa">
+      <div className="mt-rankings-overlay mt-rankings-floating-overlay" role="presentation">
+        <section className="mt-rankings-dialog mt-rankings-floating-dialog" role="dialog" aria-modal="false" aria-label="Seleziona torneo e tappa">
           <header className="mt-rankings-dialog-header">
             <h2>Classifica tabelloni</h2>
             <button type="button" className="btn" onClick={()=>setOpen(false)}>Chiudi</button>
@@ -121,7 +121,7 @@ export default function BracketRankingsLauncher(){
       </div> :
       <BracketRankings key={stageId} brackets={brackets}
         winnersById={winners} tourId={tourId} tId={stageId}
-        resolveToken={resolve} selection={selector}
+        resolveToken={resolve} selection={selector} floating
         onClose={()=>setOpen(false)}/>)}
   </>
 }
