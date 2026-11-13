@@ -2704,3 +2704,58 @@ html[data-mattabel-theme="blu"] .mt-results-publish{
 /* Lift the results stacking context while the ranking dialog is open so the
    fixed overlay also covers the sticky navigation on tablet/desktop. */
 .mt-results-page:has(.mt-rankings-overlay){z-index:10000!important}
+
+/* Single compact classification layout: readonly overall position on the far
+   left, editable bracket rank next, then left-aligned team name and category. */
+.mt-rankings-group{width:max-content;min-width:min(100%,465px);max-width:100%;align-items:stretch}
+.mt-rankings-lines{width:100%;padding:4px 9px}
+.mt-rankings-line,.mt-rankings-line:has(.mt-rankings-total){
+  display:grid!important;
+  grid-template-columns:40px 42px minmax(160px,max-content) 98px!important;
+  align-items:center;justify-content:start!important;gap:7px;
+}
+.mt-rankings-overall{
+  width:40px;text-align:right;align-self:center;
+  font-size:12px;font-weight:800;color:var(--mt-accent,#dcb96f);
+  font-variant-numeric:tabular-nums;
+}
+.mt-rankings-place{
+  width:42px!important;max-width:42px!important;min-width:42px!important;
+  appearance:textfield;-moz-appearance:textfield;
+  font-size:13px;
+}
+.mt-rankings-place::-webkit-inner-spin-button,
+.mt-rankings-place::-webkit-outer-spin-button{
+  -webkit-appearance:none;margin:0;
+}
+.mt-rankings-name{
+  justify-self:start;text-align:left;white-space:nowrap;
+  font-size:12px!important;gap:5px!important;
+}
+.mt-rankings-name small{font-size:9px}
+.mt-rankings-move{
+  width:98px!important;max-width:98px!important;
+  font-size:10px!important;
+}
+.mt-rankings-group-heading{justify-content:space-between}
+.mt-rankings-selector-bar{
+  padding:9px 15px;border-bottom:1px solid var(--mt-border,#544a3c);
+}
+.mt-rankings-selection-fields{display:flex;flex-wrap:wrap;align-items:end;gap:10px}
+.mt-rankings-selection-fields label{
+  display:flex;flex:1 1 170px;flex-direction:column;gap:5px;
+  font-size:11px;color:var(--mt-muted,#baa98f);
+}
+.mt-rankings-selection-fields select{width:100%;height:34px;min-height:34px!important;font-size:12px}
+@media(max-width:700px){
+  .mt-rankings-group{width:100%;min-width:0}
+  .mt-rankings-line,.mt-rankings-line:has(.mt-rankings-total){
+    grid-template-columns:30px 38px minmax(0,1fr) 85px!important;
+    gap:5px;
+  }
+  .mt-rankings-name{white-space:normal;overflow-wrap:anywhere;font-size:11px!important}
+  .mt-rankings-overall{width:30px;font-size:11px}
+  .mt-rankings-place{width:38px!important;max-width:38px!important;min-width:38px!important}
+  .mt-rankings-move{width:85px!important;max-width:85px!important}
+  .mt-rankings-selection-fields label{flex-basis:135px}
+}
