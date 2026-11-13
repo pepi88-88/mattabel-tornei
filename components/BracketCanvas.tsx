@@ -301,15 +301,15 @@ const thirdB = SF2 ? (loserOfNode(SF2) || `Loser ${SF2.code} — ${bracket.title
         {/* Titolo */}
         <div className="mt-1 mb-4 flex justify-center">
           <div
-            className="relative flex items-center justify-center text-center px-8 py-3 rounded-xl font-extrabold uppercase tracking-wide text-2xl md:text-3xl"
+            className="mt-results-bracket-chip relative flex items-center justify-center text-center px-8 py-3 rounded-xl font-extrabold uppercase tracking-wide text-2xl md:text-3xl"
             style={{ background: bracket.color, color:'#000', minWidth: 380 }}
           >
             <span className="pointer-events-none">{bracket.title}</span>
           </div>
         </div>
 
-        <div className="relative overflow-x-auto overflow-y-hidden card" style={{ height: se.height + 120 }}>
-          <div className="relative" style={{ width: se.width + HSCROLL_PAD, height: se.height + 100 }}>
+        <div className="mt-bracket-board-viewport relative overflow-x-auto overflow-y-hidden card" style={{ height: se.height + 120 }}>
+          <div className="mt-bracket-board-inner relative" style={{ width: se.width + HSCROLL_PAD, height: se.height + 100 }}>
             {/* linee */}
             <svg width={se.width} height={se.height} className="absolute top-4 left-4" style={{ overflow:'visible' }}>
               {se.nodes.map((n, idx) => {
@@ -649,15 +649,15 @@ const Row = ({ side, text }: { side: 'A'|'B'; text: string }) => (
         {/* titolo grande */}
         <div className="mt-1 mb-4 flex justify-center">
           <div
-            className="relative flex items-center justify-center text-center px-8 py-3 rounded-xl font-extrabold uppercase tracking-wide text-2xl md:text-3xl"
+            className="mt-results-bracket-chip relative flex items-center justify-center text-center px-8 py-3 rounded-xl font-extrabold uppercase tracking-wide text-2xl md:text-3xl"
             style={{ background: bracket.color, color:'#000', minWidth: 380 }}
           >
             <span className="pointer-events-none">{title}</span>
           </div>
         </div>
 
-        <div className="relative card overflow-x-auto overflow-y-auto" style={{ height: 1100 }}>
-          <div className="relative" style={{ width: left1+dx*6, height: 1080 }}>
+        <div className="mt-bracket-board-viewport relative card overflow-x-auto overflow-y-auto" style={{ height: 1100 }}>
+          <div className="mt-bracket-board-inner relative" style={{ width: left1+dx*6, height: 1080 }}>
 <div className="absolute top-2 left-6 text-xs font-semibold text-neutral-400 tracking-widest">WINNERS</div>
 <div className="absolute text-xs font-semibold text-neutral-400 tracking-widest" style={{ top: 740, left: 24 }}>LOSERS</div>
             {/* BOX */}
