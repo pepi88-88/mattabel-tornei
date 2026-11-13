@@ -2700,3 +2700,7 @@ html[data-mattabel-theme="blu"] .mt-results-publish{
   .mt-rankings-overlay{position:static;background:white;padding:0}
   .mt-rankings-dialog{width:100%;max-height:none;box-shadow:none}
 }
+
+/* Lift the results stacking context while the ranking dialog is open so the
+   fixed overlay also covers the sticky navigation on tablet/desktop. */
+.mt-results-page:has(.mt-rankings-overlay){z-index:10000!important}
