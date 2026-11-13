@@ -863,6 +863,19 @@ function setItaSlot(idx:number, value:string) {
   patchActive({ slots });
 }
 
+// Riordina i tabelloni senza cambiare ID, incontri o riferimenti ai ripescaggi.
+function moveBracket(id: string, direction: -1 | 1) {
+  if (locked) return
+  setBrackets(current => {
+    const from = current.findIndex(item => item.id === id)
+    const to = from + direction
+    if (from < 0 || to < 0 || to >= current.length) return current
+    const next = [...current]
+    ;[next[from], next[to]] = [next[to], next[from]]
+    return next
+  })
+}
+
 function addBracket() {
   const b = newBracket();
   setBrackets(bs => [...bs, b]);
@@ -1306,21 +1319,27 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
 
     {/* Tab dei tabelloni (dopo i 3 bottoni) */}
     <div className="flex flex-wrap items-end gap-2">
-      {brackets.map((b) => (
-        <button
-          key={b.id}
-          className="btn"
-          onClick={() => setActiveId(b.id)}
-          style={b.id === activeId ? { outline: `2px solid ${b.color}`, outlineOffset: 2 } : {}}
-          title={b.title}
-        >
-          {b.title}
-         <span className="ml-2 text-[10px] opacity-60">
-  L{bracketLevels.order[b.id] ?? 1}
-</span>
-{b.id === bracketLevels.topId && <span className="ml-1">👑</span>}
-
-        </button>
+      {brackets.map((b, index) => (
+        <div key={b.id} className="mt-bracket-reorder-item flex items-center gap-1">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setActiveId(b.id)}
+            style={b.id === activeId ? { outline: `2px solid ${b.color}`, outlineOffset: 2 } : {}}
+            title={b.title}
+            aria-pressed={b.id === activeId}
+          >
+            {b.title}
+            <span className="ml-2 text-[10px] opacity-70">L{bracketLevels.order[b.id] ?? index + 1}</span>
+            {b.id === bracketLevels.topId && <span className="ml-1">👑</span>}
+          </button>
+          <div className="mt-bracket-reorder-controls flex items-center gap-1">
+            <button type="button" className="btn" title={`Sposta ${b.title} prima`} aria-label={`Sposta ${b.title} prima`}
+              disabled={locked || index === 0} onClick={() => moveBracket(b.id, -1)}>←</button>
+            <button type="button" className="btn" title={`Sposta ${b.title} dopo`} aria-label={`Sposta ${b.title} dopo`}
+              disabled={locked || index === brackets.length - 1} onClick={() => moveBracket(b.id, 1)}>→</button>
+          </div>
+        </div>
       ))}
     </div>
   </div>
