@@ -781,8 +781,7 @@ export default function AthleteTabellonePage() {
 
     ;(async () => {
       try {
-        const r = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`, {
-          headers: { 'x-role': 'admin' },
+        const r = await fetch(`/api/brackets/public?tournament_id=${encodeURIComponent(tId)}`, {
           cache: 'no-store',
         })
         const js = await r.json()
@@ -870,9 +869,9 @@ export default function AthleteTabellonePage() {
           <div className="card p-6 text-sm text-neutral-400">
             Seleziona una tappa dalla pagina <Link className="link" href="/atleta/tornei">Tornei attivi</Link>.
           </div>
-        ) : !groupsConfirmed && !isPublic ? (
+        ) : !isPublic ? (
           <div className="card p-6 text-sm text-neutral-400">
-            Il tabellone non è ancora visibile. Sarà mostrato quando gli organizzatori confermano i risultati dei gironi o lo rendono pubblico.
+            Il tabellone non è attualmente pubblicato dagli organizzatori.
           </div>
         ) : !brackets.length ? (
           <div className="card p-6 text-sm text-neutral-400">Nessun tabellone disponibile per questa tappa.</div>
