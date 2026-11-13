@@ -991,6 +991,14 @@ export default function RisultatiGironiPage() {
   const tappe: Tournament[] = tappeRes?.items ?? []
   const [tId, setTId] = useState('')
   const [view, setView] = useState<'gironi' | 'tabellone'>('gironi')
+  const [showBracketRankings,setShowBracketRankings] = useState(false)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('classificaTabelloni') === '1') {
+      setView('tabellone')
+      setShowBracketRankings(true)
+    }
+  }, [])
 // Mostra solo le tappe non chiuse + ordina per data desc (se presente)
 const parseDate = (s?: string) => (s ? new Date(s).getTime() : 0)
 const tappeVisibili = useMemo(() => {
@@ -2022,6 +2030,11 @@ return (
           {publishingBrackets ? 'Aggiornamento…' : bracketsPublic ? 'Tabelloni ONLINE · Nascondi' : 'Tabelloni NON pubblici · Pubblica'}
         </button>
       </div>
+      {tId && <button type="button" className="mt-results-rankings-trigger btn"
+        disabled={bracketsLoadKey !== tourId + ':' + tId || !brackets.length}
+        onClick={() => {setView('tabellone');setShowBracketRankings(true)}}>
+        <span aria-hidden="true">🏆</span> Classifica tabelloni
+      </button>}
     </div>
 
     {/* Contenuto */}
@@ -2188,14 +2201,6 @@ return (
         externalResolver={resolveToken}       // ok tenerlo per Winner/Loser
       />
     )}
-    <BracketRankings
-      key={tourId + ':' + tId}
-      brackets={brackets}
-      winnersById={winnersById}
-      tourId={tourId}
-      tId={tId}
-      resolveToken={resolveToken}
-    />
     </div>
   </div>
 ) : null}
@@ -2405,7 +2410,18 @@ return (
           </table>
         </div>
       </>
-    )}
+    )} 
+    {showBracketRankings && tId && bracketsLoadKey === tourId + ':' + tId && brackets.length > 0 &&
+      <BracketRankings
+        key={tourId + ':' + tId}
+        brackets={brackets}
+        winnersById={winnersById}
+        tourId={tourId}
+        tId={tId}
+        resolveToken={resolveToken}
+        onClose={() => setShowBracketRankings(false)}
+      />}
+
   </div>
 )
 }
