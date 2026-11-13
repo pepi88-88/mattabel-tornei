@@ -79,16 +79,28 @@ export default function BracketRankingsLauncher(){
   const resolve = useMemo(()=>{
     const entries=(groupState?.assign||{}) as Record<string,string>
     const labels=(groupState?.labels||{}) as Record<string,string>
+    const ranking=(groupState?.rankByGroup||groupState?.groupRankings||{}) as Record<string,string[]>
+    let storedRank:Record<string,string[]>={}
+    let avulsa:string[]=[]
+    if(typeof window!=='undefined' && stageId && tourId){
+      try{storedRank=JSON.parse(localStorage.getItem('groups_rank:'+tourId+':'+stageId)||'{}')}catch{}
+      try{avulsa=JSON.parse(localStorage.getItem('classifica_avulsa:'+tourId+':'+stageId)||localStorage.getItem('avulsa:'+tourId+':'+stageId)||'[]')}catch{}
+    }
     return (token:string)=>{
       const raw=String(token||'').trim()
-      const match=raw.match(/^([A-Z])(\d{1,2})$/)
+      const match=raw.match(/^([A-Z])\s*(\d{1,2})$/i) || raw.match(/^(\d{1,2})\s*([A-Z])$/i)
       if(match){
-        const id=entries[match[1]+'-'+Number(match[2])]
-        return id && labels[id]?names(labels[id]):raw
+        const letter=/^[A-Z]/i.test(match[1])?match[1].toUpperCase():match[2].toUpperCase()
+        const position=Number(/^[A-Z]/i.test(match[1])?match[2]:match[1])
+        const ranked=ranking[letter]?.[position-1]||storedRank[letter]?.[position-1]
+        if(ranked)return names(ranked)
+        const id=entries[letter+'-'+position]
+        if(id)return names(labels[id]||id)
       }
+      if(/^\d+$/.test(raw) && avulsa[Number(raw)-1])return names(avulsa[Number(raw)-1])
       return raw
     }
-  },[groupState])
+  },[groupState,stageId,tourId])
 
   const selector=<div className="mt-rankings-selection-fields">
     <label>Tour
