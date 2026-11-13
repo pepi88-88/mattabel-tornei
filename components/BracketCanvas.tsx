@@ -303,6 +303,13 @@ const thirdB = SF2 ? (loserOfNode(SF2) || `Loser ${SF2.code} — ${bracket.title
       ? 16 + finalNode.top + CARD_H + 48 + CARD_H + 24
       : 0
     const safeBoardHeight = Math.max(se.height + 120, extraThirdBottom)
+    // Include the separate winner card in the actual canvas width. The old
+    // negative HSCROLL_PAD made the bracket look off-center to the right.
+    const safeBoardWidth = Math.max(
+      se.width + HSCROLL_PAD,
+      16 + finalNode.left + CARD_W + SE_FINAL_TUNE.lineDX +
+        SE_FINAL_TUNE.lineLEN + 8 + SE_FINAL_TUNE.boxDX + CARD_W + 24
+    )
 
   return (
    <div className="bracket-scope relative">
@@ -317,7 +324,7 @@ const thirdB = SF2 ? (loserOfNode(SF2) || `Loser ${SF2.code} — ${bracket.title
         </div>
 
         <div className="mt-bracket-board-viewport relative overflow-x-auto overflow-y-auto card" style={{ minHeight: safeBoardHeight, height: safeBoardHeight }}>
-          <div className="mt-bracket-board-inner relative" style={{ width: se.width + HSCROLL_PAD, minHeight: safeBoardHeight - 16, height: safeBoardHeight - 16 }}>
+          <div className="mt-bracket-board-inner relative" style={{ width: safeBoardWidth, minHeight: safeBoardHeight - 16, height: safeBoardHeight - 16 }}>
             {/* linee */}
             <svg width={se.width} height={se.height} className="absolute top-4 left-4" style={{ overflow:'visible' }}>
               {se.nodes.map((n, idx) => {
