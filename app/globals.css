@@ -3591,3 +3591,57 @@ html[data-mattabel-theme="blu"] .mt-results-publish{
 .desk-stage-grid-colored .desk-stage-hint{
   color:color-mix(in srgb,var(--desk-group-accent) 35%,#e9f2fb);
 }
+
+/* TV-only: improve fixture label legibility on category brackets.
+   Read-only buttons are disabled intentionally; never visually dim them. */
+.desk-bracket-category .bracket-scope,
+.desk-bracket-category .bracket-scope .card,
+.desk-bracket-category .desk-board-inner{
+  color:#f6f8ff!important;
+}
+.desk-bracket-category .bracket-scope button:disabled,
+.desk-bracket-category .bracket-scope button[disabled],
+.desk-bracket-category .desk-board-inner button:disabled,
+.desk-bracket-category .desk-board-inner button[disabled]{
+  opacity:1!important;
+  filter:none!important;
+  cursor:default!important;
+  -webkit-text-fill-color:#f7f9ff!important;
+}
+.desk-bracket-category .bracket-scope button,
+.desk-bracket-category .desk-board-inner button,
+.desk-bracket-category .bracket-scope button .font-mono,
+.desk-bracket-category .desk-board-inner button .font-mono{
+  color:#f7f9ff!important;
+  font-size:clamp(12px,.94vw,16px)!important;
+  font-weight:750!important;
+  text-shadow:0 1px 2px rgba(0,0,0,.38);
+}
+.desk-bracket-category .bracket-scope .opacity-70,
+.desk-bracket-category .desk-board-inner .opacity-70{
+  opacity:.94!important;
+}
+.desk-bracket-category .bracket-scope .text-neutral-400,
+.desk-bracket-category .bracket-scope .text-neutral-300,
+.desk-bracket-category .desk-board-inner .text-neutral-400,
+.desk-bracket-category .desk-board-inner .text-neutral-300,
+.desk-bracket-category .bracket-scope label,
+.desk-bracket-category .desk-board-inner label{
+  color:#dbe5f4!important;
+}
+.desk-bracket-category .bracket-scope .text-\\[11px\\],
+.desk-bracket-category .desk-board-inner .text-\\[11px\\]{
+  font-size:12px!important;
+  font-weight:650!important;
+}
+.desk-bracket-category .bracket-scope .absolute.card .text-sm,
+.desk-bracket-category .desk-board-inner .absolute.card .text-sm{
+  color:#f5f8ff!important;
+  font-size:clamp(12px,.9vw,16px)!important;
+  font-weight:700!important;
+}
+.desk-bracket-category .bracket-scope button[class*="bg-yellow"],
+.desk-bracket-category .desk-board-inner button[class*="bg-yellow"]{
+  background:color-mix(in srgb,var(--desk-category-accent) 24%,#253349)!important;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--desk-category-accent) 55%,transparent);
+}
