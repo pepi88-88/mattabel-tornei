@@ -43,7 +43,7 @@ function GroupDisplay({group,matches,onCapacity}:{group:Group;matches:GroupMatch
   return()=>observer.disconnect()
  },[onCapacity])
 
- return <div className="desk-stage-grid">
+ return <div className="desk-stage-grid desk-stage-grid-colored" style={{'--desk-group-accent':colorFor(group.letter)} as React.CSSProperties}>
   <section className="desk-stage-box">
    <div className="desk-stage-box-title" style={{borderColor:colorFor(group.letter)}}>
     <h2>CLASSIFICA GIRONE {group.letter}</h2><span>{group.cap} COPPIE</span>
@@ -272,7 +272,7 @@ export default function DeskCarousel(){
       <p className="desk-eyebrow">{active.kind==='group'?'FASE A GIRONI':active.kind==='bracket'?'TABELLONI FINALI':'TORNEO IN PREPARAZIONE'} · {date}</p>
       <h1>{active.tournament.name}</h1>
      </div>
-     <div className="desk-stage-label" style={{borderColor:active.bracket?.color||colorFor(active.group?.letter||'A'),backgroundColor:active.kind==='bracket'?'color-mix(in srgb, '+active.bracket?.color+' 20%, #11253c)':'transparent'}}>
+     <div className="desk-stage-label" style={{borderColor:active.bracket?.color||colorFor(active.group?.letter||'A'),backgroundColor:active.kind==='bracket'?'color-mix(in srgb, '+active.bracket?.color+' 20%, #11253c)':active.kind==='group'?'color-mix(in srgb, '+colorFor(active.group?.letter||'A')+' 24%, #11253c)':'transparent'}}>
       {active.kind==='group'?'GIRONE '+active.group?.letter+(active.pages&&active.pages>1?' · '+active.part+'/'+active.pages:''):
        active.kind==='bracket'?active.bracket?.title:'IN ATTESA'}
      </div>
