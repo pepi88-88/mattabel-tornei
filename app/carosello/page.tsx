@@ -60,16 +60,46 @@ export default function DeskCarousel() {
 
   const reload=useCallback(async()=>{
     try {
-      const response=await fetch('/api/public/desk',{cache:'no-store'})
-      if(!response.ok) throw new Error('Dati momentaneamente non disponibili')
-      const json=await response.json()
-      if(!Array.isArray(json.items))throw new Error('Formato dati non valido')
-      setItems(json.items)
-      setUpdated(json.updatedAt || '')
-      setIndex(prev => Math.min(prev,Math.max(0,json.items.length-1)))
+      // The selector must not depend on match-state availability.
+      // /api/tournaments is already the canonical source used by Regia.
+      const tournamentsResponse=await fetch('/api/tournaments?include_closed=1',{cache:'no-store'})
+      if(!tournamentsResponse.ok)throw new Error('Elenco tornei non disponibile')
+      const tournamentsJson=await tournamentsResponse.json()
+      const open=((tournamentsJson?.items || []) as any[]).filter(t=>
+        !t.archived &&
+        !['closed','archived','finished','completed'].includes(String(t.status || '').toLowerCase().trim())
+      )
+
+      let matchItems: Tournament[]=[]
+      try {
+        const deskResponse=await fetch('/api/public/desk',{cache:'no-store'})
+        if(deskResponse.ok){
+          const deskJson=await deskResponse.json()
+          if(Array.isArray(deskJson?.items))matchItems=deskJson.items
+        }
+      }catch{}
+      const byId=new Map(matchItems.map(t=>[String(t.id),t]))
+      const nextItems: Tournament[]=open.map(t=>{
+        const details=byId.get(String(t.id))
+        return {
+          id:String(t.id),
+          name:String(t.name||t.title||'Torneo'),
+          date:t.event_date||null,
+          groupsPublic:details?.groupsPublic||false,
+          bracketsPublic:details?.bracketsPublic||false,
+          live:details?.live||[],
+          next:details?.next||[],
+        }
+      })
+      setItems(nextItems)
+      setUpdated(new Date().toISOString())
+      setIndex(prev=>Math.min(prev,Math.max(0,nextItems.length-1)))
       setError('')
-    } catch(e:any){setError(e?.message||'Impossibile aggiornare il carosello')}
-    finally{setRefreshing(false)}
+    } catch(e:any){
+      setError(e?.message||'Impossibile aggiornare il carosello')
+    } finally {
+      setRefreshing(false)
+    }
   },[])
 
   useEffect(()=>{
