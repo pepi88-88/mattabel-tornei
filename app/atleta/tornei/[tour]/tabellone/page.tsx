@@ -6,6 +6,7 @@ import Link from 'next/link'
 import BracketCanvas, { type Bracket as BracketType, type WinnerMap } from '../../../../../components/BracketCanvas'
 import { parseItaPositionToken, resolveItaPosition } from '../../../../../lib/itaSources'
 import PreliminaryBracket from '../../../../../components/PreliminaryBracket'
+import AthleteBracketZoom from '../../../../../components/AthleteBracketZoom'
 
 /* ============== Helpers comuni ============== */
 
@@ -781,8 +782,7 @@ export default function AthleteTabellonePage() {
 
     ;(async () => {
       try {
-        const r = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`, {
-          headers: { 'x-role': 'admin' },
+        const r = await fetch(`/api/brackets/public?tournament_id=${encodeURIComponent(tId)}`, {
           cache: 'no-store',
         })
         const js = await r.json()
@@ -857,33 +857,35 @@ export default function AthleteTabellonePage() {
   }, [active, resolve, winnersById])
 
   return (
-    <div className="min-h-screen px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-[1400px] py-6 space-y-6">
+    <div className="mt-athlete-brackets min-h-screen px-4 sm:px-6 lg:px-8">
+      <div className="mt-athlete-brackets-content mx-auto w-full max-w-[1400px] py-6 space-y-6">
         {/* header */}
-        <div className="flex items-center gap-2">
+        <div className="mt-athlete-brackets-header flex items-center gap-2">
           <Link className="btn btn-ghost btn-sm" href="/atleta/tornei">← Tornei attivi</Link>
           <Link className="btn btn-ghost btn-sm" href="/atleta/classifica">Classifica generale</Link>
-          <div className="mx-auto text-2xl md:text-3xl font-semibold text-center">{tname || 'Tabellone finale'}</div>
+          <h1 className="mt-athlete-brackets-title mx-auto text-2xl md:text-3xl font-semibold text-center">{tname || 'Tabellone finale'}</h1>
         </div>
 
         {!tId ? (
           <div className="card p-6 text-sm text-neutral-400">
             Seleziona una tappa dalla pagina <Link className="link" href="/atleta/tornei">Tornei attivi</Link>.
           </div>
-        ) : !groupsConfirmed && !isPublic ? (
+        ) : !isPublic ? (
           <div className="card p-6 text-sm text-neutral-400">
-            Il tabellone non è ancora visibile. Sarà mostrato quando gli organizzatori confermano i risultati dei gironi o lo rendono pubblico.
+            Il tabellone non è attualmente pubblicato dagli organizzatori.
           </div>
         ) : !brackets.length ? (
           <div className="card p-6 text-sm text-neutral-400">Nessun tabellone disponibile per questa tappa.</div>
         ) : (
-          <div className="card p-0 overflow-hidden">
+          <div className="mt-athlete-bracket-card card p-0 overflow-hidden">
             {/* tabs dei tabelloni */}
-            <div className="p-3 flex flex-wrap gap-2 border-b border-neutral-800">
+            <div role="tablist" aria-label="Categorie del tabellone" className="mt-athlete-bracket-tabs p-3 flex flex-wrap gap-2 border-b border-neutral-800">
               {brackets.map((b, i) => (
                 <button
                   key={b.id}
-                  className={`btn ${b.id === activeId ? '' : 'opacity-80'}`}
+                  className={`mt-athlete-bracket-tab btn ${b.id === activeId ? '' : 'opacity-80'}`}
+                  role="tab"
+                  aria-selected={b.id === activeId}
                   onClick={() => setActiveId(b.id)}
                   title={b.title}
                   style={b.id === activeId ? { outline: `2px solid ${b.color}`, outlineOffset: 2 } : {}}
@@ -895,8 +897,9 @@ export default function AthleteTabellonePage() {
               ))}
             </div>
 
-            {/* contenuto */}
-            <div className="p-4">
+            {/* Contenuto con zoom persistente per ogni categoria */}
+            <div className="mt-athlete-bracket-board p-4">
+              <AthleteBracketZoom storageId={tId + ':' + (activeId || '')}>
               {resolvedActive && (
                 String(resolvedActive.type).toUpperCase() === 'ITA' ? (
                   <ItaViewer
@@ -929,6 +932,7 @@ export default function AthleteTabellonePage() {
                   </>
                 )
               )}
+              </AthleteBracketZoom>
             </div>
           </div>
         )}

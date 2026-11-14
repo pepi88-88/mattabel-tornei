@@ -62,9 +62,9 @@ export default function LegendAdminPage() {
   },[totalTeams, multiplier, setCfg])
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="mt-legend-page p-6 space-y-6">
       {/* Tabs */}
-      <div className="flex items-center gap-2">
+      <div className="mt-legend-tabs flex items-center gap-2">
         <a className="btn btn-outline btn-sm" href="/admin/classifica">Classifica</a>
         <span className="btn btn-primary btn-sm border-2 border-primary ring-2 ring-primary/30">
           Legenda punti
@@ -72,7 +72,7 @@ export default function LegendAdminPage() {
       </div>
 
       {/* Preview parametri */}
-      <div className="card p-4 space-y-3">
+      <div className="mt-legend-preview card p-4 space-y-3">
         <div className="flex items-center gap-3">
           <div className="w-40 text-sm text-neutral-400">Totale squadre</div>
           <input
@@ -92,9 +92,10 @@ export default function LegendAdminPage() {
         </div>
       </div>
 
-      {/* Legenda calcolata */}
-      <div className="card p-4">
-        <div className="font-medium mb-2">Legenda calcolata</div>
+      {/* Legenda calcolata: opens only when requested */}
+      <details className="mt-legend-calculated card p-4">
+        <summary className="mt-legend-summary">Legenda calcolata <span className="mt-legend-hint">Mostra / nascondi tabella</span></summary>
+        <div className="mt-legend-calculated-content">
         {legend.length === 0 ? (
           <div className="text-sm text-neutral-500">Imposta un numero di squadre valido.</div>
         ) : (
@@ -111,14 +112,15 @@ export default function LegendAdminPage() {
             </table>
           </div>
         )}
-      </div>
+        </div>
+      </details>
 
       {/* Parametri S/M/L/XL */}
-      <div className="card p-4 space-y-3">
+      <div className="mt-legend-parameters card p-4 space-y-3">
         <div className="font-medium">Parametri di calcolo (S/M/L/XL)</div>
 
         {(['S','M','L','XL'] as (keyof ScoreCfgSet)[]).map(k=>(
-          <div key={k} className="grid grid-cols-4 gap-3 items-end border-t border-neutral-800 pt-3 mt-3">
+          <div key={k} className="mt-legend-parameter-row grid grid-cols-4 gap-3 items-end border-t border-neutral-800 pt-3 mt-3">
             <div className="font-medium">
               {k==='S' ? '1–8 squadre'
                : k==='M' ? '9–16 squadre'

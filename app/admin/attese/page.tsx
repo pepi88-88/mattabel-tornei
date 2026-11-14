@@ -208,9 +208,9 @@ export default function AttesePage(){
     }
     return [...result.values()].sort((a,b)=>(b.wait??-1)-(a.wait??-1))
   },[nextMatches])
-  return <div className="space-y-5 pb-8">
+  return <div className="mt-waiting-page space-y-5 pb-8">
     <div className="flex flex-wrap justify-between gap-3 items-center">
-      <div><h1 className="text-2xl font-bold">Attese · Regia</h1>
+      <div><h1 className="mt-waiting-heading text-2xl font-bold">Attese · Regia</h1>
         <p className="text-sm text-neutral-400">Incontri da giocare e tempi di attesa delle singole coppie.</p></div>
       <span className="rounded-full border border-orange-500/50 text-orange-200 px-3 py-1 text-xs">PREVIEW · DATI REALI</span>
     </div>

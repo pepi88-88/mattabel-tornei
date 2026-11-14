@@ -271,10 +271,10 @@ export default function ClassificaInner() {
 
   // ------------------------ RENDER ------------------------
   return (
-    <div className="px-3 py-5 sm:p-6">
+    <div className="mt-athlete-standing-page px-3 py-5 sm:p-6">
       <div className={`mx-auto space-y-5 ${showStageColumns ? 'w-full max-w-[1400px]' : 'w-full sm:w-fit max-w-full'}`}>
       {/* Filtri e classifica condividono lo stesso contenitore centrato. */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="mt-athlete-ranking-filters flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-xl overflow-hidden border border-neutral-700">
           <button
             className={`px-3 py-2 text-sm ${gender==='M'?'bg-neutral-800 text-white':'bg-neutral-900 text-neutral-300'}`}
@@ -295,7 +295,7 @@ export default function ClassificaInner() {
       </div>
 
            {/* Card classifica */}
-      <div className="card p-0 overflow-hidden w-full">
+      <div className="mt-athlete-ranking-card card p-0 overflow-hidden w-full">
         <div className="px-4 py-3 border-b border-neutral-800 flex flex-wrap items-center justify-between gap-3 bg-neutral-950/60">
           <div className="text-base font-semibold tracking-wide">Classifica</div>
           <div className="flex flex-wrap items-center gap-2">
@@ -316,7 +316,7 @@ export default function ClassificaInner() {
 
         {/* Una sola tabella, con gli stessi allineamenti su PC e cellulare.
             Sul telefono si può pizzicare per cambiare zoom, senza ritorno automatico. */}
-        <div ref={rankingTouchRef} className="p-2 sm:p-4 overflow-x-auto">
+        <div ref={rankingTouchRef} className="mt-athlete-ranking-scroll p-2 sm:p-4 overflow-x-auto">
           <div className={`ranking-mobile-zoom ${showStageColumns ? 'ranking-mobile-expanded' : ''}`} style={{'--ranking-zoom':mobileZoom} as React.CSSProperties}>
           <table className="w-max table-auto text-sm">
            <thead className="text-xs uppercase">

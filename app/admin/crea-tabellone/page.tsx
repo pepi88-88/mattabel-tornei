@@ -10,6 +10,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import PreliminaryBracket from '../../../components/PreliminaryBracket'
+import AthleteBracketZoom from '../../../components/AthleteBracketZoom'
 import { itaPositionToken, itaPositionLabel } from '../../../lib/itaSources'
 
 /* =========================
@@ -863,6 +864,35 @@ function setItaSlot(idx:number, value:string) {
   patchActive({ slots });
 }
 
+const dragBracketId = useRef<string | null>(null)
+const [dragTargetId, setDragTargetId] = useState<string | null>(null)
+
+function moveBracketTo(fromId: string, targetId: string) {
+  if (locked || !fromId || fromId === targetId) return
+  setBrackets(items => {
+    const from = items.findIndex(item => item.id === fromId)
+    const to = items.findIndex(item => item.id === targetId)
+    if (from < 0 || to < 0 || from === to) return items
+    const reordered = [...items]
+    const [entry] = reordered.splice(from,1)
+    reordered.splice(to,0,entry)
+    return reordered
+  })
+}
+
+// Riordina i tabelloni senza cambiare ID, incontri o riferimenti ai ripescaggi.
+function moveBracket(id: string, direction: -1 | 1) {
+  if (locked) return
+  setBrackets(current => {
+    const from = current.findIndex(item => item.id === id)
+    const to = from + direction
+    if (from < 0 || to < 0 || to >= current.length) return current
+    const next = [...current]
+    ;[next[from], next[to]] = [next[to], next[from]]
+    return next
+  })
+}
+
 function addBracket() {
   const b = newBracket();
   setBrackets(bs => [...bs, b]);
@@ -1213,7 +1243,8 @@ if (!loadedRemote) {
 
 if (!active) {
   return (
-    <div className="p-2 sm:p-3 xl:p-4 space-y-3 min-w-0">
+    <div className="mt-bracket-page mt-bracket-empty p-2 sm:p-3 xl:p-4 space-y-3 min-w-0">
+      <h1 className="mt-simple-page-title">Creazione Tabellone</h1>
       <div className="card p-6 text-sm text-neutral-400">
         Nessun tabellone ancora presente per questa tappa.
         <div className="mt-3">
@@ -1225,14 +1256,15 @@ if (!active) {
 }
 
 return (
-  <div className="p-4 space-y-3">
+  <div className="mt-bracket-page p-4 space-y-3">
+    <h1 className="mt-simple-page-title">Creazione Tabellone</h1>
     <style jsx global>{`
       .hide-letter { width:0!important; padding:0!important; margin:0!important; overflow:hidden!important; opacity:0!important; }
     `}</style>
 
     {/* Barra top (nuovo ordine + vicino a Tappa) */}
-<div className="card p-3">
-  <div className="flex flex-wrap items-end gap-2">
+<div className="mt-bracket-toolbar card p-3">
+  <div className="mt-bracket-toolbar-inner flex flex-wrap items-end gap-2">
     {/* Tour */}
     <div>
       <div className="text-xs text-neutral-400 mb-1">Tour</div>
@@ -1302,23 +1334,54 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
 </button>
 
 
-    {/* Tab dei tabelloni (dopo i 3 bottoni) */}
-    <div className="flex flex-wrap items-end gap-2">
-      {brackets.map((b) => (
-        <button
-          key={b.id}
-          className="btn"
-          onClick={() => setActiveId(b.id)}
-          style={b.id === activeId ? { outline: `2px solid ${b.color}`, outlineOffset: 2 } : {}}
-          title={b.title}
-        >
-          {b.title}
-         <span className="ml-2 text-[10px] opacity-60">
-  L{bracketLevels.order[b.id] ?? 1}
-</span>
-{b.id === bracketLevels.topId && <span className="ml-1">👑</span>}
-
-        </button>
+    {/* Ordine tabelloni: trascina l'icona ⠿ su PC o tablet.
+        Per la tastiera: freccia sinistra/destra sull'impugnatura. */}
+    <div className="mt-bracket-draggable-list flex flex-wrap items-end gap-2">
+      {brackets.map((b, index) => (
+        <div key={b.id} data-bracket-drop-id={b.id}
+          className={`mt-bracket-reorder-item flex items-center gap-1 ${dragTargetId === b.id ? 'mt-bracket-drop-target' : ''}`}>
+          <button type="button"
+            className="mt-bracket-grip btn"
+            disabled={locked}
+            style={{ touchAction:'none' }}
+            title="Trascina per riordinare i livelli L1, L2, L3"
+            aria-label={`Trascina ${b.title} per riordinare. Usa freccia sinistra/destra da tastiera.`}
+            onPointerDown={event => {
+              if (locked) return
+              dragBracketId.current = b.id
+              setDragTargetId(b.id)
+              event.currentTarget.setPointerCapture(event.pointerId)
+            }}
+            onPointerMove={event => {
+              if (!dragBracketId.current) return
+              const at = document.elementFromPoint(event.clientX,event.clientY)
+              const nearest = at?.closest('[data-bracket-drop-id]')
+              setDragTargetId(nearest?.getAttribute('data-bracket-drop-id') || null)
+            }}
+            onPointerUp={event => {
+              const source = dragBracketId.current
+              const at = document.elementFromPoint(event.clientX,event.clientY)
+              const target = at?.closest('[data-bracket-drop-id]')?.getAttribute('data-bracket-drop-id')
+              if (source && target) moveBracketTo(source,target)
+              dragBracketId.current = null
+              setDragTargetId(null)
+              if (event.currentTarget.hasPointerCapture(event.pointerId))
+                event.currentTarget.releasePointerCapture(event.pointerId)
+            }}
+            onPointerCancel={() => {dragBracketId.current=null;setDragTargetId(null)}}
+            onKeyDown={event => {
+              if (event.key === 'ArrowLeft') {event.preventDefault();moveBracket(b.id,-1)}
+              if (event.key === 'ArrowRight') {event.preventDefault();moveBracket(b.id,1)}
+            }}>⠿</button>
+          <button type="button" className="btn"
+            onClick={() => setActiveId(b.id)}
+            style={b.id === activeId ? { outline: `2px solid ${b.color}`, outlineOffset: 2 } : {}}
+            title={b.title} aria-pressed={b.id === activeId}>
+            {b.title}
+            <span className="ml-2 text-[10px] opacity-70">L{bracketLevels.order[b.id] ?? index + 1}</span>
+            {b.id === bracketLevels.topId && <span className="ml-1">👑</span>}
+          </button>
+        </div>
       ))}
     </div>
   </div>
@@ -1326,8 +1389,8 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
 
 
       {/* Header tabellone attivo */}
-      <div className="card p-3">
-        <div className="flex flex-wrap items-end gap-3">
+      <div className="mt-bracket-settings card p-3">
+        <div className="mt-bracket-config flex flex-wrap items-end gap-3">
           <div>
             <div className="text-xs text-neutral-400 mb-1">Titolo</div>
             <input className="input w-56 h-12 text-base" value={active.title} onChange={(e)=>patchActive({ title:e.target.value })} disabled={locked} />
@@ -1406,47 +1469,33 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
             <p className="text-xs text-neutral-400 mt-3">In ciascun incontro scegli liberamente una posizione dei due ITA; le posizioni già usate sono disabilitate. BYE e casella vuota restano disponibili.</p>
           </div>
         )}
-        <div className="flex items-center justify-between gap-4 ml-2 mt-3 min-h-[28px]">
-          <div className="flex items-center gap-2">
-            <input id="thirdplace" type="checkbox" className="accent-white" checked={enableThirdPlace} onChange={(e)=>setEnableThirdPlace(e.target.checked)} disabled={locked} />
-            <label htmlFor="thirdplace" className="text-sm">Match 3° / 4° posto</label>
+        <div className="mt-bracket-summary">
+          <div className="mt-bracket-options">
+            <label className="mt-bracket-option" htmlFor="thirdplace">
+              <input id="thirdplace" type="checkbox" className="accent-white" checked={enableThirdPlace} onChange={(e)=>setEnableThirdPlace(e.target.checked)} disabled={locked} />
+              <span>Match 3° / 4° posto</span>
+            </label>
+            <label className="mt-bracket-option" htmlFor="lock">
+              <input id="lock" type="checkbox" className="accent-white" checked={locked} onChange={e=>setLocked(e.target.checked)} />
+              <span>Blocca modifiche (solo lettura)</span>
+            </label>
           </div>
-          <div role="status" aria-live="polite" className="min-w-[220px] text-right text-xs sm:text-sm whitespace-nowrap">
+          <div className="mt-bracket-title-banner">
+            <div className="mt-bracket-title-chip relative flex items-center justify-center text-center px-8 py-3 rounded-xl font-extrabold uppercase tracking-wide text-2xl md:text-3xl"
+              style={{ background: active.color, color: '#000' }}>
+              <span className="pointer-events-none">{active.title}</span>
+              <span className="absolute -top-2 -right-2 text-[11px] px-2 py-[2px] rounded-md bg-neutral-900 border border-neutral-700">
+                L{Math.max(0, brackets.findIndex(b => b.id === active.id)) + 1}
+              </span>
+            </div>
+          </div>
+          <div role="status" aria-live="polite" className="mt-bracket-save-state text-xs sm:text-sm whitespace-nowrap">
             {bracketsSaveState==='saving' && <span className="text-amber-300">Salvataggio in corso…</span>}
             {bracketsSaveState==='saved' && <span className="text-emerald-400">✓ Salvato</span>}
             {bracketsSaveState==='error' && <span className="text-red-400" title="Non cambiare pagina finché il salvataggio non riesce">Errore salvataggio — riprova</span>}
           </div>
         </div>
-<div className="flex items-center gap-2 ml-2 mt-3">
-  <input
-    id="lock"
-    type="checkbox"
-    className="accent-white"
-    checked={locked}
-    onChange={e=>setLocked(e.target.checked)}
-  />
-  <label htmlFor="lock" className="text-sm">Blocca modifiche (solo lettura)</label>
-</div>
-
-
-
-
-        {/* Titolo grande colorato centrato */}
-<div className="mt-4 flex justify-center">
-  <div
-    className="relative flex items-center justify-center text-center px-8 py-3 rounded-xl font-extrabold uppercase tracking-wide text-2xl md:text-3xl"
-    style={{ background: active.color, color: '#000', minWidth: 380 }}
-  >
-    <span className="pointer-events-none">{active.title}</span>
-    <span className="absolute -top-2 -right-2 text-[11px] px-2 py-[2px] rounded-md bg-neutral-900 border border-neutral-700">
-      L{Math.max(0, brackets.findIndex(b => b.id === active.id)) + 1}
-    </span>
-  </div>
-</div>
-
-
-
-        <div className="mt-3 text-sm text-neutral-400">
+        <div className="mt-bracket-debug text-sm text-neutral-400">
           {groups.length
             ? <>Gironi caricati: {groups.map(g=>g.key).join(', ')} (N={groups.reduce((a,g)=>a+g.size,0)})</>
             : <>Nessun dato gironi trovato. Avulsa=N={tappaSize}</>
@@ -1454,6 +1503,7 @@ const av = Array.from({ length: Math.max(0, avCount) }, (_, i) => `${i + 1}`)
         </div>
       </div>
 
+      <AthleteBracketZoom storageId={'staff-create:' + tourId + ':' + tId + ':' + active.id}>
       {(active.type === 'PSE' || active.type === 'PDE') && <PreliminaryBracket
         title={active.title} color={active.color} type={active.type} nTeams={active.nTeams}
         prelims={active.prelims} r1={active.r1} winners={winnersById[active.id] || {}}
@@ -1936,6 +1986,8 @@ locked={locked}
           </div>
         </div>
       )}
+
+      </AthleteBracketZoom>
 
       {/* Drawer “vedi gironi” */}
       {showDrawer && (

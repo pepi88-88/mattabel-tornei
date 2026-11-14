@@ -19,11 +19,14 @@ type RegiaRow = {
 }
 
 type ViewMode = 'all' | 'live' | 'live_plus_2'
-type OrderMode = 'regia' | 'phase'
+type OrderMode = 'regia' | 'phase' | 'time'
 type TournamentOption = {
   id: string
   name: string
   date?: string
+  event_date?: string
+  status?: string
+  archived?: boolean | null
 }
 function rowUiKey(row: RegiaRow) {
   return `${row.tournament_id}::${row.key}`
@@ -86,6 +89,25 @@ function sortRowsByPhase(rows: RegiaRow[]) {
     if (as !== bs) return as - bs
 
     return a.key.localeCompare(b.key)
+  })
+}
+// HH:mm ordinabile; le partite senza orario vengono dopo, per fase.
+function timeToMinutes(value: string) {
+  const match = String(value || '').trim().match(/^(\d{1,2}):(\d{2})/)
+  if (!match) return null
+  const h = Number(match[1]), m = Number(match[2])
+  return h < 24 && m < 60 ? h * 60 + m : null
+}
+function sortRowsByTime(rows: RegiaRow[], drafts: Record<string,{scheduledTime:string}>) {
+  const phaseSorted = sortRowsByPhase(rows)
+  const phasePosition = new Map(phaseSorted.map((row,index)=>[rowUiKey(row),index]))
+  return [...rows].sort((a,b)=>{
+    const at = timeToMinutes(drafts[rowUiKey(a)]?.scheduledTime ?? a.scheduledTime)
+    const bt = timeToMinutes(drafts[rowUiKey(b)]?.scheduledTime ?? b.scheduledTime)
+    if (at !== null && bt === null) return -1
+    if (at === null && bt !== null) return 1
+    if (at !== null && bt !== null && at !== bt) return at - bt
+    return (phasePosition.get(rowUiKey(a)) ?? 0) - (phasePosition.get(rowUiKey(b)) ?? 0)
   })
 }
 export default function RegiaPage() {
@@ -185,43 +207,66 @@ setDirtyKeys({})
     [id]: true,
   }))
 }
+// La pagina Tour identifica come non operative anche le tappe archiviate.
+// Carichiamo tutti gli stati e applichiamo lo stesso criterio a Regia.
+const isOpenTournament = (t: TournamentOption) =>
+  !t.archived &&
+  !['closed','finished','completed','archived'].includes(String(t.status || '').toLowerCase().trim())
+
 async function loadTournamentOptions() {
   try {
-    const res = await fetch('/api/tournaments', { cache: 'no-store' })
+    const res = await fetch('/api/tournaments?include_closed=1', { cache: 'no-store' })
+    if (!res.ok) throw new Error('Impossibile caricare i tornei')
     const json = await res.json()
-    const items = (json?.items || []) as TournamentOption[]
+    const items = ((json?.items || []) as TournamentOption[]).filter(isOpenTournament)
     setAvailableTournaments(items)
+
+    const ids = new Set(items.map(t => t.id))
+    setDraftTournamentA(previous => ids.has(previous) ? previous : '')
+    setDraftTournamentB(previous => ids.has(previous) ? previous : '')
+    setActiveTournamentA(previous => ids.has(previous) ? previous : '')
+    setActiveTournamentB(previous => ids.has(previous) ? previous : '')
+    setRows(previous => previous.filter(row => ids.has(row.tournament_id)))
+    return items
   } catch {
     setAvailableTournaments([])
+    return [] as TournamentOption[]
   }
 }
-  useEffect(() => {
-  void loadTournamentOptions()
-
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as { a?: string; b?: string }
-      const a = String(parsed?.a || '')
-      const b = String(parsed?.b || '')
-
-      setDraftTournamentA(a)
-      setDraftTournamentB(b)
-      setActiveTournamentA(a)
-      setActiveTournamentB(b)
-      return
+useEffect(() => {
+  let cancelled = false
+  // Ripristina le scelte SOLO dopo che sono stati caricati i tornei realmente
+  // aperti: il vecchio localStorage non deve reinserire tappe chiuse.
+  void loadTournamentOptions().then(items => {
+    if (cancelled) return
+    const valid = new Set(items.map(t => t.id))
+    let savedA = '', savedB = ''
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as { a?: string; b?: string }
+        savedA = String(parsed?.a || '')
+        savedB = String(parsed?.b || '')
+      } else {
+        savedA = localStorage.getItem('selectedTournamentId') || initialTournamentId
+      }
+    } catch {
+      savedA = initialTournamentId
     }
-  } catch {}
-
-  const preferred = localStorage.getItem('selectedTournamentId') || initialTournamentId
-  if (preferred) {
-    setDraftTournamentA(preferred)
-    setDraftTournamentB('')
-    setActiveTournamentA(preferred)
-    setActiveTournamentB('')
-  }
+    const a = valid.has(savedA) ? savedA : ''
+    const b = valid.has(savedB) && savedB !== a ? savedB : ''
+    setDraftTournamentA(a)
+    setDraftTournamentB(b)
+    setActiveTournamentA(a)
+    setActiveTournamentB(b)
+    // Non eliminare i dati del torneo: puliamo soltanto la selezione locale.
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ a, b }))
+    } catch {}
+  })
+  return () => { cancelled = true }
 }, [initialTournamentId])
-  
+
 async function mutate(
   row: RegiaRow | null,
   action:
@@ -309,8 +354,8 @@ async function mutate(
   }
 }
 function applyTournamentSelection() {
-  if (!draftTournamentA) {
-    alert('Seleziona almeno il Torneo A.')
+  if (!draftTournamentA || !availableTournaments.some(t => t.id === draftTournamentA)) {
+    alert('Seleziona un Torneo A aperto.')
     return
   }
 
@@ -319,6 +364,10 @@ function applyTournamentSelection() {
     return
   }
 
+  if (draftTournamentB && !availableTournaments.some(t => t.id === draftTournamentB)) {
+    alert('Il Torneo B selezionato è chiuso o non disponibile.')
+    return
+  }
   const changed =
     draftTournamentA !== activeTournamentA ||
     draftTournamentB !== activeTournamentB
@@ -446,6 +495,9 @@ function applyTournamentSelection() {
   if (orderMode === 'phase') {
     return sortRowsByPhase(activeRows)
   }
+  if (orderMode === 'time') {
+    return sortRowsByTime(activeRows, drafts)
+  }
 
   if (viewMode === 'all') return activeRows
 
@@ -481,7 +533,7 @@ function applyTournamentSelection() {
 
   const unassigned = activeRows.filter((r) => r.court == null)
   return [...out, ...unassigned]
-}, [activeRows, viewMode, orderMode])
+}, [activeRows, viewMode, orderMode, drafts])
 
  function courtBadge(court: number | null) {
   if (court === 1) return 'border-blue-500 bg-blue-950/40 text-blue-300'
@@ -543,7 +595,14 @@ function rowBg(status: RegiaStatus, tournamentId?: string) {
 
 
   return (
-    <div className="min-h-screen min-w-0 bg-neutral-950 p-2 sm:p-3 xl:p-6 text-white">
+    <div className="mt-regia-page min-h-screen min-w-0 bg-neutral-950 p-2 sm:p-3 xl:p-6 text-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <h1 className="mt-simple-page-title">Regia</h1>
+        <a href="/carosello" target="_blank" rel="noopener noreferrer"
+          className="rounded-xl border border-amber-600/60 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/20">
+          Apri carosello desk ↗
+        </a>
+      </div>
       <div className="mb-5 rounded-2xl border border-neutral-800 bg-neutral-900 p-4 shadow-sm">
       <div className="mb-4 grid gap-3 md:grid-cols-2">
   <div>
@@ -628,6 +687,19 @@ function rowBg(status: RegiaStatus, tournamentId?: string) {
   }`}
 >
   Ordina per fase
+</button>
+<button
+  type="button"
+  onClick={() => { setOrderMode('time'); setViewMode('all') }}
+  aria-pressed={orderMode === 'time'}
+  title="Prima le partite con orario crescente, poi quelle senza orario ordinate per fase"
+  className={`rounded-xl px-3 py-2 text-sm font-medium ${
+    orderMode === 'time'
+      ? 'bg-white text-black'
+      : 'border border-neutral-700 bg-neutral-900 text-neutral-300'
+  }`}
+>
+  Ordina per orario
 </button>
 <button
 type="button"
@@ -789,15 +861,13 @@ Pulisci regia
     </div>
   ) : (
     <div className="flex flex-wrap items-center gap-2">
-      {row.sourceType === 'bracket' ? (
-        <input
+      {<input
           type="time"
           value={drafts[rowUiKey(row)]?.scheduledTime ?? ''}
           onChange={(e) => setDraft(row, { scheduledTime: e.target.value })}
           disabled={busy}
           className="rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm text-white"
-        />
-      ) : null}
+        />}
 
       <select
         value={drafts[rowUiKey(row)]?.court ?? ''}
@@ -924,15 +994,13 @@ Pulisci regia
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          {row.sourceType === 'bracket' ? (
-  <input
+                          {<input
     type="time"
     value={drafts[rowUiKey(row)]?.scheduledTime ?? ''}
     onChange={(e) => setDraft(row, { scheduledTime: e.target.value })}
     disabled={busy}
     className="rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm text-white"
-  />
-) : null}
+  />}
                           <select
                             value={drafts[rowUiKey(row)]?.court ?? ''}
                             onChange={(e) => setDraft(row, { court: e.target.value })}

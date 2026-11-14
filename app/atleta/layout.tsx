@@ -4,10 +4,12 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Image from 'next/image'
+import ThemeSwitcher from '../../components/ThemeSwitcher'
+import NavigationIcon, { type NavigationIconName } from '../../components/NavigationIcon'
 
 const ORANGE = 'rgb(240,125,0)'
 
-function NavBtn({ href, label }:{ href:string; label:string }) {
+function NavBtn({ href, label, icon }:{ href:string; label:string; icon:NavigationIconName }) {
   const pathname = usePathname()
   const active = pathname?.startsWith(href)
   return (
@@ -15,14 +17,14 @@ function NavBtn({ href, label }:{ href:string; label:string }) {
       href={href}
       className={[
         'inline-flex items-center justify-center',
-        'h-11 px-4 rounded-md my-2',
+        'h-11 px-4 rounded-md my-2 mt-athlete-nav-link',
         'min-w-[180px] md:min-w-[160px] sm:min-w-[140px] xs:min-w-[120px]',
         'bg-[--brand-navy] border border-neutral-700',
         'text-[15px] font-medium hover:border-neutral-500 transition-colors',
       ].join(' ')}
       style={active ? { borderColor: ORANGE } : undefined}
     >
-      <span className="truncate">{label}</span>
+      <span className="mt-nav-icon"><NavigationIcon name={icon} /></span><span className="truncate">{label}</span>
     </Link>
   )
 }
@@ -30,37 +32,39 @@ function NavBtn({ href, label }:{ href:string; label:string }) {
 function ExitBtn(){
   return (
     <button
-      className="inline-flex items-center justify-center h-11 px-4 rounded-md my-2
+      className="mt-athlete-exit inline-flex items-center justify-center h-11 px-4 rounded-md my-2
                  min-w-[180px] md:min-w-[160px] sm:min-w-[140px] xs:min-w-[120px]
                  bg-transparent border border-neutral-700 hover:border-neutral-500"
       onClick={()=>{ localStorage.removeItem('role'); location.href='/' }}
       title="Esci"
     >
-      Esci
+      <span className="mt-nav-icon"><NavigationIcon name="logout" /></span>Esci
     </button>
   )
 }
 
 export default function AthleteLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="mt-athlete-shell min-h-screen flex flex-col">
       {/* Header sticky identico allo staff */}
       <header
-        className="sticky top-0 z-40 bg-neutral-950/95 backdrop-blur header-shadow"
+        className="athlete-topbar sticky top-0 z-40 bg-neutral-950/95 backdrop-blur header-shadow"
         style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}
       >
-        <div className="container-admin mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex flex-wrap gap-2">
-            <NavBtn href="/atleta/tornei" label="Tornei attivi" />
-            <NavBtn href="/atleta/classifica" label="Classifica generale" />
+        <div className="athlete-topline container-admin mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mt-athlete-brand"><Image src="/logo2.png" alt="Beach Volley Mattabel" width={116} height={70} className="mt-header-brand-img" priority /></div>
+          <nav aria-label="Navigazione atleta" className="athlete-navigation flex flex-wrap gap-2">
+            <NavBtn href="/atleta/tornei" label="Tornei attivi" icon="tour" />
+            <NavBtn href="/atleta/classifica" label="Classifica generale" icon="ranking" />
             <ExitBtn />
           </nav>
+          <ThemeSwitcher area="atleta" />
         </div>
         <div className="brand-strip" />
       </header>
 
       {/* Logo sotto (non-sticky) */}
-      <div className="container-admin mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="athlete-logo-below container-admin mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-center py-4">
           <Image
             src="/logo2.png"
@@ -74,7 +78,7 @@ export default function AthleteLayout({ children }: { children: React.ReactNode 
       </div>
 
       {/* Contenuto */}
-      <main className="flex-1 container-admin mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <main className="mt-athlete-main flex-1 container-admin mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {children}
       </main>
     </div>
