@@ -79,7 +79,7 @@ function groupData(L:string,st:any) {
     matches.push(build(first?.winner||0,second?.winner||0,2,'F12'))
     matches.push(build(first?.loser||0,second?.loser||0,3,'F34'))
   } else {
-    pairs.forEach(([a,b],i)=>matches.push(build(a,b,i,'P'+(i+1)))
+    pairs.forEach(([a,b],i)=>matches.push(build(a,b,i,'P'+(i+1))))
   }
   const allPlayed=matches.length>0&&matches.every(m=>m.played)
   for(const s of standings)s.qp=s.ps>0?s.pf/s.ps:0
