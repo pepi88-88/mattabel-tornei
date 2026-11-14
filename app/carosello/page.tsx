@@ -107,14 +107,19 @@ function ItaDisplay({bracket,resolve}:{bracket:Bracket;resolve:(raw:string)=>str
 function BracketDisplay({bracket,tournament}:{bracket:Bracket;tournament:Tournament}){
  const outer=useRef<HTMLDivElement>(null)
  const inner=useRef<HTMLDivElement>(null)
- const [scale,setScale]=useState(0.7)
+ const [fitted,setFitted]=useState({scale:1,left:0,top:0})
  useLayoutEffect(()=>{
   const stage=outer.current,content=inner.current
   if(!stage||!content)return
   const measure=()=>{
    const width=content.scrollWidth,height=content.scrollHeight
    const w=stage.clientWidth-8,h=stage.clientHeight-8
-   if(width&&height&&w&&h)setScale(Math.max(.12,Math.min(1,w/width,h/height)))
+   if(width&&height&&w&&h){
+    const scale=Math.max(.12,Math.min(1.45,w/width,h/height))
+    const left=Math.max(0,(w-width*scale)/2)
+    const top=Math.max(0,(h-height*scale)/2)
+    setFitted(old=>old.scale===scale&&old.left===left&&old.top===top?old:{scale,left,top})
+   }
   }
   const resize=new ResizeObserver(measure)
   resize.observe(stage);resize.observe(content);measure()
@@ -130,7 +135,7 @@ function BracketDisplay({bracket,tournament}:{bracket:Bracket;tournament:Tournam
  }
  const scores=Object.fromEntries(Object.entries(bracket.scores||{}).map(([code,val])=>[code,{A:val.A??NaN,B:val.B??NaN}]))
  return <div className="desk-board-stage" ref={outer}>
-  <div className="desk-board-inner" ref={inner} style={{transform:'scale('+scale+')'}}>
+  <div className="desk-board-inner" ref={inner} style={{transform:'scale('+fitted.scale+')',left:fitted.left,top:fitted.top}}>
    {bracket.type==='PSE'||bracket.type==='PDE'?
     <PreliminaryBracket title={bracket.title} color={bracket.color} type={bracket.type}
      nTeams={bracket.nTeams} prelims={bracket.prelims} r1={bracket.r1}
@@ -260,23 +265,23 @@ export default function DeskCarousel(){
     <small>{now?now.toLocaleDateString('it-IT',{day:'numeric',month:'long',year:'numeric'}):''}</small>
    </div>
   </header>
-  <main className="desk-content">
+  <main className={'desk-content'+(active?.kind==='bracket'?' desk-content-bracket':'')}>
    {active?<>
-    <div className="desk-titlebar">
+    <div className={'desk-titlebar'+(active.kind==='bracket'?' desk-titlebar-bracket':'')}>
      <div>
       <p className="desk-eyebrow">{active.kind==='group'?'FASE A GIRONI':active.kind==='bracket'?'TABELLONI FINALI':'TORNEO IN PREPARAZIONE'} · {date}</p>
       <h1>{active.tournament.name}</h1>
      </div>
-     <div className="desk-stage-label" style={{borderColor:active.bracket?.color||colorFor(active.group?.letter||'A')}}>
+     <div className="desk-stage-label" style={{borderColor:active.bracket?.color||colorFor(active.group?.letter||'A'),backgroundColor:active.kind==='bracket'?'color-mix(in srgb, '+active.bracket?.color+' 20%, #11253c)':'transparent'}}>
       {active.kind==='group'?'GIRONE '+active.group?.letter+(active.pages&&active.pages>1?' · '+active.part+'/'+active.pages:''):
        active.kind==='bracket'?active.bracket?.title:'IN ATTESA'}
      </div>
     </div>
     {active.kind==='group'&&active.group&&<GroupDisplay key={active.key} group={active.group} matches={active.matches||[]} onCapacity={onCapacity}/>}
-    {active.kind==='bracket'&&active.bracket&&<div className="desk-bracket-card" key={active.key}>
-     <div className="desk-bracket-heading"><span style={{color:active.bracket.color}}>{active.bracket.title}</span>
-      <span>{active.bracket.type==='ITA'?'ITALIANA':active.bracket.type==='DE'||active.bracket.type==='PDE'?'DOPPIA ELIMINAZIONE':'ELIMINAZIONE DIRETTA'}</span>
-     </div>
+    {active.kind==='bracket'&&active.bracket&&<div className="desk-bracket-card desk-bracket-category" key={active.key}
+     style={{'--desk-category-accent':active.bracket.color,
+       background:'linear-gradient(145deg, color-mix(in srgb, '+active.bracket.color+' 12%, #15283d), #122238 72%)',
+       borderColor:'color-mix(in srgb, '+active.bracket.color+' 52%, #40546a)'} as React.CSSProperties}>
      <BracketDisplay bracket={active.bracket} tournament={active.tournament}/>
     </div>}
     {active.kind==='waiting'&&<div className="desk-welcome">
