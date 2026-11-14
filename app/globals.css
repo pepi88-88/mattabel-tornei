@@ -3230,3 +3230,40 @@ html[data-mattabel-theme="blu"] .mt-results-publish{
   .desk-controls select{padding:5px}
   .desk-footer-right{display:none}
 }
+
+/* Desk carousel: choose which open tournaments the TV should rotate. */
+.desk-selection-overlay{
+  position:absolute;inset:0;z-index:30;
+  display:flex;align-items:center;justify-content:center;
+  padding:18px;background:rgba(0,6,16,.83);
+  backdrop-filter:blur(6px);
+}
+.desk-selection-panel{
+  width:min(560px,100%);max-height:min(80dvh,730px);
+  display:flex;flex-direction:column;gap:15px;
+  padding:clamp(16px,2.2vw,28px);
+  border:1px solid #55718e;border-radius:16px;
+  background:#18283c;color:#fff;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+.desk-selection-top{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.desk-selection-top h2{font-weight:850;font-size:clamp(21px,2.1vw,30px)}
+.desk-selection-top button{
+  min-width:40px;min-height:40px;border-radius:8px;
+  background:#30445b;border:1px solid #63768c;font-size:18px;
+}
+.desk-selection-panel p{font-size:14px;line-height:1.45;color:#afc2d6}
+.desk-selection-choice{
+  display:flex;align-items:center;gap:12px;
+  padding:13px 14px;background:#233750;border:1px solid #405875;
+  border-radius:9px;cursor:pointer;font-size:clamp(13px,1.15vw,18px);
+}
+.desk-selection-choice input{
+  flex-shrink:0;width:23px;height:23px;accent-color:#ff941e;
+}
+.desk-selection-choice span{overflow-wrap:anywhere}
+.desk-selection-list{display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:0}
+.desk-selection-done{
+  align-self:flex-end;min-height:44px;border-radius:9px;
+  padding:8px 24px;background:#f79326;color:#151515;font-weight:850;
+}
