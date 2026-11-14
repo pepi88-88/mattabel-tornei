@@ -31,6 +31,9 @@ function MatchRow({match,live}:{match:Match;live?:boolean}) {
 
 export default function DeskCarousel() {
   const [items,setItems]=useState<Tournament[]>([])
+  const [selectionOpen,setSelectionOpen]=useState(false)
+  const [selectedIds,setSelectedIds]=useState<string[]>([])
+  const [allTournaments,setAllTournaments]=useState(true)
   const [index,setIndex]=useState(0)
   const [duration,setDuration]=useState(15)
   const [paused,setPaused]=useState(false)
@@ -39,6 +42,21 @@ export default function DeskCarousel() {
   const [updated,setUpdated]=useState('')
   const [refreshing,setRefreshing]=useState(false)
   const [progress,setProgress]=useState(0)
+
+  const visibleItems=useMemo(
+    ()=>allTournaments?items:items.filter(item=>selectedIds.includes(item.id)),
+    [items,allTournaments,selectedIds]
+  )
+  const saveSelection=(all:boolean,ids:string[])=>{
+    setAllTournaments(all)
+    setSelectedIds(ids)
+    setIndex(0)
+    try{localStorage.setItem('mattabel:desk:selection',JSON.stringify({all,ids}))}catch{}
+  }
+  const toggleTournament=(id:string)=>{
+    const next=selectedIds.includes(id)?selectedIds.filter(x=>x!==id):[...selectedIds,id]
+    saveSelection(false,next)
+  }
 
   const reload=useCallback(async()=>{
     try {
@@ -58,6 +76,12 @@ export default function DeskCarousel() {
     try{
       const pref=Number(localStorage.getItem('mattabel:desk:duration'))
       if(INTERVALS.includes(pref))setDuration(pref)
+      const saved=localStorage.getItem('mattabel:desk:selection')
+      if(saved) {
+        const choice=JSON.parse(saved)
+        if(typeof choice?.all==='boolean')setAllTournaments(choice.all)
+        if(Array.isArray(choice?.ids))setSelectedIds(choice.ids.filter((id:any)=>typeof id==='string'))
+      }
     }catch{}
     setNow(new Date())
     void reload()
@@ -67,21 +91,21 @@ export default function DeskCarousel() {
   },[reload])
 
   useEffect(()=>{
-    if(paused || items.length<=1){setProgress(0);return}
+    if(paused || visibleItems.length<=1){setProgress(0);return}
     const started=Date.now()
     setProgress(0)
     const timer=window.setInterval(()=>{
       const elapsed=Date.now()-started
       setProgress(Math.min(100,(elapsed/(duration*1000))*100))
       if(elapsed >= duration*1000){
-        setIndex(prev=>(prev+1)%items.length)
+        setIndex(prev=>(prev+1)%visibleItems.length)
         setProgress(0)
       }
     },150)
     return()=>window.clearInterval(timer)
-  },[index,duration,paused,items.length])
+  },[index,duration,paused,visibleItems.length])
 
-  const active=items[index]
+  const active=visibleItems[index]
   const dateLabel=useMemo(()=>{
     if(!active?.date)return ''
     const date=new Date(active.date)
@@ -92,8 +116,8 @@ export default function DeskCarousel() {
     try{localStorage.setItem('mattabel:desk:duration',String(n))}catch{}
   }
   const go=(direction:number)=>{
-    if(!items.length)return
-    setIndex(prev=>(prev+direction+items.length)%items.length)
+    if(!visibleItems.length)return
+    setIndex(prev=>(prev+direction+visibleItems.length)%visibleItems.length)
   }
   const fullscreen=()=>{
     const el=document.querySelector('.desk-screen') as HTMLElement|null
@@ -118,7 +142,7 @@ export default function DeskCarousel() {
       {active ? <>
         <div className="desk-titlebar">
           <div>
-            <p className="desk-eyebrow">TORNEO {index+1} DI {items.length}{dateLabel?' • '+dateLabel:''}</p>
+            <p className="desk-eyebrow">TORNEO {index+1} DI {visibleItems.length}{dateLabel?' • '+dateLabel:''}</p>
             <h1>{active.name}</h1>
           </div>
           <div className="desk-live-count"><span className="desk-live-dot"/>{active.live.length} LIVE</div>
@@ -141,17 +165,41 @@ export default function DeskCarousel() {
         </div>
       </> : <div className="desk-welcome">
         <Image src="/logo2.png" width={180} height={120} alt="Mattabel"/>
-        <h1>Nessun torneo aperto</h1>
-        <p>Il carosello inizierà automaticamente quando ci saranno tornei attivi.</p>
+        <h1>{items.length ? 'Nessun torneo selezionato' : 'Nessun torneo aperto'}</h1>
+        <p>{items.length ? 'Apri Seleziona tornei per scegliere cosa mostrare sullo schermo.' : 'Il carosello inizierà automaticamente quando ci saranno tornei attivi.'}</p>
       </div>}
       {error&&<div className="desk-error" role="status">Ultimo aggiornamento non riuscito · {error}. I dati precedenti rimangono visibili.</div>}
     </main>
 
+    {selectionOpen && <div className="desk-selection-overlay" role="dialog" aria-label="Seleziona tornei del carosello">
+      <div className="desk-selection-panel">
+        <div className="desk-selection-top"><h2>Tornei da mostrare</h2>
+          <button type="button" onClick={()=>setSelectionOpen(false)} aria-label="Chiudi selezione">✕</button>
+        </div>
+        <p>Scegli tutti i tornei aperti oppure seleziona solo quelli che vuoi vedere sul monitor.</p>
+        <label className="desk-selection-choice">
+          <input type="checkbox" checked={allTournaments}
+            onChange={e=>saveSelection(e.target.checked,selectedIds)}/>
+          Mostra tutti i tornei aperti
+        </label>
+        <div className="desk-selection-list">
+          {items.map(t=><label key={t.id} className="desk-selection-choice">
+            <input type="checkbox" checked={allTournaments || selectedIds.includes(t.id)}
+              onChange={()=>toggleTournament(t.id)}/>
+            <span>{t.name}{t.date?' · '+new Date(t.date).toLocaleDateString('it-IT'):''}</span>
+          </label>)}
+          {!items.length&&<span>Nessun torneo aperto disponibile.</span>}
+        </div>
+        <button className="desk-selection-done" type="button" onClick={()=>setSelectionOpen(false)}>Fatto</button>
+      </div>
+    </div>}
     <footer className="desk-footer">
       <div className="desk-controls">
-        <button type="button" onClick={()=>go(-1)} disabled={items.length<2} aria-label="Torneo precedente">‹</button>
+        <button type="button" onClick={()=>setSelectionOpen(value=>!value)}
+          aria-expanded={selectionOpen} title="Scegli quali tornei far scorrere sul monitor">Seleziona tornei</button>
+        <button type="button" onClick={()=>go(-1)} disabled={visibleItems.length<2} aria-label="Torneo precedente">‹</button>
         <button type="button" onClick={()=>setPaused(p=>!p)} aria-label={paused?'Riprendi carosello':'Metti in pausa carosello'}>{paused?'▶':'Ⅱ'}</button>
-        <button type="button" onClick={()=>go(1)} disabled={items.length<2} aria-label="Torneo successivo">›</button>
+        <button type="button" onClick={()=>go(1)} disabled={visibleItems.length<2} aria-label="Torneo successivo">›</button>
         <label>CAMBIA OGNI
           <select value={duration} onChange={e=>chooseDuration(Number(e.target.value))} aria-label="Intervallo rotazione">
             {INTERVALS.map(v=><option key={v} value={v}>{v} sec</option>)}
@@ -164,7 +212,7 @@ export default function DeskCarousel() {
       <div className="desk-footer-right">
         <span>{paused?'IN PAUSA':'ROTazione AUTOMATICA'.toUpperCase()}</span>
         <div className="desk-dots">
-          {items.map((t,i)=><button type="button" key={t.id} onClick={()=>setIndex(i)}
+          {visibleItems.map((t,i)=><button type="button" key={t.id} onClick={()=>setIndex(i)}
             className={i===index?'active':''} title={t.name} aria-label={'Mostra '+t.name}/>)}
         </div>
         {updated&&<small>DATI AGGIORNATI {new Date(updated).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</small>}
