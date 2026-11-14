@@ -22,7 +22,27 @@ const GROUP_COLORS:Record<string,string>={A:'#2563eb',B:'#e44458',C:'#f5a623',D:
 const colorFor=(l:string)=>GROUP_COLORS[l]||'#64748b'
 const clock=(v:string)=>/^\d{1,2}:\d{2}/.test(v)?v.slice(0,5):'—'
 
-function GroupDisplay({group,matches}:{group:Group;matches:GroupMatch[]}){
+function GroupDisplay({group,matches,onCapacity}:{group:Group;matches:GroupMatch[];onCapacity:(capacity:number)=>void}){
+ const listRef=useRef<HTMLDivElement>(null)
+ useLayoutEffect(()=>{
+  const el=listRef.current
+  if(!el)return
+  const update=()=>{
+   // Each visible game needs room for its time/court header and up to two
+   // lines of team names. Paginate instead of hiding the final game.
+   const styles=window.getComputedStyle(el)
+   const gap=parseFloat(styles.rowGap)||7
+   const padding=(parseFloat(styles.paddingTop)||0)+(parseFloat(styles.paddingBottom)||0)
+   const available=Math.max(0,el.clientHeight-padding)
+   const minimumRow=window.innerWidth<900?76:78
+   onCapacity(Math.max(1,Math.floor((available+gap)/(minimumRow+gap))))
+  }
+  const observer=new ResizeObserver(update)
+  observer.observe(el)
+  update()
+  return()=>observer.disconnect()
+ },[onCapacity])
+
  return <div className="desk-stage-grid">
   <section className="desk-stage-box">
    <div className="desk-stage-box-title" style={{borderColor:colorFor(group.letter)}}>
@@ -41,7 +61,7 @@ function GroupDisplay({group,matches}:{group:Group;matches:GroupMatch[]}){
    <div className="desk-stage-box-title" style={{borderColor:colorFor(group.letter)}}>
     <h2>PARTITE E RISULTATI</h2><span>{matches.length} INCONTRI</span>
    </div>
-   <div className="desk-score-list">{matches.map(m=><div className={'desk-score-match '+(m.played?'desk-score-played':'')} key={m.id}>
+   <div className="desk-score-list" ref={listRef} style={{gridTemplateRows:`repeat(${matches.length},minmax(0,1fr))`}}>{matches.map(m=><div className={'desk-score-match '+(m.played?'desk-score-played':'')} key={m.id}>
     <div className="desk-score-metadata"><span>{clock(m.time)}</span><span>{m.court?'CAMPO '+m.court:'CAMPO —'}</span></div>
     <div className="desk-score-teams">
      <span>{m.a}</span>
@@ -135,6 +155,8 @@ export default function DeskCarousel(){
  const [updated,setUpdated]=useState('')
  const [refreshing,setRefreshing]=useState(false)
  const [progress,setProgress]=useState(0)
+ const [matchesPerPage,setMatchesPerPage]=useState(4)
+ const onCapacity=useCallback((n:number)=>setMatchesPerPage(previous=>previous===n?previous:n),[])
 
  const visible=useMemo(()=>allTournaments?items:items.filter(t=>selectedIds.includes(t.id)),
   [items,allTournaments,selectedIds])
@@ -143,10 +165,10 @@ export default function DeskCarousel(){
   for(const t of visible){
    if(t.displayPhase==='groups'){
     for(const group of t.groups){
-     const pages=Math.max(1,Math.ceil(group.matches.length/8))
+     const pages=Math.max(1,Math.ceil(group.matches.length/matchesPerPage))
      for(let page=0;page<pages;page++)list.push({
       key:t.id+':g:'+group.letter+':'+page,tournament:t,kind:'group',
-      group,part:page+1,pages,matches:group.matches.slice(page*8,(page+1)*8),
+      group,part:page+1,pages,matches:group.matches.slice(page*matchesPerPage,(page+1)*matchesPerPage),
      })
     }
    }else if(t.displayPhase==='brackets'){
@@ -157,7 +179,7 @@ export default function DeskCarousel(){
    if(!list.some(s=>s.tournament.id===t.id))list.push({key:t.id+':waiting',tournament:t,kind:'waiting'})
   }
   return list
- },[visible])
+ },[visible,matchesPerPage])
  const active=slides[position]||null
  const saveSelection=(all:boolean,ids:string[])=>{
   setAllTournaments(all);setSelectedIds(ids);setPosition(0)
@@ -250,7 +272,7 @@ export default function DeskCarousel(){
        active.kind==='bracket'?active.bracket?.title:'IN ATTESA'}
      </div>
     </div>
-    {active.kind==='group'&&active.group&&<GroupDisplay key={active.key} group={active.group} matches={active.matches||[]}/>}
+    {active.kind==='group'&&active.group&&<GroupDisplay key={active.key} group={active.group} matches={active.matches||[]} onCapacity={onCapacity}/>}
     {active.kind==='bracket'&&active.bracket&&<div className="desk-bracket-card" key={active.key}>
      <div className="desk-bracket-heading"><span style={{color:active.bracket.color}}>{active.bracket.title}</span>
       <span>{active.bracket.type==='ITA'?'ITALIANA':active.bracket.type==='DE'||active.bracket.type==='PDE'?'DOPPIA ELIMINAZIONE':'ELIMINAZIONE DIRETTA'}</span>
