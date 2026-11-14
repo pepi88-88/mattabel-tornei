@@ -145,6 +145,19 @@ export default function AppHeader() {
                 {it.label === 'Risultati Girone/Tabellone' ? 'Risultati' : it.label}
               </button>)}
           </nav>
+          {(role === 'admin' || role === 'coach') && (
+            <a
+              href="/carosello"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Apri il carosello sullo schermo del desk in una nuova scheda"
+              className="mt-staff-carousel-shortcut inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-orange-500/60 bg-orange-500/10 px-3 py-2 text-xs font-bold text-orange-300 hover:bg-orange-500/20"
+            >
+              <span aria-hidden="true">▣</span>
+              <span className="hidden sm:inline">Carosello</span>
+              <span aria-hidden="true">↗</span>
+            </a>
+          )}
           <ThemeSwitcher area="staff" />
         </div>
       <div className="brand-strip pointer-events-none" aria-hidden="true" />
