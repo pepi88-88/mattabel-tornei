@@ -52,7 +52,7 @@ export async function GET() {
   try {
     const sb = getSupabaseAdmin()
     const {data: all, error} = await sb.from('tournaments')
-      .select('id,name,title,event_date,status,archived,tour_id')
+      .select('*')
       .order('event_date',{ascending:true})
     if(error) throw error
     const open = (all || []).filter(isOpen).slice(0,24)
@@ -62,10 +62,10 @@ export async function GET() {
       sb.from('group_states').select('tournament_id,state,is_public').in('tournament_id',ids),
       sb.from('bracket_states').select('tournament_id,state,is_public').in('tournament_id',ids),
     ])
-    if(groupsResult.error) throw groupsResult.error
-    if(bracketsResult.error) throw bracketsResult.error
-    const groups = new Map((groupsResult.data || []).map(x=>[x.tournament_id,x]))
-    const brackets = new Map((bracketsResult.data || []).map(x=>[x.tournament_id,x]))
+    // Match details can be unavailable without hiding the open-tournament list.
+    // The public display must still let the desk operator select a tournament.
+    const groups = new Map((groupsResult.error ? [] : groupsResult.data || []).map(x=>[x.tournament_id,x]))
+    const brackets = new Map((bracketsResult.error ? [] : bracketsResult.data || []).map(x=>[x.tournament_id,x]))
     const items = open.map(t=>{
       const g = groups.get(t.id)
       const b = brackets.get(t.id)
