@@ -146,6 +146,7 @@ export async function GET(){
         date:t.event_date||null,tourId:String(t.tour_id||''),
         displayPhase,
         groups:displayPhase==='groups'?groupSlides:[],
+        rankings:Object.fromEntries(groupSlides.map(g=>[g.letter,g.standings.map(s=>s.name)])),
         brackets:displayPhase==='brackets'?publishedBrackets:[],
       }
     })
