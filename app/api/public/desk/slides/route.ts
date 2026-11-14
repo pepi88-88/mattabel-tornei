@@ -85,6 +85,15 @@ function groupData(L:string,st:any) {
   for(const s of standings)s.qp=s.ps>0?s.pf/s.ps:0
   standings.sort((a,b)=>{
     if(a.wins!==b.wins)return b.wins-a.wins
+    // In a two-team tie, honour head-to-head before set/point quotients.
+    const tied=standings.filter(s=>s.wins===a.wins)
+    if(tied.length===2){
+      const direct=outcomes.find(m=>
+        (m.a===a.slot&&m.b===b.slot)||(m.a===b.slot&&m.b===a.slot)
+      )
+      if(direct?.winner===a.slot)return -1
+      if(direct?.winner===b.slot)return 1
+    }
     if(a.sw!==b.sw || a.sl!==b.sl){
       const qa=a.sl? a.sw/a.sl : a.sw?999:0
       const qb=b.sl? b.sw/b.sl : b.sw?999:0
