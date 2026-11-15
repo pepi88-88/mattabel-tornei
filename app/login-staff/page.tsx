@@ -40,6 +40,7 @@ export default function LoginStaffPage() {
         <div className="mt-access-logo mt-access-login-logo">
           <Image src="/logo-mattabel.png" width={210} height={210}
             alt="Mattabel Beach Volley, logo circolare" priority />
+    <Image src="/logo-mattabel.png" width={245} height={245} alt="" aria-hidden="true" className="mt-access-logo-letter-contrast" />
         </div>
         <p className="mt-access-section-label">AREA RISERVATA</p>
         <h1>Accesso Staff</h1>
