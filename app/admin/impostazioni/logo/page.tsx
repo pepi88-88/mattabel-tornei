@@ -4,7 +4,7 @@ import BrandLogo, { LOGO_NAMES } from '../../../../components/BrandLogo'
 
 type Settings={active:string;uploaded:string[];updatedAt?:string}
 const keyByFile=(f:File)=>f.name.replace(/\.png$/i,'').toLowerCase()
-const allowed=new Set(LOGO_NAMES.map(([id])=>id))
+const allowed: Set<string> = new Set(LOGO_NAMES.map(([id])=>id))
 
 export default function LogoSettingsPage(){
   const [role,setRole]=React.useState('')
