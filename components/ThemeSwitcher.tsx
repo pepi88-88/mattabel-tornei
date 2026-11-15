@@ -11,11 +11,11 @@ const valid = (value: string | null): value is Theme =>
 /** Independent browser preferences for staff and athlete areas. No DB writes. */
 export default function ThemeSwitcher({ area }: { area: Area }) {
   const pathname = usePathname()
-  const [theme, setTheme] = React.useState<Theme>('normale')
+  const [theme, setTheme] = React.useState<Theme>('blu')
   const key = 'mattabel:theme:' + area
 
   React.useEffect(() => {
-    let next: Theme = 'normale'
+    let next: Theme = 'blu'
     try {
       const stored = localStorage.getItem(key)
       if (valid(stored)) next = stored
