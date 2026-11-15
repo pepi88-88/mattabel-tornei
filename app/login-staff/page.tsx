@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+import MattabelAccessLogo from '../components/MattabelAccessLogo'
 
 export default function LoginStaffPage() {
   const [err,setErr]=React.useState<string|undefined>()
@@ -37,11 +37,7 @@ export default function LoginStaffPage() {
     <main className="mt-access-screen mt-access-login-screen">
       <div className="mt-access-aura" aria-hidden="true" />
       <section className="mt-access-card mt-access-login-card" aria-label="Accesso Staff Mattabel">
-        <div className="mt-access-logo mt-access-login-logo">
-          <Image src="/logo-mattabel.png" width={210} height={210}
-            alt="Mattabel Beach Volley, logo circolare" priority />
-    <Image src="/logo-mattabel.png" width={245} height={245} alt="" aria-hidden="true" className="mt-access-logo-letter-contrast" />
-        </div>
+        <MattabelAccessLogo size="staff" />
         <p className="mt-access-section-label">AREA RISERVATA</p>
         <h1>Accesso Staff</h1>
         <p>Accedi al gestionale Mattabel</p>
