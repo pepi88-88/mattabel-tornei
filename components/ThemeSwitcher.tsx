@@ -11,14 +11,22 @@ const valid = (value: string | null): value is Theme =>
 /** Independent browser preferences for staff and athlete areas. No DB writes. */
 export default function ThemeSwitcher({ area }: { area: Area }) {
   const pathname = usePathname()
-  const [theme, setTheme] = React.useState<Theme>('normale')
+  const [theme, setTheme] = React.useState<Theme>('blu')
   const key = 'mattabel:theme:' + area
 
   React.useEffect(() => {
-    let next: Theme = 'normale'
+    // One-time Mattabel Blu relaunch. After the first visit, the selected
+    // theme remains the visitor's choice across future sessions.
+    const launchMarker = 'mattabel:theme:blu-relaunch-2026:' + area
+    let next: Theme = 'blu'
     try {
-      const stored = localStorage.getItem(key)
-      if (valid(stored)) next = stored
+      if (localStorage.getItem(launchMarker) !== '1') {
+        localStorage.setItem(key, 'blu')
+        localStorage.setItem(launchMarker, '1')
+      } else {
+        const stored = localStorage.getItem(key)
+        if (valid(stored)) next = stored
+      }
     } catch {}
     setTheme(next)
     document.documentElement.dataset.mattabelTheme = next
