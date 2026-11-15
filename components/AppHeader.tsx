@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import Image from 'next/image'
+import BrandLogo from './BrandLogo'
 import ThemeSwitcher from './ThemeSwitcher'
 import NavigationIcon, { type NavigationIconName } from './NavigationIcon'
 import { useRouter, usePathname } from 'next/navigation'  // 👈 unico import next/navigation
@@ -117,8 +117,8 @@ export default function AppHeader() {
 >
      <div className="admin-topline relative z-[1] container-admin mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mt-header-brand mt-header-brand-wordmark" aria-label="Beach Volley Mattabel">
-            <span>BEACH VOLLEY</span>
-            <strong>MATTABEL</strong>
+            <BrandLogo width={44} height={44} className="mt-admin-brand-badge" />
+            <div className="mt-admin-brand-text"><span>BEACH VOLLEY</span><strong>MATTABEL</strong></div>
           </div>
 
           {/* Tutto su un lato (sinistra), con wrap */}
@@ -146,6 +146,9 @@ export default function AppHeader() {
                 {it.label === 'Risultati Girone/Tabellone' ? 'Risultati' : it.label}
               </button>)}
           </nav>
+          {role === 'admin' && (
+            <a href="/admin/impostazioni/logo" title="Impostazioni logo Mattabel" className="mt-brand-settings-link">Loghi</a>
+          )}
           {(role === 'admin' || role === 'coach') && (
             <a
               href="/carosello"
