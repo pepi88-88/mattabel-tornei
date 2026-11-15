@@ -15,9 +15,8 @@ export default function ThemeSwitcher({ area }: { area: Area }) {
   const key = 'mattabel:theme:' + area
 
   React.useEffect(() => {
-    // One-time visual relaunch: show the new Blu theme to every existing
-    // browser once, then always respect whatever the visitor chooses.
-    // Scope the marker to each area so staff and athlete pages are independent.
+    // One-time Mattabel Blu relaunch. After the first visit, the selected
+    // theme remains the visitor's choice across future sessions.
     const launchMarker = 'mattabel:theme:blu-relaunch-2026:' + area
     let next: Theme = 'blu'
     try {
