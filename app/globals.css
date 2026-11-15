@@ -4017,3 +4017,76 @@ html:has(.mt-access-screen){overflow-x:clip}
 .mt-staff-auth-link:hover{background:#285172;border-color:#8cb0d1}
 .mt-staff-exit{color:#ffb170;border-color:#a66b42;background:#1e2b3c;cursor:pointer}
 @media(max-width:760px){.mt-staff-auth-link{font-size:10px;padding:5px 6px}}
+
+/* Mattabel staff bar: fit every command without horizontal scrolling. */
+html[data-mattabel-theme] .admin-topline{
+  gap:5px!important;
+  padding-left:8px!important;
+  padding-right:10px!important;
+  flex-wrap:nowrap!important;
+  max-width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
+html[data-mattabel-theme] .admin-topline .mt-header-brand-wordmark{
+  width:122px!important;min-width:122px!important;max-width:122px!important;
+  padding:2px 3px 2px 0!important;
+  margin-left:0!important;
+  flex-shrink:0!important;
+  justify-content:flex-start!important;
+}
+html[data-mattabel-theme] .admin-topline .mt-admin-brand-badge{
+  width:37px!important;height:37px!important;
+  flex-shrink:0!important;
+  object-fit:contain!important;
+}
+html[data-mattabel-theme] .admin-topline .mt-admin-brand-text>span{font-size:8px!important;letter-spacing:.02em}
+html[data-mattabel-theme] .admin-topline .mt-admin-brand-text>strong{font-size:16px!important;letter-spacing:-.045em}
+html[data-mattabel-theme] .admin-topline .mattabel-theme-picker{
+  min-width:0!important;flex:0 0 auto!important;gap:0!important;
+}
+html[data-mattabel-theme] .admin-topline .mattabel-theme-label{display:none!important}
+html[data-mattabel-theme] .admin-topline .mattabel-theme-picker select{
+  width:67px!important;min-width:67px!important;max-width:67px!important;
+  padding:0 3px!important;font-size:11px!important;
+  height:32px!important;border-radius:7px!important;
+}
+html[data-mattabel-theme] .admin-topline .mt-brand-settings-link{
+  padding:7px 6px!important;font-size:11px!important;flex-shrink:0;
+}
+html[data-mattabel-theme] .admin-topline .mt-staff-carousel-shortcut{
+  padding:6px!important;font-size:11px!important;flex-shrink:0;
+}
+html[data-mattabel-theme] .admin-topline .mt-staff-exit{
+  padding:6px 7px!important;min-height:30px!important;flex-shrink:0;
+}
+@media(min-width:1280px){
+  html[data-mattabel-theme] .admin-topline .admin-nav-desktop{
+    display:flex!important;flex:1 1 auto!important;
+    min-width:0!important;width:auto!important;
+    gap:1px!important;flex-wrap:nowrap!important;
+    justify-content:space-between!important;
+    overflow:hidden!important;
+  }
+  html[data-mattabel-theme] .admin-topline .admin-nav-desktop button{
+    min-width:0!important;width:auto!important;
+    flex:0 1 auto!important;white-space:nowrap!important;
+    padding:0 clamp(3px,.48vw,8px)!important;
+    font-size:clamp(10px,.73vw,12px)!important;
+    gap:3px!important;
+  }
+  html[data-mattabel-theme] .admin-topline .admin-nav-desktop button svg{
+    width:13px!important;height:13px!important;flex-shrink:0!important;
+  }
+}
+@media(max-width:1279px){
+  html[data-mattabel-theme] .admin-topline .admin-nav-tablet{flex:1 1 auto;min-width:0}
+  html[data-mattabel-theme] .admin-topline .mt-header-brand-wordmark{width:115px!important;min-width:115px!important}
+}
+@media(max-width:560px){
+  html[data-mattabel-theme] .admin-topline .mt-header-brand-wordmark{
+    width:41px!important;min-width:41px!important;
+  }
+  html[data-mattabel-theme] .admin-topline .mt-admin-brand-text{display:none!important}
+  html[data-mattabel-theme] .admin-topline .mt-staff-carousel-shortcut .hidden{display:none!important}
+}
