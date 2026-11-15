@@ -37,7 +37,7 @@ export async function saveBranding(state: BrandingSettings) {
   const s = await ensureBrandingBucket()
   const doc = { ...state, updatedAt: new Date().toISOString() }
   const { error } = await s.storage.from(BUCKET).upload(
-    SETTINGS_PATH, Buffer.from(JSON.stringify(doc)), { upsert: true, contentType: 'application/json', cacheControl: '0' }
+    SETTINGS_PATH, new Blob([JSON.stringify(doc)],{type:'application/json'}), { upsert: true, contentType: 'application/json', cacheControl: '0' }
   )
   if (error) throw new Error(error.message)
   return doc
