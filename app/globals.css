@@ -3759,3 +3759,87 @@ html[data-mattabel-theme] .mt-login-form input:focus-visible{
  .mt-login-card{padding:22px 18px}
  .mt-login-card-top p{margin-bottom:12px}
 }
+
+/* Mattabel access flow: matching welcome gateway + staff login, scoped. */
+.mt-access-screen{
+ position:relative;isolation:isolate;overflow:hidden;
+ display:flex;align-items:center;justify-content:center;
+ min-height:calc(100dvh - 120px);
+ margin:-24px calc(-1 * clamp(16px,3vw,48px)) -48px;
+ padding:clamp(22px,4vh,48px) 20px;
+ background:radial-gradient(ellipse at 24% 16%,rgba(28,80,137,.38),transparent 60%),
+ radial-gradient(ellipse at 78% 90%,rgba(255,144,37,.10),transparent 53%),
+ linear-gradient(135deg,#081626 0%,#0b2440 50%,#081829 100%)!important;
+ color:#f5f9ff!important;
+}
+.mt-access-aura{
+ pointer-events:none;position:absolute;z-index:-1;inset:0;
+ background:linear-gradient(135deg,rgba(101,155,218,.05),transparent 55%);
+}
+.mt-access-card{
+ display:flex;flex-direction:column;align-items:center;
+ width:100%;max-width:540px;text-align:center;
+ padding:clamp(24px,4vw,48px);
+ background:linear-gradient(155deg,rgba(22,47,76,.96),rgba(13,33,57,.97));
+ border:1px solid #47627c;border-top:3px solid #fa9636;
+ border-radius:20px;box-shadow:0 25px 80px rgba(0,0,0,.27);
+}
+.mt-access-logo{display:flex;justify-content:center;align-items:center;margin-bottom:14px}
+.mt-access-logo img{
+ width:clamp(165px,19vw,230px);height:auto;max-height:230px;
+ object-fit:contain;filter:drop-shadow(0 8px 12px rgba(0,0,0,.15));
+}
+.mt-access-card h1{
+ color:#fff;font-size:clamp(28px,3.3vw,42px);
+ font-weight:900;letter-spacing:-.02em;line-height:1.18;margin:7px 0 12px;
+}
+.mt-access-card>p{font-size:clamp(14px,1.05vw,17px);color:#b5cae1;line-height:1.45}
+.mt-access-choices{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:14px;width:100%;margin-top:30px;
+}
+.mt-access-choices button{
+ display:flex;align-items:center;justify-content:center;gap:9px;
+ min-height:60px;padding:12px 14px;border-radius:11px;
+ font-size:17px;font-weight:850;border:1px solid;
+ transition:transform .18s,background .18s,border-color .18s;
+ cursor:pointer;
+}
+.mt-access-choices button:hover{transform:translateY(-2px)}
+.mt-access-choices button:focus-visible,
+.mt-access-back:focus-visible{outline:3px solid #ffbd7c;outline-offset:3px}
+.mt-access-athlete{
+ color:#fff;background:#214f79;border-color:#4a8dc1!important;
+}
+.mt-access-athlete:hover{background:#2e689d}
+.mt-access-staff{
+ color:#152238;background:#ff9d3e;border-color:#ffb66e!important;
+}
+.mt-access-staff:hover{background:#ffc071}
+.mt-access-choice-icon{font-size:22px;line-height:1}
+.mt-access-login-card{max-width:500px;padding-top:clamp(22px,3vw,36px)}
+.mt-access-login-logo{margin-bottom:0}
+.mt-access-login-logo img{width:clamp(145px,17vw,200px);max-height:200px}
+.mt-access-card .mt-access-section-label{
+ margin-top:10px;color:#ffaf62!important;font-size:12px;
+ letter-spacing:.16em;font-weight:800;
+}
+.mt-access-login-card h1{font-size:clamp(26px,2.8vw,34px);margin:8px 0 8px}
+.mt-access-login-card>.mt-login-form{
+ width:100%;text-align:left;margin-top:23px;gap:8px;
+}
+.mt-access-login-card .mt-login-submit{margin-top:18px}
+.mt-access-back{
+ display:inline-block;margin-top:22px;padding:10px 6px;
+ color:#d5e6f8;font-size:13px;font-weight:700;
+}
+.mt-access-back:hover{color:#fff;text-decoration:underline}
+@media(max-width:540px){
+ .mt-access-screen{min-height:calc(100dvh - 85px);margin:-24px -16px -48px;padding:16px 12px}
+ .mt-access-card{padding:25px 18px}
+ .mt-access-logo img{width:clamp(150px,44vw,205px)}
+ .mt-access-choices{gap:10px}
+ .mt-access-choices button{min-height:56px;font-size:15px;padding:10px 5px}
+ .mt-access-choice-icon{font-size:18px}
+ .mt-access-login-logo img{width:150px}
+}
