@@ -1,6 +1,6 @@
 'use client'
 
-import Image from 'next/image'
+import MattabelAccessLogo from '../components/MattabelAccessLogo'
 import { useRouter } from 'next/navigation'
 
 export default function Home() {
@@ -13,10 +13,7 @@ export default function Home() {
  return <main className="mt-access-screen">
   <div className="mt-access-aura" aria-hidden="true" />
   <section className="mt-access-card" aria-label="Benvenuto Mattabel">
-   <div className="mt-access-logo">
-    <Image src="/logo-mattabel.png" width={245} height={245} alt="Mattabel Beach Volley, logo con tartaruga e scritta circolare" priority/>
-    <Image src="/logo-mattabel.png" width={245} height={245} alt="" aria-hidden="true" className="mt-access-logo-letter-contrast" />
-   </div>
+   <MattabelAccessLogo />
    <h1>Benvenuto</h1>
    <p>Scegli il tuo accesso</p>
    <div className="mt-access-choices">
