@@ -1,91 +1,68 @@
-// app/login-staff/page.tsx
 'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
+import MattabelAccessLogo from '../../components/MattabelAccessLogo'
 
 export default function LoginStaffPage() {
-  const [err, setErr] = React.useState<string | undefined>()
-  const [loading, setLoading] = React.useState(false)
+  const [err,setErr]=React.useState<string|undefined>()
+  const [loading,setLoading]=React.useState(false)
+  const [showPassword,setShowPassword]=React.useState(false)
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e:React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (loading) return
+    if(loading)return
     setErr(undefined)
     setLoading(true)
-
     try {
-      const fd = new FormData(e.currentTarget)
-      const r = await fetch('/api/auth/login', { method: 'POST', body: fd })
-      const js = await r.json().catch(() => ({} as any))
-
-      if (!r.ok || !js?.ok) {
-        setErr(js?.error || 'Login fallito')
+      const form=new FormData(e.currentTarget)
+      const response=await fetch('/api/auth/login',{method:'POST',body:form})
+      const result=await response.json().catch(()=>({} as any))
+      if(!response.ok||!result?.ok){
+        setErr(result?.error||'Accesso non riuscito. Controlla le credenziali.')
         return
       }
-
-      // --- Normalizza il ruolo per l'AppHeader (che accetta solo 'admin' o 'coach')
-      const serverRole = String(js.role ?? '').toLowerCase()
-      const uiRole: 'admin' | 'coach' =
-        serverRole === 'admin' ? 'admin'
-        : serverRole === 'coach' ? 'coach'
-        : serverRole === 'staff' ? 'coach'
-        : 'coach' // fallback
-
-      localStorage.setItem('role', uiRole)
-
-      // Redirect richiesto
+      const serverRole=String(result.role??'').toLowerCase()
+      const role:'admin'|'coach'=serverRole==='admin'?'admin':'coach'
+      try{localStorage.setItem('role',role)}catch{}
       location.assign('/admin/tour')
     } catch {
-      setErr('Errore di rete')
+      setErr('Connessione non disponibile. Riprova.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-[url('/bg-texture.svg')] bg-cover">
-      <div className="card p-8 w-[90%] max-w-md space-y-6">
-        <h1 className="text-xl font-semibold text-center">Login Staff</h1>
-
-        <form onSubmit={onSubmit} className="space-y-3">
-          <div>
-            <div className="text-xs mb-1">Utente</div>
-            <input
-              name="user"
-              className="input w-full"
-              autoComplete="username"
-              disabled={loading}
-              required
-            />
+    <main className="mt-access-screen mt-access-login-screen">
+      <div className="mt-access-aura" aria-hidden="true" />
+      <section className="mt-access-card mt-access-login-card" aria-label="Accesso Staff Mattabel">
+        <MattabelAccessLogo size="staff" />
+        <p className="mt-access-section-label">AREA RISERVATA</p>
+        <h1>Accesso Staff</h1>
+        <p>Accedi al gestionale Mattabel</p>
+        <form onSubmit={onSubmit} className="mt-login-form">
+          <label htmlFor="mt-login-user">Utente</label>
+          <input id="mt-login-user" name="user" autoComplete="username"
+            disabled={loading} required placeholder="Nome utente"
+            autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+          <label htmlFor="mt-login-password">Password</label>
+          <div className="mt-login-password">
+            <input id="mt-login-password" name="pass" type={showPassword?'text':'password'}
+              autoComplete="current-password" disabled={loading} required placeholder="Password" />
+            <button type="button" onClick={()=>setShowPassword(v=>!v)} disabled={loading}
+              aria-label={showPassword?'Nascondi password':'Mostra password'}
+              aria-pressed={showPassword}>
+              {showPassword?'Nascondi':'Mostra'}
+            </button>
           </div>
-
-          <div>
-            <div className="text-xs mb-1">Password</div>
-            <input
-              name="pass"
-              type="password"
-              className="input w-full"
-              autoComplete="current-password"
-              disabled={loading}
-              required
-            />
-          </div>
-
-          {err && <div className="text-sm text-red-400">{err}</div>}
-
-          <button type="submit" className="btn w-full" disabled={loading}>
-            {loading ? 'Accesso…' : 'Entra'}
+          {err&&<div role="alert" className="mt-login-error">{err}</div>}
+          <button className="mt-login-submit" type="submit" disabled={loading}>
+            {loading?'Accesso in corso…':'Accedi'}
           </button>
         </form>
-
-        {/* Link per tornare alla home */}
-        <div className="pt-2 text-center">
-          <Link href="/" className="text-xs text-neutral-500 hover:text-neutral-300">
-            ← Torna alla home
-          </Link>
-        </div>
-      </div>
+        <Link href="/" className="mt-access-back">← Torna alla scelta accesso</Link>
+      </section>
     </main>
   )
 }

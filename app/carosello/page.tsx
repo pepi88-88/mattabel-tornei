@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import Image from 'next/image'
+import BrandLogo from '../../components/BrandLogo'
 import Link from 'next/link'
 import BracketCanvas, { type Bracket as BracketType } from '../../components/BracketCanvas'
 import PreliminaryBracket from '../../components/PreliminaryBracket'
@@ -257,7 +257,7 @@ export default function DeskCarousel(){
  return <div className="desk-screen">
   <div className="desk-bg-glow" aria-hidden="true"/>
   <header className="desk-header">
-   <div className="desk-brand"><Image src="/logo2.png" width={104} height={66} alt="Beach Volley Mattabel" priority/>
+   <div className="desk-brand"><BrandLogo width={80} height={80} className="mt-desk-brand-logo" alt="Logo Mattabel" />
     <div><strong>MATTABEL</strong><span>BEACH VOLLEY • GIRONI E TABELLONI</span></div>
    </div>
    <div className="desk-clock">
@@ -289,7 +289,7 @@ export default function DeskCarousel(){
      <p>Gironi e tabelloni compariranno quando lo staff li renderà visibili.</p>
     </div>}
    </>:<div className="desk-welcome">
-    <Image src="/logo2.png" width={180} height={120} alt="Mattabel"/>
+    <BrandLogo width={180} height={180} alt="Mattabel" />
     <h1>{items.length?'Nessun torneo selezionato':'Nessun torneo aperto'}</h1>
     <p>{items.length?'Apri Seleziona tornei per scegliere cosa mostrare.':'Il carosello partirà con i prossimi tornei.'}</p>
    </div>}

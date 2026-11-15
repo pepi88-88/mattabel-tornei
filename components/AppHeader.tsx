@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import Image from 'next/image'
+import BrandLogo from './BrandLogo'
 import ThemeSwitcher from './ThemeSwitcher'
 import NavigationIcon, { type NavigationIconName } from './NavigationIcon'
 import { useRouter, usePathname } from 'next/navigation'  // 👈 unico import next/navigation
@@ -33,9 +33,21 @@ const NAV_ITEMS: Item[] = [
   { href: '/admin/attese', icon: 'waiting',            label: 'Attese',              roles: ['admin','coach'] },
   { href: '/admin/pagamenti', icon: 'payments',         label: 'Pagamenti',                   roles: ['admin','coach'] },
   { href: '/admin/stampa', icon: 'print',            label: 'Stampa',                      roles: ['admin','coach'] },
-  { href: '__exit__', icon: 'logout',                 label: 'Esci',                        roles: 'any' },
 ]
 
+const SHORT_NAV_LABELS: Record<string,string> = {
+  '/admin/tour': 'Tour / Tappe',
+  '/admin/giocatori': 'Giocatori',
+  '/admin/iscrizioni': 'Iscrizioni',
+  '/admin/gironi': 'Gironi',
+  '/admin/crea-tabellone': 'Tabelloni',
+  '/admin/risultati': 'Risultati',
+  '/admin/classifica': 'Classifica',
+  '/admin/tornei/test/regia': 'Regia',
+  '/admin/attese': 'Attese',
+  '/admin/pagamenti': 'Pagamenti',
+  '/admin/stampa': 'Stampa',
+}
 function NavLink({ href, label, icon, active }: { href:string; label:string; icon: NavigationIconName; active:boolean }) {
   const router = useRouter()
   return (
@@ -49,6 +61,7 @@ function NavLink({ href, label, icon, active }: { href:string; label:string; ico
         })
         if (window.dispatchEvent(before)) router.push(href)
       }}
+      title={label}
       className={[
         'inline-flex items-center justify-center',
         'h-11 px-4 rounded-md my-2',
@@ -59,7 +72,7 @@ function NavLink({ href, label, icon, active }: { href:string; label:string; ico
       style={active ? { borderColor: ORANGE } : undefined}
     >
       <span className="mt-nav-icon"><NavigationIcon name={icon} /></span>
-      <span className="truncate">{label}</span>
+      <span className="truncate">{SHORT_NAV_LABELS[href] || label}</span>
     </button>
   )
 }
@@ -116,12 +129,13 @@ export default function AppHeader() {
   style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}
 >
      <div className="admin-topline relative z-[1] container-admin mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mt-header-brand" aria-label="Beach Volley Mattabel">
-            <Image src="/logo2.png" alt="Beach Volley Mattabel" width={112} height={64} className="mt-header-brand-img" priority />
+          <div className="mt-header-brand mt-header-brand-wordmark" aria-label="Beach Volley Mattabel">
+            <BrandLogo width={44} height={44} className="mt-admin-brand-badge" />
+            <div className="mt-admin-brand-text"><span>BEACH VOLLEY</span><strong>MATTABEL</strong></div>
           </div>
 
           {/* Tutto su un lato (sinistra), con wrap */}
-          <nav className="admin-nav-desktop hidden xl:flex flex-wrap gap-2" aria-label="Navigazione staff">
+          <nav className="admin-nav-desktop hidden xl:flex flex-nowrap gap-1" aria-label="Navigazione staff">
             {visible.map(it =>
               it.href === '__exit__'
                 ? <ExitButton key="__exit__" />
@@ -145,6 +159,9 @@ export default function AppHeader() {
                 {it.label === 'Risultati Girone/Tabellone' ? 'Risultati' : it.label}
               </button>)}
           </nav>
+          {role === 'admin' && (
+            <a href="/admin/impostazioni/logo" title="Impostazioni logo Mattabel" className="mt-brand-settings-link">Loghi</a>
+          )}
           {(role === 'admin' || role === 'coach') && (
             <a
               href="/carosello"
@@ -158,6 +175,12 @@ export default function AppHeader() {
               <span aria-hidden="true">↗</span>
             </a>
           )}
+          <button type="button" className="mt-staff-auth-link mt-staff-exit"
+            onClick={async()=>{
+              try{localStorage.removeItem('role')}catch{}
+              try{await fetch('/api/auth/logout',{method:'POST',redirect:'manual'})}catch{}
+              window.location.assign('/login-staff')
+            }}>Esci</button>
           <ThemeSwitcher area="staff" />
         </div>
       <div className="brand-strip pointer-events-none" aria-hidden="true" />
@@ -168,14 +191,7 @@ export default function AppHeader() {
       {/* LOGO non-sticky sotto la riga */}
       <div className="admin-logo-below container-admin mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-center py-4">
-          <Image
-            src="/logo2.png"
-            alt="Mattabel"
-            width={160}
-            height={160}
-            className="h-16 w-auto opacity-95"
-            onError={(e) => { (e.currentTarget as any).style.display = 'none' }}
-          />
+          <BrandLogo width={80} height={80} className="mt-staff-secondary-logo" alt="Logo Mattabel" />
         </div>
       </div>
     </>

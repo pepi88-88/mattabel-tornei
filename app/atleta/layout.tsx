@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import Image from 'next/image'
+import BrandLogo from '../../components/BrandLogo'
 import ThemeSwitcher from '../../components/ThemeSwitcher'
 import NavigationIcon, { type NavigationIconName } from '../../components/NavigationIcon'
 
@@ -52,7 +52,7 @@ export default function AthleteLayout({ children }: { children: React.ReactNode 
         style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}
       >
         <div className="athlete-topline container-admin mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mt-athlete-brand"><Image src="/logo2.png" alt="Beach Volley Mattabel" width={116} height={70} className="mt-header-brand-img" priority /></div>
+          <div className="mt-athlete-brand"><BrandLogo width={62} height={62} className="mt-header-brand-img" alt="Logo Mattabel" /></div>
           <nav aria-label="Navigazione atleta" className="athlete-navigation flex flex-wrap gap-2">
             <NavBtn href="/atleta/tornei" label="Tornei attivi" icon="tour" />
             <NavBtn href="/atleta/classifica" label="Classifica generale" icon="ranking" />
@@ -66,14 +66,7 @@ export default function AthleteLayout({ children }: { children: React.ReactNode 
       {/* Logo sotto (non-sticky) */}
       <div className="athlete-logo-below container-admin mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-center py-4">
-          <Image
-            src="/logo2.png"
-            alt="Mattabel"
-            width={160}
-            height={160}
-            className="h-16 w-auto opacity-95"
-            onError={(e)=>{ (e.currentTarget as any).style.display='none' }}
-          />
+          <BrandLogo width={96} height={96} className="mt-athlete-secondary-logo" alt="Logo Mattabel" />
         </div>
       </div>
 
