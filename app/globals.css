@@ -3898,3 +3898,31 @@ html:has(.mt-access-screen){overflow-x:clip}
  .mt-access-screen{width:100%!important;max-width:100%!important}
  .mt-access-card{max-width:100%}
 }
+
+/* Final dark-card treatment for the two landing screens.
+   The society logo is displayed once without clipped, tinted duplicates. */
+.mt-access-card{
+  background:
+    radial-gradient(ellipse at 50% 0%,rgba(19,43,73,.35),transparent 63%),
+    linear-gradient(157deg,#080e18 0%,#0a1423 65%,#0b1728 100%)!important;
+  border:1px solid #405570!important;
+  border-top:2px solid #fa9636!important;
+  box-shadow:0 26px 76px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.025)!important;
+}
+.mt-access-card .mt-access-logo{
+  margin-bottom:16px;
+  padding:7px 14px 4px;
+}
+.mt-access-logo img{
+  filter:drop-shadow(0 9px 12px rgba(0,0,0,.30))!important;
+}
+.mt-access-card .mt-access-logo-letter-contrast{display:none!important}
+.mt-access-login-card .mt-login-form>label{color:#e0ebf8}
+.mt-access-login-card .mt-login-form>input,
+.mt-access-login-card .mt-login-password>input{
+  background:#101f31!important;
+  border-color:#51647c!important;
+}
+@media(max-width:540px){
+ .mt-access-card .mt-access-logo{padding:4px 6px 0}
+}
