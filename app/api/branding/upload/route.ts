@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
       if (file.size < 500 || file.size > 6 * 1024 * 1024 || (file.type && file.type !== 'image/png')) {
         return NextResponse.json({error:'PNG non valido o troppo grande: '+file.name}, {status:400})
       }
-      const bytes = Buffer.from(await file.arrayBuffer())
+      const bytes = new Uint8Array(await file.arrayBuffer())
       // Check signature, not only MIME/filename, to reject arbitrary content.
-      if (bytes.length < 24 || !bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) {
+      if (bytes.length < 24 || !Array.from(bytes.subarray(0,8)).every((n,i)=>n===[137,80,78,71,13,10,26,10][i])) {
         return NextResponse.json({error:'Il file non è un PNG: '+file.name}, {status:400})
       }
       const {error} = await s.storage.from(BUCKET).upload(logoPath(id),bytes,{
