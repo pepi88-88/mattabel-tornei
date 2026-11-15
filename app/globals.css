@@ -3645,3 +3645,117 @@ html[data-mattabel-theme="blu"] .mt-results-publish{
   background:color-mix(in srgb,var(--desk-category-accent) 24%,#253349)!important;
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--desk-category-accent) 55%,transparent);
 }
+
+/* Staff access: Mattabel navy/orange identity, scoped to the login route. */
+.mt-login-screen{
+  --mt-login-accent:#ff962d;
+  position:relative;min-height:calc(100dvh - 100px);
+  margin:-24px calc(-1 * clamp(16px,3vw,48px)) -48px;
+  padding:clamp(28px,5vw,80px) clamp(18px,4vw,60px);
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;isolation:isolate;
+  background:
+    radial-gradient(ellipse at 15% 12%,rgba(33,84,135,.44),transparent 54%),
+    radial-gradient(ellipse at 80% 90%,rgba(248,137,28,.09),transparent 42%),
+    linear-gradient(145deg,#091626,#102943 60%,#0a1728);
+  color:#eef6ff;
+}
+.mt-login-glow{
+  position:absolute;z-index:-1;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(108,151,195,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(108,151,195,.04) 1px,transparent 1px);
+  background-size:52px 52px;
+  mask-image:linear-gradient(to bottom,#000 20%,transparent 100%);
+}
+.mt-login-layout{
+  width:100%;max-width:1100px;
+  display:grid;grid-template-columns:minmax(0,1.04fr) minmax(350px,.96fr);
+  gap:clamp(28px,5vw,80px);align-items:center;
+}
+.mt-login-intro{min-width:0}
+.mt-login-identity{display:flex;align-items:center;gap:13px;margin-bottom:clamp(36px,5vw,70px)}
+.mt-login-identity img{width:clamp(75px,8vw,135px);height:auto;max-height:95px;object-fit:contain}
+.mt-login-overline{display:block;font-size:clamp(11px,1.15vw,15px);letter-spacing:.23em;color:#a0bfdc;font-weight:750}
+.mt-login-identity h1{font-size:clamp(30px,3.9vw,53px);letter-spacing:.10em;font-weight:900;line-height:1.15;color:#fff}
+.mt-login-eyebrow{letter-spacing:.18em;color:var(--mt-login-accent);font-size:12px;font-weight:800;margin-bottom:16px}
+.mt-login-intro h2{max-width:650px;font-size:clamp(36px,5vw,69px);line-height:1.06;letter-spacing:-.045em;font-weight:900;text-wrap:balance;color:#fff}
+.mt-login-intro>p:not(.mt-login-eyebrow){max-width:455px;font-size:clamp(15px,1.4vw,19px);line-height:1.65;color:#b2c8df;margin-top:24px}
+.mt-login-decor{display:flex;gap:7px;margin-top:35px}
+.mt-login-decor span{display:block;height:5px;width:45px;border-radius:4px;background:#ff962d}
+.mt-login-decor span:nth-child(2){background:#2e7ab9;width:25px}
+.mt-login-decor span:nth-child(3){background:#47637c;width:12px}
+.mt-login-card{
+  min-width:0;background:rgba(19,43,70,.94);
+  border:1px solid #42617f;border-top:3px solid var(--mt-login-accent);
+  border-radius:18px;padding:clamp(22px,3vw,42px);
+  box-shadow:0 24px 70px rgba(0,0,0,.27);
+}
+.mt-login-mark{color:#ffbb72;letter-spacing:.12em;font-size:11px;font-weight:850}
+.mt-login-card-top h2{font-size:clamp(24px,2.3vw,32px);font-weight:850;line-height:1.2;margin:11px 0;color:#fff}
+.mt-login-card-top p{font-size:14px;color:#abc1d8;line-height:1.55;margin-bottom:26px}
+.mt-login-form{display:flex;flex-direction:column;gap:9px}
+.mt-login-form>label{font-size:13px;font-weight:750;color:#dfeaf7;margin-top:8px}
+html[data-mattabel-theme] .mt-login-form>input,
+html[data-mattabel-theme] .mt-login-password>input{
+  width:100%;height:50px;
+  background:#0b2035!important;color:#fff!important;
+  border:1px solid #526f8d!important;border-radius:10px!important;
+  padding:0 14px!important;font-size:16px!important;
+  box-shadow:none!important;
+}
+html[data-mattabel-theme] .mt-login-form input::placeholder{color:#829eb8!important}
+.mt-login-password{position:relative}
+html[data-mattabel-theme] .mt-login-password>input{padding-right:92px!important}
+.mt-login-password>button{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  background:transparent;color:#ffc184;border:0;
+  font-size:13px;font-weight:800;cursor:pointer;
+  min-height:37px;padding:5px 9px;
+}
+html[data-mattabel-theme] .mt-login-form input:focus-visible{
+  outline:2px solid #ff9f3b!important;outline-offset:1px;
+}
+.mt-login-submit{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;min-height:52px;margin-top:20px;
+  border-radius:10px;background:#ff962d!important;
+  color:#122036!important;font-weight:850;font-size:16px;
+  transition:background .18s,transform .18s;
+}
+.mt-login-submit:not(:disabled):hover{background:#ffb15f!important;transform:translateY(-1px)}
+.mt-login-submit:disabled{opacity:.7;cursor:wait}
+.mt-login-submit span{font-size:24px;line-height:1}
+.mt-login-error{
+  border:1px solid #df7a83;border-radius:9px;
+  background:rgba(137,23,42,.27);color:#ffd5d9;
+  padding:12px;font-size:13px;line-height:1.45;
+}
+.mt-login-card-bottom{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:10px;flex-wrap:wrap;border-top:1px solid #36506e;
+  padding-top:23px;margin-top:30px;font-size:12px;color:#9cb6d0;
+}
+.mt-login-back{color:#e5effa;text-decoration:none;font-weight:650}
+.mt-login-back:hover{text-decoration:underline;color:#fff}
+@media(max-width:850px){
+ .mt-login-layout{max-width:480px;grid-template-columns:1fr;gap:25px}
+ .mt-login-intro{text-align:center}
+ .mt-login-identity{justify-content:center;margin-bottom:16px}
+ .mt-login-intro h2{font-size:clamp(28px,7vw,45px)}
+ .mt-login-intro>p:not(.mt-login-eyebrow){margin:12px auto 0;font-size:14px}
+ .mt-login-decor{justify-content:center;margin-top:18px}
+ .mt-login-card{padding:25px}
+}
+@media(max-width:480px){
+ .mt-login-screen{min-height:calc(100dvh - 70px);padding:18px 14px;margin:-24px -16px -48px}
+ .mt-login-layout{gap:18px}
+ .mt-login-identity img{max-height:52px;width:70px}
+ .mt-login-identity h1{font-size:28px}
+ .mt-login-overline{font-size:9px}
+ .mt-login-intro h2{font-size:28px}
+ .mt-login-intro>p:not(.mt-login-eyebrow){font-size:12px;line-height:1.4}
+ .mt-login-decor{display:none}
+ .mt-login-card{padding:22px 18px}
+ .mt-login-card-top p{margin-bottom:12px}
+}
