@@ -51,6 +51,12 @@ const PUBLIC_API_PREFIXES = [
 // ⬇️ AGGIUNGI QUESTO BLOCCO
 const PUBLIC_API_KEYWORDS = ['iscritti', 'entries', 'registrations']
 
+// Logo globale: lettura pubblica anche prima dell'accesso Staff.
+// Upload e modifica rimangono protetti dal middleware e dai controlli Admin delle API.
+const isPublicBrandingRead =
+  (req.method === 'GET' || req.method === 'HEAD') &&
+  (pathname === '/api/branding' || pathname.startsWith('/api/branding/image/'))
+
 const isReadOnlyMethod = req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS'
 
 const isWhitelistedGet =
@@ -65,6 +71,7 @@ const isApiPublic =
   pathname.startsWith('/api/public') ||
   pathname.includes('/public/') ||
   isWhitelistedGet ||
+  isPublicBrandingRead ||
   isKeywordPublic
 
 
