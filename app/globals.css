@@ -3861,3 +3861,40 @@ html[data-mattabel-theme] .mt-login-form input:focus-visible{
  .mt-access-logo>.mt-access-logo-letter-contrast{width:clamp(150px,44vw,205px)}
  .mt-access-login-logo>.mt-access-logo-letter-contrast{width:150px}
 }
+
+/* Login and welcome refinement — avoid brightening the turtle's head when
+   increasing the contrast of the dark blue upper arc of MATTABEL. */
+.mt-access-logo>.mt-access-logo-letter-contrast{
+ filter:brightness(1.75) saturate(1.15)!important;
+ clip-path:polygon(0 0,74% 0,70% 10%,58% 17%,49% 29%,40% 40%,28% 53%,0 53%)!important;
+}
+/* The login is a full-screen landing page: avoid the navy-to-black cutoff and
+   the accidental horizontal scroll from negative container margins. */
+html:has(.mt-access-screen),
+html:has(.mt-access-screen) body,
+html:has(.mt-access-screen) .app-admin{
+ background:#0a1b30!important;
+}
+html:has(.mt-access-screen){overflow-x:clip}
+.mt-access-screen{
+ box-sizing:border-box;
+ width:100vw;
+ min-height:100dvh!important;
+ max-width:100%;
+ margin: -24px auto -48px!important;
+ padding:clamp(28px,5vh,56px) 18px!important;
+ background:
+   radial-gradient(ellipse at 23% 18%,rgba(28,80,137,.34),transparent 62%),
+   radial-gradient(ellipse at 79% 86%,rgba(255,144,37,.06),transparent 49%),
+   linear-gradient(135deg,#081626 0%,#0c2844 54%,#081829 100%)!important;
+}
+.mt-access-card{
+ max-width:515px;
+ box-shadow:0 20px 65px rgba(0,0,0,.25);
+}
+.mt-access-card>p{color:#c6d8e9}
+.mt-access-card .mt-access-logo{margin-bottom:18px}
+@media(max-width:540px){
+ .mt-access-screen{width:100%!important;max-width:100%!important}
+ .mt-access-card{max-width:100%}
+}
