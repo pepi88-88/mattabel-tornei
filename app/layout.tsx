@@ -13,7 +13,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="it">
+    <html lang="it" data-mattabel-theme="blu">
       <body className="app-admin bg-neutral-950 text-neutral-100">
         <AppHeader />
         <main className="container-admin mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
