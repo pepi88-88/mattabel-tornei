@@ -1,6 +1,6 @@
 'use client'
 import * as React from 'react'
-import BrandLogo, { LOGO_NAMES } from '@/components/BrandLogo'
+import BrandLogo, { LOGO_NAMES } from '../../../../components/BrandLogo'
 
 type Settings={active:string;uploaded:string[];updatedAt?:string}
 const keyByFile=(f:File)=>f.name.replace(/\.png$/i,'').toLowerCase()
