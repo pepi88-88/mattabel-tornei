@@ -35,6 +35,19 @@ const NAV_ITEMS: Item[] = [
   { href: '/admin/stampa', icon: 'print',            label: 'Stampa',                      roles: ['admin','coach'] },
 ]
 
+const SHORT_NAV_LABELS: Record<string,string> = {
+  '/admin/tour': 'Tour / Tappe',
+  '/admin/giocatori': 'Giocatori',
+  '/admin/iscrizioni': 'Iscrizioni',
+  '/admin/gironi': 'Gironi',
+  '/admin/crea-tabellone': 'Tabelloni',
+  '/admin/risultati': 'Risultati',
+  '/admin/classifica': 'Classifica',
+  '/admin/tornei/test/regia': 'Regia',
+  '/admin/attese': 'Attese',
+  '/admin/pagamenti': 'Pagamenti',
+  '/admin/stampa': 'Stampa',
+}
 function NavLink({ href, label, icon, active }: { href:string; label:string; icon: NavigationIconName; active:boolean }) {
   const router = useRouter()
   return (
@@ -48,6 +61,7 @@ function NavLink({ href, label, icon, active }: { href:string; label:string; ico
         })
         if (window.dispatchEvent(before)) router.push(href)
       }}
+      title={label}
       className={[
         'inline-flex items-center justify-center',
         'h-11 px-4 rounded-md my-2',
@@ -58,7 +72,7 @@ function NavLink({ href, label, icon, active }: { href:string; label:string; ico
       style={active ? { borderColor: ORANGE } : undefined}
     >
       <span className="mt-nav-icon"><NavigationIcon name={icon} /></span>
-      <span className="truncate">{label}</span>
+      <span className="truncate">{SHORT_NAV_LABELS[href] || label}</span>
     </button>
   )
 }
