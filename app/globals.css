@@ -4011,3 +4011,9 @@ html:has(.mt-access-screen){overflow-x:clip}
  .mt-logo-option small{font-size:10px}
  .mt-logo-admin-actions>span{width:100%}
 }
+
+/* Always-available recovery controls for Staff sessions opened before role cookies existed. */
+.mt-staff-auth-link{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;flex-shrink:0;min-height:31px;padding:6px 9px;border:1px solid #55718e;border-radius:7px;color:#e8f0ff;font-size:11px;font-weight:800;background:#173451;text-decoration:none}
+.mt-staff-auth-link:hover{background:#285172;border-color:#8cb0d1}
+.mt-staff-exit{color:#ffb170;border-color:#a66b42;background:#1e2b3c;cursor:pointer}
+@media(max-width:760px){.mt-staff-auth-link{font-size:10px;padding:5px 6px}}
