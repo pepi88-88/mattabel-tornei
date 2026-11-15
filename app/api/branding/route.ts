@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readBranding, isLogoId, saveBranding } from '@/lib/branding'
+import { readBranding, isLogoId, saveBranding } from '../../../lib/branding'
 import { requireAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
