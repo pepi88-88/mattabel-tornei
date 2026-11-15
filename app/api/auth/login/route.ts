@@ -23,6 +23,14 @@ export async function POST(req: NextRequest) {
 
   const res = NextResponse.json({ ok: true, role })
 
+  // Role is stored server-side in an HttpOnly cookie, independent of
+  // client-side localStorage. Branding settings are Admin-only.
+  res.cookies.set('staff_role', role, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+  })
+
   // 🔴 COOKIE "COMUNE" CHE IL MIDDLEWARE SI ASPETTA
   res.cookies.set('admin_session', '1', {
     httpOnly: true,
