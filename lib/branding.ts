@@ -27,7 +27,7 @@ export async function ensureBrandingBucket() {
   const s = supabaseAdmin()
   const { data } = await s.storage.getBucket(BUCKET)
   if (!data) {
-    const { error } = await s.storage.createBucket(BUCKET, { public: false, fileSizeLimit: 6 * 1024 * 1024, allowedMimeTypes: ['image/png'] })
+    const { error } = await s.storage.createBucket(BUCKET, { public: false, fileSizeLimit: 6 * 1024 * 1024, allowedMimeTypes: ['image/png','application/json'] })
     if (error && !/already exists|duplicate/i.test(error.message)) throw new Error(error.message)
   }
   return s
