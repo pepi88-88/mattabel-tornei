@@ -33,7 +33,6 @@ const NAV_ITEMS: Item[] = [
   { href: '/admin/attese', icon: 'waiting',            label: 'Attese',              roles: ['admin','coach'] },
   { href: '/admin/pagamenti', icon: 'payments',         label: 'Pagamenti',                   roles: ['admin','coach'] },
   { href: '/admin/stampa', icon: 'print',            label: 'Stampa',                      roles: ['admin','coach'] },
-  { href: '__exit__', icon: 'logout',                 label: 'Esci',                        roles: 'any' },
 ]
 
 function NavLink({ href, label, icon, active }: { href:string; label:string; icon: NavigationIconName; active:boolean }) {
@@ -122,7 +121,7 @@ export default function AppHeader() {
           </div>
 
           {/* Tutto su un lato (sinistra), con wrap */}
-          <nav className="admin-nav-desktop hidden xl:flex flex-wrap gap-2" aria-label="Navigazione staff">
+          <nav className="admin-nav-desktop hidden xl:flex flex-nowrap gap-1" aria-label="Navigazione staff">
             {visible.map(it =>
               it.href === '__exit__'
                 ? <ExitButton key="__exit__" />
@@ -162,8 +161,6 @@ export default function AppHeader() {
               <span aria-hidden="true">↗</span>
             </a>
           )}
-          <a href="/login-staff" title="Accedi come amministratore"
-            className="mt-staff-auth-link">Accedi Admin</a>
           <button type="button" className="mt-staff-auth-link mt-staff-exit"
             onClick={async()=>{
               try{localStorage.removeItem('role')}catch{}
