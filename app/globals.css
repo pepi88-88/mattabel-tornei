@@ -3843,3 +3843,21 @@ html[data-mattabel-theme] .mt-login-form input:focus-visible{
  .mt-access-choice-icon{font-size:18px}
  .mt-access-login-logo img{width:150px}
 }
+
+/* Raise the dark navy MATTABEL lettering in the existing circular logo.
+   Overlay only the upper arc; the turtle and orange bottom lettering stay original. */
+.mt-access-logo{position:relative;isolation:isolate}
+.mt-access-logo>.mt-access-logo-letter-contrast{
+ position:absolute;left:50%;top:0;transform:translateX(-50%);
+ width:clamp(165px,19vw,230px);height:auto;max-height:230px;
+ object-fit:contain;pointer-events:none;
+ filter:brightness(2.45) saturate(1.25);
+ clip-path:polygon(0 0,100% 0,100% 31%,0 31%);
+}
+.mt-access-login-logo>.mt-access-logo-letter-contrast{
+ width:clamp(145px,17vw,200px);max-height:200px;
+}
+@media(max-width:540px){
+ .mt-access-logo>.mt-access-logo-letter-contrast{width:clamp(150px,44vw,205px)}
+ .mt-access-login-logo>.mt-access-logo-letter-contrast{width:150px}
+}
