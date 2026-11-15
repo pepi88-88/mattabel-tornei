@@ -162,6 +162,14 @@ export default function AppHeader() {
               <span aria-hidden="true">↗</span>
             </a>
           )}
+          <a href="/login-staff" title="Accedi come amministratore"
+            className="mt-staff-auth-link">Accedi Admin</a>
+          <button type="button" className="mt-staff-auth-link mt-staff-exit"
+            onClick={async()=>{
+              try{localStorage.removeItem('role')}catch{}
+              try{await fetch('/api/auth/logout',{method:'POST',redirect:'manual'})}catch{}
+              window.location.assign('/login-staff')
+            }}>Esci</button>
           <ThemeSwitcher area="staff" />
         </div>
       <div className="brand-strip pointer-events-none" aria-hidden="true" />
