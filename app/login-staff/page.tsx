@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import MattabelAccessLogo from '../components/MattabelAccessLogo'
+import MattabelAccessLogo from '../../components/MattabelAccessLogo'
 
 export default function LoginStaffPage() {
   const [err,setErr]=React.useState<string|undefined>()
