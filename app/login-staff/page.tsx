@@ -34,55 +34,37 @@ export default function LoginStaffPage() {
   }
 
   return (
-    <main className="mt-login-screen">
-      <div className="mt-login-glow" aria-hidden="true" />
-      <section className="mt-login-layout" aria-label="Accesso Mattabel">
-        <div className="mt-login-intro">
-          <div className="mt-login-identity">
-            <Image src="/logo2.png" alt="Logo Beach Volley Mattabel" width={150} height={94} priority />
-            <div>
-              <span className="mt-login-overline">BEACH VOLLEY</span>
-              <h1>MATTABEL</h1>
-            </div>
-          </div>
-          <p className="mt-login-eyebrow">AREA RISERVATA</p>
-          <h2>Il torneo è nelle tue mani.</h2>
-          <p>Gestisci gironi, risultati, tabelloni e regia da un unico posto.</p>
-          <div className="mt-login-decor" aria-hidden="true"><span/><span/><span/></div>
+    <main className="mt-access-screen mt-access-login-screen">
+      <div className="mt-access-aura" aria-hidden="true" />
+      <section className="mt-access-card mt-access-login-card" aria-label="Accesso Staff Mattabel">
+        <div className="mt-access-logo mt-access-login-logo">
+          <Image src="/logo-mattabel.png" width={210} height={210}
+            alt="Mattabel Beach Volley, logo circolare" priority />
         </div>
-        <div className="mt-login-card">
-          <div className="mt-login-card-top">
-            <span className="mt-login-mark">STAFF / ADMIN</span>
-            <h2>Accedi al gestionale</h2>
-            <p>Inserisci le credenziali del tuo account Mattabel.</p>
-          </div>
-          <form onSubmit={onSubmit} className="mt-login-form">
-            <label htmlFor="mt-login-user">Utente</label>
-            <input id="mt-login-user" name="user" type="text" autoComplete="username"
-              disabled={loading} required placeholder="Nome utente" autoCapitalize="none"
-              autoCorrect="off" spellCheck={false}/>
-            <label htmlFor="mt-login-password">Password</label>
-            <div className="mt-login-password">
-              <input id="mt-login-password" name="pass" type={showPassword?'text':'password'}
-                autoComplete="current-password" disabled={loading} required
-                placeholder="La tua password"/>
-              <button type="button" onClick={()=>setShowPassword(v=>!v)} disabled={loading}
-                aria-label={showPassword?'Nascondi password':'Mostra password'}
-                aria-pressed={showPassword}>
-                {showPassword?'Nascondi':'Mostra'}
-              </button>
-            </div>
-            {err&&<div role="alert" className="mt-login-error">{err}</div>}
-            <button className="mt-login-submit" type="submit" disabled={loading}>
-              {loading?'Accesso in corso…':'Entra nel gestionale'}
-              {!loading&&<span aria-hidden="true">→</span>}
+        <p className="mt-access-section-label">AREA RISERVATA</p>
+        <h1>Accesso Staff</h1>
+        <p>Accedi al gestionale Mattabel</p>
+        <form onSubmit={onSubmit} className="mt-login-form">
+          <label htmlFor="mt-login-user">Utente</label>
+          <input id="mt-login-user" name="user" autoComplete="username"
+            disabled={loading} required placeholder="Nome utente"
+            autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+          <label htmlFor="mt-login-password">Password</label>
+          <div className="mt-login-password">
+            <input id="mt-login-password" name="pass" type={showPassword?'text':'password'}
+              autoComplete="current-password" disabled={loading} required placeholder="Password" />
+            <button type="button" onClick={()=>setShowPassword(v=>!v)} disabled={loading}
+              aria-label={showPassword?'Nascondi password':'Mostra password'}
+              aria-pressed={showPassword}>
+              {showPassword?'Nascondi':'Mostra'}
             </button>
-          </form>
-          <div className="mt-login-card-bottom">
-            <Link href="/" className="mt-login-back">← Torna alla home</Link>
-            <span>Accesso riservato allo staff</span>
           </div>
-        </div>
+          {err&&<div role="alert" className="mt-login-error">{err}</div>}
+          <button className="mt-login-submit" type="submit" disabled={loading}>
+            {loading?'Accesso in corso…':'Accedi'}
+          </button>
+        </form>
+        <Link href="/" className="mt-access-back">← Torna alla scelta accesso</Link>
       </section>
     </main>
   )
