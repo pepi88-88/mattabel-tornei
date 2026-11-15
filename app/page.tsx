@@ -15,6 +15,7 @@ export default function Home() {
   <section className="mt-access-card" aria-label="Benvenuto Mattabel">
    <div className="mt-access-logo">
     <Image src="/logo-mattabel.png" width={245} height={245} alt="Mattabel Beach Volley, logo con tartaruga e scritta circolare" priority/>
+    <Image src="/logo-mattabel.png" width={245} height={245} alt="" aria-hidden="true" className="mt-access-logo-letter-contrast" />
    </div>
    <h1>Benvenuto</h1>
    <p>Scegli il tuo accesso</p>
