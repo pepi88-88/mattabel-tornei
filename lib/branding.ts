@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '@/lib/supabaseServer'
+import { supabaseAdmin } from './supabaseServer'
 
 export const LOGO_IDS = ['ufficiale','befana','carnevale','pasqua','master','estate','superspritz','halloween','natale'] as const
 export type LogoId = typeof LOGO_IDS[number]
