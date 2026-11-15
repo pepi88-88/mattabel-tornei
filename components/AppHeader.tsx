@@ -116,8 +116,9 @@ export default function AppHeader() {
   style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}
 >
      <div className="admin-topline relative z-[1] container-admin mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mt-header-brand" aria-label="Beach Volley Mattabel">
-            <Image src="/logo2.png" alt="Beach Volley Mattabel" width={112} height={64} className="mt-header-brand-img" priority />
+          <div className="mt-header-brand mt-header-brand-wordmark" aria-label="Beach Volley Mattabel">
+            <span>BEACH VOLLEY</span>
+            <strong>MATTABEL</strong>
           </div>
 
           {/* Tutto su un lato (sinistra), con wrap */}
