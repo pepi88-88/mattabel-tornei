@@ -3926,3 +3926,39 @@ html:has(.mt-access-screen){overflow-x:clip}
 @media(max-width:540px){
  .mt-access-card .mt-access-logo{padding:4px 6px 0}
 }
+
+/* Contrast-first header brand for Mattabel blue staff navigation.
+   Text avoids the navy-in-navy problem of the old image wordmark. */
+.mt-header-brand-wordmark{
+  display:flex!important;
+  flex:0 0 auto;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  width:clamp(113px,8.2vw,145px)!important;
+  min-width:113px;
+  padding:3px 6px!important;
+  line-height:1;
+  gap:5px;
+  white-space:nowrap;
+}
+.mt-header-brand-wordmark>span{
+  display:block;
+  color:#c3d8ef!important;
+  font-size:clamp(9px,.72vw,12px);
+  font-weight:750;
+  letter-spacing:.105em;
+}
+.mt-header-brand-wordmark>strong{
+  display:block;
+  color:#ff952a!important;
+  font-size:clamp(19px,1.45vw,25px);
+  font-weight:900;
+  letter-spacing:-.045em;
+  line-height:1;
+}
+@media(max-width:760px){
+ .mt-header-brand-wordmark{width:113px!important;min-width:113px;padding-inline:2px!important}
+ .mt-header-brand-wordmark>span{font-size:9px}
+ .mt-header-brand-wordmark>strong{font-size:19px}
+}
