@@ -172,14 +172,7 @@ export default function AppHeader() {
       {/* LOGO non-sticky sotto la riga */}
       <div className="admin-logo-below container-admin mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-center py-4">
-          <Image
-            src="/logo2.png"
-            alt="Mattabel"
-            width={160}
-            height={160}
-            className="h-16 w-auto opacity-95"
-            onError={(e) => { (e.currentTarget as any).style.display = 'none' }}
-          />
+          <BrandLogo width={80} height={80} className="mt-staff-secondary-logo" alt="Logo Mattabel" />
         </div>
       </div>
     </>
