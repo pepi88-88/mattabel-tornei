@@ -4090,3 +4090,47 @@ html[data-mattabel-theme] .admin-topline .mt-staff-exit{
   html[data-mattabel-theme] .admin-topline .mt-admin-brand-text{display:none!important}
   html[data-mattabel-theme] .admin-topline .mt-staff-carousel-shortcut .hidden{display:none!important}
 }
+
+/* Final horizontal desktop header: preserve brand and text readability. */
+@media(min-width:1280px){
+  html[data-mattabel-theme] .admin-topline{column-gap:9px!important;overflow:visible!important}
+  html[data-mattabel-theme] .admin-topline .mt-header-brand-wordmark{
+    width:148px!important;min-width:148px!important;max-width:148px!important;
+    padding:0 10px 0 0!important;
+    overflow:visible!important;
+    margin:0!important;
+    box-sizing:border-box!important;
+  }
+  html[data-mattabel-theme] .admin-topline .mt-admin-brand-badge{
+    width:43px!important;height:43px!important;
+    margin-left:0!important;flex:none!important;
+  }
+  html[data-mattabel-theme] .admin-topline .mt-admin-brand-text{
+    flex:0 0 auto!important;overflow:visible!important;white-space:nowrap!important;
+  }
+  html[data-mattabel-theme] .admin-topline .mt-admin-brand-text>strong{font-size:17px!important}
+  html[data-mattabel-theme] .admin-topline .admin-nav-desktop{
+    min-width:0!important;width:auto!important;flex:1 1 auto!important;
+    display:flex!important;flex-wrap:nowrap!important;
+    justify-content:space-between!important;align-items:center!important;
+    gap:3px!important;
+    overflow:visible!important;overflow-x:visible!important;overflow-y:visible!important;
+    scrollbar-width:none!important;
+  }
+  html[data-mattabel-theme] .admin-topline .admin-nav-desktop::-webkit-scrollbar{display:none!important}
+  html[data-mattabel-theme] .admin-topline .admin-nav-desktop button{
+    padding:0 clamp(5px,.55vw,10px)!important;
+    height:37px!important;
+    font-size:clamp(11px,.77vw,13px)!important;
+    white-space:nowrap!important;
+    overflow:visible!important;
+    flex:0 1 auto!important;
+    letter-spacing:0!important;
+  }
+  html[data-mattabel-theme] .admin-topline .admin-nav-desktop button .truncate{
+    overflow:visible!important;text-overflow:clip!important;
+  }
+  html[data-mattabel-theme] .admin-topline .mt-brand-settings-link,
+  html[data-mattabel-theme] .admin-topline .mt-staff-carousel-shortcut,
+  html[data-mattabel-theme] .admin-topline .mt-staff-exit{flex-shrink:0!important}
+}
