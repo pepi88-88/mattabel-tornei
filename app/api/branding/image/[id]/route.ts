@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { BUCKET, logoPath, isLogoId } from '@/lib/branding'
-import { supabaseAdmin } from '@/lib/supabaseServer'
+import { BUCKET, logoPath, isLogoId } from '../../../../../lib/branding'
+import { supabaseAdmin } from '../../../../../lib/supabaseServer'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
