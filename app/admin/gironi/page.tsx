@@ -180,6 +180,14 @@ const savedSnapshotRef = useRef('')
 const draftKey = (id: string) => 'mattabel:gironi:pending:' + id
 const pendingRef = useRef<string | null>(null)
 const [retrySave, setRetrySave] = useState(0)
+const [gironiOnline,setGironiOnline]=useState(true)
+useEffect(()=>{
+ const update=()=>{setGironiOnline(navigator.onLine);if(navigator.onLine)setRetrySave(v=>v+1)}
+ update()
+ window.addEventListener('online',update)
+ window.addEventListener('offline',update)
+ return ()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}
+},[])
 
 // Non attivare mai il salvataggio dopo un GET fallito.
 useEffect(() => {
@@ -191,11 +199,7 @@ useEffect(() => {
   if (!tId) return
   ;(async () => {
     try {
-      const res = await fetch(`/api/groups/state?tournament_id=${encodeURIComponent(tId)}`, {
-        headers: { 'x-role': 'admin' }, cache: 'no-store'
-      })
-      if (!res.ok) throw new Error('Caricamento fallito (' + res.status + ')')
-      const js = await res.json()
+      const js = await offlineJSON(`/api/groups/state?tournament_id=${encodeURIComponent(tId)}`)
       const st: Partial<PersistServer> = js?.state || {}
       if (!js?.updated_at) throw new Error('Versione dello stato assente')
       if (cancelled) return
@@ -234,7 +238,7 @@ useEffect(() => {
       setScores(loaded.scores)
       setIsPublic(loaded.isPublic)
       setReady(true)
-      if (!pending) setSaveStatus('Salvato su Supabase')
+      if (!pending) setSaveStatus(navigator.onLine?'Salvato su Supabase':'Gironi disponibili offline in sola lettura')
     } catch (e) {
       if (!cancelled) setSaveStatus('Errore caricamento: nessuna sovrascrittura. Ricarica la pagina.')
     }
@@ -245,7 +249,7 @@ useEffect(() => {
 // Salva una bozza sincrona nel browser prima di inviare i dati al server.
 // Ogni PATCH usa la versione letta: se un'altra pagina ha salvato, rilegge e riprova.
 useEffect(() => {
-  if (!ready || !tId || !versionRef.current) return
+  if (!ready || !tId || !versionRef.current || !navigator.onLine) return
   const data = { groupsCount, meta, assign, times, gField, matchFields, matchOrder, scores, isPublic }
   const snapshot = JSON.stringify(data)
   if (snapshot === savedSnapshotRef.current && !pendingRef.current) return
@@ -875,7 +879,11 @@ function commitTimeUncontrolled(
     <div className="mt-groups-page p-2 sm:p-3 xl:p-6">
       <h1 className="mt-groups-title">Crea Gironi</h1>
 <PrepareOffline tournamentId={tId} />
-      <div className="mt-groups-workspace card p-3 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 xl:gap-6">
+      {!gironiOnline&&<div role="status" className="my-2 rounded border border-amber-500 p-3 text-amber-200">
+        Offline: assegnazioni visualizzabili. Modifica i risultati nella pagina Risultati Girone/Tabellone.
+      </div>}
+      <div className="mt-groups-workspace card p-3 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 xl:gap-6"
+        style={!gironiOnline?{pointerEvents:'none',opacity:0.85}:undefined}>
         {/* colonna sinistra */}
         <div className="mt-groups-main space-y-6">
           <div className="mt-groups-controls grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
