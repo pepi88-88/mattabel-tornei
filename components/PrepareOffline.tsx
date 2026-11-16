@@ -2,7 +2,7 @@
 import {useState} from 'react'
 import {offlineJSON} from '../lib/offlineClient'
 
-export default function PrepareOffline({tournamentId}:{tournamentId:string}){
+export default function PrepareOffline({tournamentId,tourId}:{tournamentId:string;tourId?:string}){
  const [status,setStatus]=useState('')
  const [busy,setBusy]=useState(false)
  const prepare=async()=>{
@@ -12,7 +12,7 @@ export default function PrepareOffline({tournamentId}:{tournamentId:string}){
      // Copia aggiornata di anagrafica, gironi, tabelloni e pagamenti.
      const urls=[
        '/api/tours',
-       '/api/tournaments?tour_id='+encodeURIComponent(localStorage.getItem('selectedTourId')||''),
+       '/api/tournaments?tour_id='+encodeURIComponent(tourId||localStorage.getItem('selectedTourId')||''),
        '/api/groups/state?tournament_id='+encodeURIComponent(tournamentId),
        '/api/brackets/state?tournament_id='+encodeURIComponent(tournamentId),
        '/api/registrations/for-payments?tournament_id='+encodeURIComponent(tournamentId),
