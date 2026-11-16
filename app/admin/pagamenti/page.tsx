@@ -4,6 +4,15 @@ import { useEffect, useMemo, useState } from 'react'
 
 const fetcher = (u: string) => fetch(u).then(r => r.json())
 
+// Stessa palette A–P della pagina Creazione Gironi: colori coerenti con i temi Mattabel.
+const GROUP_COLORS: Record<string,string> = {
+  A:'#2563EB', B:'#EF4444', C:'#F59E0B', D:'#8B5CF6',
+  E:'#10B981', F:'#FB923C', G:'#06B6D4', H:'#8B5CF6',
+  I:'#22C55E', J:'#F97316', K:'#0EA5E9', L:'#EAB308',
+  M:'#84CC16', N:'#F43F5E', O:'#14B8A6', P:'#64748B',
+}
+const colorFor = (letter:string) => GROUP_COLORS[letter] ?? '#334155'
+
 export default function PagamentiPage() {
   // TOUR
   const { data: tours } = useSWR('/api/tours', fetcher)
@@ -335,13 +344,16 @@ paid_d: side === 'D' ? value : r.paid_d,
           !groupsResponse ? <div className="text-neutral-400">Caricamento gironi…</div> :
           groupsForPayments.length===0 ? <div className="text-neutral-400">Non ci sono ancora coppie assegnate ai gironi. Usa la vista Lista.</div> :
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {groupsForPayments.map(g=><section key={g.letter} className="rounded-xl border border-neutral-700 bg-neutral-900/60 p-3 space-y-2">
-              <h2 className="text-center text-lg font-bold text-white">GIRONE {g.letter}</h2>
+            {groupsForPayments.map(g=><section key={g.letter} className="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900/60">
+              <h2 className="px-3 py-3 text-center text-lg font-extrabold tracking-wide text-white"
+                style={{backgroundColor:colorFor(g.letter)}}>GIRONE {g.letter}</h2>
+              <div className="space-y-2 p-3">
               {g.rows.map(({registrationId,slot})=>{
                 const reg=byId.get(registrationId) as any
                 return reg ? renderChecks(reg) :
                   <div key={registrationId} className="text-sm text-amber-300">Slot {slot}: iscrizione non presente nei pagamenti ({groupState?.labels?.[registrationId]||'ID non trovato'})</div>
               })}
+              </div>
             </section>)}
             {payableItems.filter((r:any)=>!allAssigned.has(r.id)).length>0&&<section className="rounded-xl border border-neutral-700 p-3 space-y-2">
               <h2 className="text-center text-lg font-bold">Non assegnate</h2>
