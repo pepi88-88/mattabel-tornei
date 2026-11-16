@@ -1,11 +1,29 @@
-/* Mattabel offline navigation shell, no install prompt or PWA manifest.
-   Private API responses are NOT stored in the Service Worker cache. */
-const VERSION='mattabel-offline-pages-2'
+/* Mattabel offline navigation shell. Private API responses are never
+   cached. New Service Workers activate only after explicit user approval. */
+const VERSION='mattabel-offline-pages-3'
 const PAGES=['/admin/risultati','/admin/pagamenti','/admin/gironi','/admin/crea-tabellone','/admin/offline']
-self.addEventListener('install',()=>self.skipWaiting())
+self.addEventListener('install',()=>{
+ // Non sostituire un Service Worker attivo mentre lo Staff lavora offline.
+ // Alla prima installazione (nessun worker attivo) l'attivazione è automatica.
+})
 self.addEventListener('activate',e=>e.waitUntil((async()=>{
+ // Salvaguarda pagine e asset che lo Staff ha preparato per lavorare offline.
+ // Un aggiornamento dell'app non deve cancellare la preparazione esistente.
  const keys=await caches.keys()
- await Promise.all(keys.filter(k=>k.startsWith('mattabel-offline-pages-')&&k!==VERSION).map(k=>caches.delete(k)))
+ const oldKeys=keys.filter(k=>k.startsWith('mattabel-offline-pages-')&&k!==VERSION)
+ const cache=await caches.open(VERSION)
+ let migrationOk=true
+ for(const key of oldKeys){
+   try{
+     const old=await caches.open(key)
+     for(const req of await old.keys()){
+       if(await cache.match(req))continue
+       const saved=await old.match(req)
+       if(saved)await cache.put(req,saved)
+     }
+   }catch{migrationOk=false}
+ }
+ if(migrationOk)await Promise.all(oldKeys.map(key=>caches.delete(key)))
  await self.clients.claim()
 })()))
 const isPage = url=>PAGES.some(p=>url.pathname===p)
@@ -41,6 +59,10 @@ self.addEventListener('fetch',event=>{
  }
 })
 self.addEventListener('message',event=>{
+ if(event.data?.type==='MATTABEL_ACTIVATE_UPDATE'){
+   self.skipWaiting()
+   return
+ }
  if(event.data?.type!=='MATTABEL_PREPARE_OFFLINE')return
  const port=event.ports?.[0]
  event.waitUntil((async()=>{
