@@ -135,11 +135,33 @@ html,body{
     min-width: 820px;
   }
 }
-@media (min-width: 640px) {
+/* Desktop uses the full-size ranking. Touch tablets instead use
+   the same adjustable zoom as phones, including landscape orientation. */
+@media (min-width: 640px) and (pointer: fine) {
   .ranking-mobile-zoom {
     width: 100%;
     zoom: 1;
   }
+}
+@media (min-width: 640px) and (pointer: coarse) {
+  .ranking-mobile-zoom {
+    width: max-content;
+    min-width: 0;
+    zoom: var(--ranking-zoom, 1);
+    touch-action: none;
+  }
+  .ranking-mobile-zoom.ranking-mobile-expanded {
+    min-width: 820px;
+  }
+}
+/* Chrome and Safari must not capture the initial pinch on a table cell. */
+@media (pointer: coarse) {
+  .mt-athlete-ranking-scroll,
+  .mt-athlete-ranking-scroll .ranking-mobile-zoom,
+  .mt-athlete-ranking-scroll .ranking-mobile-zoom * {
+    touch-action: none;
+  }
+  .mt-athlete-ranking-zoom-controls { display: flex !important; }
 }
 
 /* Tablet tournament operations: give tables the width they need without
