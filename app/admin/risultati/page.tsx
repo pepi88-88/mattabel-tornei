@@ -2077,13 +2077,29 @@ return (
   <div className="mt-results-page relative z-0 p-2 sm:p-3 xl:p-6 space-y-6 xl:space-y-8 pointer-events-auto min-w-0">
     <h1 className="mt-results-title">Risultati Girone/Tabellone</h1>
     <PrepareOffline tournamentId={tId} />
-    {bracketsSyncError&&<div role="alert" className="rounded border border-amber-500 p-3 text-amber-200">{bracketsSyncError}</div>}
+    {bracketsSyncError&&<div role="alert" className="rounded border border-amber-500 p-3 text-amber-200">
+      {bracketsSyncError}
+      {bracketsConflict&&<button type="button" className="ml-3 underline"
+        onClick={()=>{
+          if(!window.confirm('Scartare la bozza LOCALE dei tabelloni? Le modifiche non sincronizzate andranno perse.'))return
+          localStorage.removeItem(bracketDraftKey(tId))
+          window.location.reload()
+        }}>Scarta bozza e ricarica dal server</button>}
+    </div>}
    
     <div role="status" className={offlineOnline?'border border-emerald-700 text-emerald-300 rounded p-2':'border border-amber-500 text-amber-300 rounded p-2'}>
       {offlineOnline?'● Online':'● Offline — bozza salvata solo su questo dispositivo'}
       {offlineConflict&&' · Conflitto: sincronizzazione sospesa'}
      </div>
-     {resultsSaveError && <div role="alert" className="rounded border border-amber-500 p-3 text-amber-300">{resultsSaveError}</div>}
+     {resultsSaveError && <div role="alert" className="rounded border border-amber-500 p-3 text-amber-300">
+       {resultsSaveError}
+       {offlineConflict&&<button type="button" className="ml-3 underline"
+         onClick={()=>{
+           if(!window.confirm('Scartare i risultati dei gironi salvati SOLO su questo dispositivo? Non potranno più essere recuperati.'))return
+           localStorage.removeItem(resultsDraftKey(tId))
+           window.location.reload()
+         }}>Scarta bozza gironi e ricarica</button>}
+     </div>}
     {/* Header filtri */}
     <div className="mt-results-controls flex flex-wrap items-end gap-3">
       <div className="flex flex-col">
