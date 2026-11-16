@@ -1,7 +1,7 @@
 /* Mattabel offline navigation shell, no install prompt or PWA manifest.
    Private API responses are NOT stored in the Service Worker cache. */
-const VERSION='mattabel-offline-pages-1'
-const PAGES=['/admin/risultati','/admin/pagamenti','/admin/gironi']
+const VERSION='mattabel-offline-pages-2'
+const PAGES=['/admin/risultati','/admin/pagamenti','/admin/gironi','/admin/crea-tabellone','/admin/offline']
 self.addEventListener('install',()=>self.skipWaiting())
 self.addEventListener('activate',e=>e.waitUntil((async()=>{
  const keys=await caches.keys()
@@ -14,7 +14,7 @@ self.addEventListener('fetch',event=>{
  if(req.method!=='GET')return
  const url=new URL(req.url)
  if(url.origin!==self.location.origin || url.pathname.startsWith('/api/'))return
- if(req.mode==='navigate' && isPage(url)){
+ if(req.mode==='navigate'){
    event.respondWith((async()=>{
      const cache=await caches.open(VERSION)
      try{
@@ -24,7 +24,7 @@ self.addEventListener('fetch',event=>{
          await cache.put(url.pathname,res.clone())
        return res
      }catch{
-       return (await cache.match(url.pathname)) || Response.error()
+       return (await cache.match(url.pathname)) || (await cache.match('/admin/offline')) || Response.error()
      }
    })())
    return
