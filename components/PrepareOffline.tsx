@@ -2,7 +2,7 @@
 import {useState} from 'react'
 import {offlineJSON} from '../lib/offlineClient'
 
-export default function PrepareOffline({tournamentId,tourId}:{tournamentId:string;tourId?:string}){
+export default function PrepareOffline({tournamentId,tourId,statusBadge}:{tournamentId:string;tourId?:string;statusBadge?:React.ReactNode}){
  const [status,setStatus]=useState('')
  const [busy,setBusy]=useState(false)
  const prepare=async()=>{
@@ -36,6 +36,7 @@ export default function PrepareOffline({tournamentId,tourId}:{tournamentId:strin
    className="rounded-md bg-blue-700 px-3 py-2 font-semibold text-white disabled:opacity-40">
    {busy?'Preparazione…':'Prepara offline'}
   </button>
-  <span role="status" className="text-sky-200">{status||'Da premere con Internet prima del torneo, sul dispositivo che userai.'}</span>
+  <span role="status" className="min-w-0 text-sky-200">{status||'Da premere con Internet prima del torneo, sul dispositivo che userai.'}</span>
+  {statusBadge&&<div className="ml-auto shrink-0">{statusBadge}</div>}
  </div>
 }
