@@ -1,5 +1,7 @@
 'use client'
 
+import PrepareOffline from '@/components/PrepareOffline'
+import {offlineJSON} from '@/lib/offlineClient'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import useSWR from 'swr'
 import BracketCanvas, {
@@ -527,7 +529,7 @@ useEffect(() => {
 // Helpers comuni (gironi, caricamenti, ecc.)
 // ------------------------------------------------------------
 const LETTERS = LETTERS_STR.split('')
-const fetcher = (u: string) => fetch(u).then(r => r.json()).catch(() => null)
+const fetcher = (u: string) => offlineJSON(u).catch(() => null)
 
 type Tour = { id: string; name: string }
 type Tournament = { id: string; name: string; date?: string }
@@ -2012,6 +2014,7 @@ const activeForDisplay = useMemo(() => {
 return (
   <div className="mt-results-page relative z-0 p-2 sm:p-3 xl:p-6 space-y-6 xl:space-y-8 pointer-events-auto min-w-0">
     <h1 className="mt-results-title">Risultati Girone/Tabellone</h1>
+    <PrepareOffline tournamentId={tId} />
    
     <div role="status" className={offlineOnline?'border border-emerald-700 text-emerald-300 rounded p-2':'border border-amber-500 text-amber-300 rounded p-2'}>
       {offlineOnline?'● Online':'● Offline — bozza salvata solo su questo dispositivo'}
