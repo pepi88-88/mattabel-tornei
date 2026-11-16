@@ -2076,7 +2076,7 @@ const activeForDisplay = useMemo(() => {
 return (
   <div className="mt-results-page relative z-0 p-2 sm:p-3 xl:p-6 space-y-6 xl:space-y-8 pointer-events-auto min-w-0">
     <h1 className="mt-results-title">Risultati Girone/Tabellone</h1>
-    <PrepareOffline tournamentId={tId} />
+    <PrepareOffline tournamentId={tId} tourId={tourId} />
     {bracketsSyncError&&<div role="alert" className="rounded border border-amber-500 p-3 text-amber-200">
       {bracketsSyncError}
       {bracketsConflict&&<button type="button" className="ml-3 underline"
