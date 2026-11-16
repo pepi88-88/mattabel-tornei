@@ -113,6 +113,7 @@ export default function ClassificaInner() {
     try {
       const saved=Number(localStorage.getItem('ath:rankingZoom'))
       if (saved && Number.isFinite(saved)) setMobileZoom(clampZoom(saved))
+      else if(window.matchMedia('(min-width: 640px) and (pointer: coarse)').matches) setMobileZoom(1)
     } catch {}
   },[clampZoom])
   React.useEffect(()=>{
@@ -321,7 +322,7 @@ export default function ClassificaInner() {
         <div className="px-4 py-3 border-b border-neutral-800 flex flex-wrap items-center justify-between gap-3 bg-neutral-950/60">
           <div className="text-base font-semibold tracking-wide">Classifica</div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="sm:hidden flex items-center gap-1" aria-label="Zoom classifica">
+            <div className="mt-athlete-ranking-zoom-controls sm:hidden items-center gap-1" aria-label="Zoom classifica">
               <button type="button" className="btn btn-xs" aria-label="Riduci zoom della classifica"
                 onClick={()=>setMobileZoom(v=>clampZoom(v-0.1))}>−</button>
               <span className="min-w-[45px] text-center text-xs tabular-nums text-neutral-300">{Math.round(mobileZoom*100)}%</span>
