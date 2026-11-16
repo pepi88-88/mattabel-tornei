@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import useSWR from 'swr'
-import PrepareOffline from '@/components/PrepareOffline'
-import {offlineJSON} from '@/lib/offlineClient'
+import PrepareOffline from '../../../components/PrepareOffline'
+import {offlineJSON} from '../../../lib/offlineClient'
 
 const fetcher = (u: string) => offlineJSON(u).catch(() => null)
 
