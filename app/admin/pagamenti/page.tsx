@@ -332,7 +332,16 @@ else body.paid_d = value
           className="ml-3 underline">Sincronizza</button>
       </div>}
       {paymentsMessage&&<p role="status" className="text-sm text-sky-200">{paymentsMessage}</p>}
-      {paymentsConflict&&<p role="alert" className="rounded border border-red-500 p-2 text-red-300">{paymentsConflict}</p>}
+      {paymentsConflict&&<div role="alert" className="rounded border border-red-500 p-2 text-red-300">
+       {paymentsConflict}
+       <button type="button" className="ml-3 underline" onClick={()=>{
+         if(!window.confirm('Scartare i pagamenti SOLO LOCALI non sincronizzati? Non sarà possibile recuperarli.'))return
+         localStorage.removeItem(keyPayments)
+         setPendingPayments([])
+         setPaymentsConflict('')
+         mutate()
+       }}>Scarta bozza locale e aggiorna</button>
+     </div>}
       {/* intestazione: stessi selettori di Iscrizioni */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
