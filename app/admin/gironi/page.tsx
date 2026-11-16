@@ -878,7 +878,7 @@ function commitTimeUncontrolled(
   return (
     <div className="mt-groups-page p-2 sm:p-3 xl:p-6">
       <h1 className="mt-groups-title">Crea Gironi</h1>
-<PrepareOffline tournamentId={tId} />
+<PrepareOffline tournamentId={tId} tourId={tourId} />
       {!gironiOnline&&<div role="status" className="my-2 rounded border border-amber-500 p-3 text-amber-200">
         Offline: assegnazioni visualizzabili. Modifica i risultati nella pagina Risultati Girone/Tabellone.
       </div>}
