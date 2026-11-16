@@ -1,6 +1,6 @@
 'use client'
 import {useState} from 'react'
-import {offlineJSON} from '@/lib/offlineClient'
+import {offlineJSON} from '../lib/offlineClient'
 
 export default function PrepareOffline({tournamentId}:{tournamentId:string}){
  const [status,setStatus]=useState('')
