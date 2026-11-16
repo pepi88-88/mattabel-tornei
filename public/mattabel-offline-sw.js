@@ -19,7 +19,9 @@ self.addEventListener('fetch',event=>{
      const cache=await caches.open(VERSION)
      try{
        const res=await fetch(req)
-       if(res.ok)await cache.put(url.pathname,res.clone())
+       // Non archiviare pagine di login ottenute dopo una scadenza della sessione.
+       if(res.ok && !res.redirected && new URL(res.url).pathname===url.pathname)
+         await cache.put(url.pathname,res.clone())
        return res
      }catch{
        return (await cache.match(url.pathname)) || Response.error()
@@ -46,7 +48,8 @@ self.addEventListener('message',event=>{
      const cache=await caches.open(VERSION)
      for(const path of PAGES){
        const res=await fetch(path,{credentials:'same-origin',cache:'no-store'})
-       if(!res.ok)throw new Error('Impossibile memorizzare '+path+' ('+res.status+')')
+       if(!res.ok || res.redirected || new URL(res.url).pathname!==path)
+         throw new Error('Impossibile memorizzare '+path+' (accesso Staff richiesto)')
        const page=res.clone()
        await cache.put(path,res)
        // Memorizziamo anche gli script e i CSS referenziati nell'HTML,
