@@ -325,7 +325,7 @@ else body.paid_d = value
   return (
     <div className="mt-payments-page space-y-4 xl:space-y-6 p-2 sm:p-3 xl:p-6">
       <h1 className="mt-simple-page-title">Pagamenti</h1>
-      <PrepareOffline tournamentId={tId} />
+      <PrepareOffline tournamentId={tId} tourId={tourId} />
       {!!pendingPayments.length&&<div role="status" className="rounded border border-amber-500 p-2 text-amber-200">
         Pagamenti da sincronizzare: {pendingPayments.length}.
         <button type="button" onClick={()=>void syncPayments()} disabled={!!paymentsConflict}
