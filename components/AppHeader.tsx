@@ -60,11 +60,13 @@ function NavLink({ href, label, icon, active }: { href:string; label:string; ico
           cancelable: true, detail: { href },
         })
         if (window.dispatchEvent(before)) {
-          // La navigazione Next RSC richiede Internet; con rete assente
-          // carica l'HTML salvato dal Service Worker.
-          if (!navigator.onLine && ['/admin/risultati','/admin/pagamenti','/admin/gironi'].includes(href))
-            window.location.assign(href)
-          else router.push(href)
+          if (!navigator.onLine) {
+            const supported=['/admin/risultati','/admin/pagamenti','/admin/gironi','/admin/crea-tabellone']
+            if(!supported.includes(href)){
+              try{sessionStorage.setItem('mattabel:offline:last-unavailable',label)}catch{}
+              window.location.assign('/admin/offline')
+            }else window.location.assign(href)
+          } else router.push(href)
         }
       }}
       title={label}
@@ -112,11 +114,14 @@ export default function AppHeader() {
       cancelable: true, detail: { href },
     })
     if (window.dispatchEvent(before)) {
-          // La navigazione Next RSC richiede Internet; con rete assente
-          // carica l'HTML salvato dal Service Worker.
-          if (!navigator.onLine && ['/admin/risultati','/admin/pagamenti','/admin/gironi'].includes(href))
-            window.location.assign(href)
-          else router.push(href)
+          if (!navigator.onLine) {
+            const supported=['/admin/risultati','/admin/pagamenti','/admin/gironi','/admin/crea-tabellone']
+            if(!supported.includes(href)){
+              const item=NAV_ITEMS.find(i=>i.href===href)
+              try{sessionStorage.setItem('mattabel:offline:last-unavailable',item?.label||href)}catch{}
+              window.location.assign('/admin/offline')
+            }else window.location.assign(href)
+          } else router.push(href)
         }
   }
 
