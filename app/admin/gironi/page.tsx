@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import useSWR from 'swr'
+import PrepareOffline from '@/components/PrepareOffline'
+import {offlineJSON} from '@/lib/offlineClient'
 
-const fetcher = (u: string) => fetch(u).then(r => r.json()).catch(() => null)
+const fetcher = (u: string) => offlineJSON(u).catch(() => null)
 
 type Tour = { id: string; name: string }
 type Tournament = { id: string; name: string; date?: string }
@@ -872,6 +874,7 @@ function commitTimeUncontrolled(
   return (
     <div className="mt-groups-page p-2 sm:p-3 xl:p-6">
       <h1 className="mt-groups-title">Crea Gironi</h1>
+<PrepareOffline tournamentId={tId} />
       <div className="mt-groups-workspace card p-3 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 xl:gap-6">
         {/* colonna sinistra */}
         <div className="mt-groups-main space-y-6">
