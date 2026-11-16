@@ -178,12 +178,7 @@ async function loadGroupsStateFromSupabase(tId: string): Promise<{
     }
   }
   try {
-    const r = await fetch(
-      `/api/groups/state?tournament_id=${encodeURIComponent(tId)}`,
-      { headers: { 'x-role': 'admin' }, cache: 'no-store' }
-    )
-    if (!r.ok) throw new Error('GET risultati fallito')
-    const j = await r.json()
+    const j = await offlineJSON(`/api/groups/state?tournament_id=${encodeURIComponent(tId)}`)
     const st = (j?.state || j || {}) as any
     return {
       groupsCount:
