@@ -68,6 +68,27 @@ export default function PagamentiPage() {
     fetcher
   )
   const items = data?.items ?? []
+  const [view,setView] = useState<'lista'|'gironi'>('lista')
+  // Il riepilogo economico non deve comparire in presenza di atleti.
+  const [showStats,setShowStats] = useState(false)
+  const {data:groupsResponse} = useSWR(
+    tId ? '/api/groups/state?tournament_id='+encodeURIComponent(tId) : null,
+    fetcher,
+    {revalidateOnFocus:true}
+  )
+  const groupState = groupsResponse?.state
+  const groupsForPayments = useMemo(()=>{
+    if(!groupState?.assign || !groupState?.meta)return [] as Array<{letter:string;rows:any[]}>
+    const letters = 'ABCDEFGHIJKLMNOP'.slice(0,Math.max(0,Number(groupState.groupsCount)||0)).split('')
+    return letters.map(letter=>{
+      const capacity = Math.max(0,Number(groupState.meta?.[letter]?.capacity)||0)
+      const rows = Array.from({length:capacity},(_,i)=>({
+        registrationId:String(groupState.assign?.[letter+'-'+(i+1)]||''),
+        slot:i+1
+      })).filter(x=>x.registrationId)
+      return {letter,rows}
+    }).filter(g=>g.rows.length>0)
+  },[groupState])
 
   // --- SOLO PAGAMENTI: escludi la waiting list
   const maxTeamsRaw = tId
@@ -210,6 +231,35 @@ paid_d: side === 'D' ? value : r.paid_d,
   }
 
 
+  const allAssigned = new Set(groupsForPayments.flatMap(g=>g.rows.map(x=>x.registrationId)))
+  const byId = new Map(payableItems.map((r:any)=>[r.id,r]))
+  const renderChecks = (r:any) => {
+    const isTeam=!!r.team_name && Number(r.team_format)>=3
+    const is4=Number(r.team_format)===4
+    return <div key={r.id} className="grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2 rounded-lg border border-neutral-700 px-2 py-2">
+      <label className="flex justify-center" title={'Pagamento di '+r.a}>
+        <input aria-label={'Pagato: '+r.a} type="checkbox" checked={!!r.paid_a} onChange={e=>togglePaid(r.id,'A',e.target.checked)}/>
+      </label>
+      <div className="min-w-0 text-center text-sm font-medium text-white">
+        {r.a} / {r.b}
+        {isTeam&&<div className="text-xs text-neutral-400">{r.c}{is4?' / '+r.d:''}</div>}
+      </div>
+      <label className="flex justify-center" title={'Pagamento di '+r.b}>
+        <input aria-label={'Pagato: '+r.b} type="checkbox" checked={!!r.paid_b} onChange={e=>togglePaid(r.id,'B',e.target.checked)}/>
+      </label>
+      {isTeam&&<div className="col-span-3 flex items-center justify-center gap-3 text-xs text-neutral-300">
+        <label className="flex items-center gap-1">
+          <input type="checkbox" checked={!!r.paid_c} onChange={e=>togglePaid(r.id,'C',e.target.checked)}/>
+          {r.c||'C'}
+        </label>
+        {is4&&<label className="flex items-center gap-1">
+          <input type="checkbox" checked={!!r.paid_d} onChange={e=>togglePaid(r.id,'D',e.target.checked)}/>
+          {r.d||'D'}
+        </label>}
+      </div>}
+    </div>
+  }
+
   return (
     <div className="mt-payments-page space-y-4 xl:space-y-6 p-2 sm:p-3 xl:p-6">
       <h1 className="mt-simple-page-title">Pagamenti</h1>
@@ -249,13 +299,24 @@ paid_d: side === 'D' ? value : r.paid_d,
           </select>
         </div>
 
-        <div className="ml-auto text-sm text-neutral-400">
-         Squadre: {stats.teams} · Pagate A: {stats.a} · Pagate B: {stats.b} · Pagate C: {stats.c} · Pagate D: {stats.d} · Squadre pagate: {stats.full}
-
+        <div className="ml-auto flex items-center gap-2">
+          <button type="button" onClick={()=>setShowStats(x=>!x)}
+            className="rounded-lg border border-neutral-700 px-3 py-2 text-xs text-neutral-300">
+            {showStats?'Nascondi riepilogo':'Mostra riepilogo'}
+          </button>
         </div>
       </div>
 
-      {/* elenco pagamenti */}
+      {showStats&&<div className="rounded-lg border border-neutral-700 bg-neutral-900 p-3 text-sm text-neutral-200">
+        Squadre: {stats.teams} · Pagate A: {stats.a} · Pagate B: {stats.b} · Pagate C: {stats.c} · Pagate D: {stats.d} · Squadre pagate: {stats.full}
+      </div>}
+      <div className="inline-flex overflow-hidden rounded-lg border border-neutral-700" role="group" aria-label="Visualizzazione pagamenti">
+        <button type="button" aria-pressed={view==='lista'} onClick={()=>setView('lista')}
+          className={view==='lista'?'bg-blue-700 px-4 py-2 text-white':'bg-neutral-900 px-4 py-2 text-neutral-300'}>Lista</button>
+        <button type="button" aria-pressed={view==='gironi'} onClick={()=>setView('gironi')}
+          className={view==='gironi'?'bg-blue-700 px-4 py-2 text-white':'bg-neutral-900 px-4 py-2 text-neutral-300'}>Gironi</button>
+      </div>
+      {/* Le due viste utilizzano esattamente gli stessi paid_a/b/c/d delle iscrizioni. */}
       <div className="card p-4 space-y-3">
         {/* 🔍 barra di ricerca (solo se c'è tappa selezionata) */}
         {tId && payableItems.length > 0 && (
@@ -269,7 +330,25 @@ paid_d: side === 'D' ? value : r.paid_d,
           </div>
         )}
 
-        {!tId ? (
+        {view==='gironi' ? (
+          !tId ? <div className="text-neutral-400">Seleziona una tappa.</div> :
+          !groupsResponse ? <div className="text-neutral-400">Caricamento gironi…</div> :
+          groupsForPayments.length===0 ? <div className="text-neutral-400">Non ci sono ancora coppie assegnate ai gironi. Usa la vista Lista.</div> :
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {groupsForPayments.map(g=><section key={g.letter} className="rounded-xl border border-neutral-700 bg-neutral-900/60 p-3 space-y-2">
+              <h2 className="text-center text-lg font-bold text-white">GIRONE {g.letter}</h2>
+              {g.rows.map(({registrationId,slot})=>{
+                const reg=byId.get(registrationId) as any
+                return reg ? renderChecks(reg) :
+                  <div key={registrationId} className="text-sm text-amber-300">Slot {slot}: iscrizione non presente nei pagamenti ({groupState?.labels?.[registrationId]||'ID non trovato'})</div>
+              })}
+            </section>)}
+            {payableItems.filter((r:any)=>!allAssigned.has(r.id)).length>0&&<section className="rounded-xl border border-neutral-700 p-3 space-y-2">
+              <h2 className="text-center text-lg font-bold">Non assegnate</h2>
+              {payableItems.filter((r:any)=>!allAssigned.has(r.id)).map((r:any)=>renderChecks(r))}
+            </section>}
+          </div>
+        ) : !tId ? (
           <div className="text-neutral-400">Seleziona una tappa visibile.</div>
         ) : payableItems.length === 0 ? (
           items.length > 0 ? (
