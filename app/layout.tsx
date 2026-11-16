@@ -3,7 +3,14 @@ import type { Metadata, Viewport } from 'next'
 import AppHeader from '../components/AppHeader'
 import OfflineBootstrap from '../components/OfflineBootstrap'
 
-export const metadata: Metadata = { title: 'Mattabel Beach Volley — Admin' }
+export const metadata: Metadata = {
+  title: 'Mattabel Tornei',
+  description: 'Gironi, tabelloni, risultati e classifiche dei tornei beach volley Mattabel.',
+  applicationName: 'Mattabel Tornei',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, title: 'Mattabel Tornei', statusBarStyle: 'black-translucent' },
+  icons: { apple: [{ url: '/pwa-icon/192', sizes: '192x192', type: 'image/png' }], icon: [{ url: '/pwa-icon/192', sizes: '192x192', type: 'image/png' }] },
+}
 
 // ✅ niente blocchi allo zoom qui
 export const viewport: Viewport = {
