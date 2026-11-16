@@ -1,7 +1,7 @@
 'use client'
 import useSWR from 'swr'
-import PrepareOffline from '@/components/PrepareOffline'
-import {offlineJSON, cacheOfflineJSON, offlineQueueKey, readOfflineQueue, putOfflineQueue} from '@/lib/offlineClient'
+import PrepareOffline from '../../../components/PrepareOffline'
+import {offlineJSON, cacheOfflineJSON, offlineQueueKey, readOfflineQueue, putOfflineQueue} from '../../../lib/offlineClient'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 const fetcher = (u: string) => offlineJSON(u)
