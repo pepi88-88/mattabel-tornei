@@ -72,6 +72,7 @@ const isApiPublic =
   pathname.includes('/public/') ||
   isWhitelistedGet ||
   isPublicBrandingRead ||
+  (isReadOnlyMethod && pathname === '/api/app-version') ||
   isKeywordPublic
 
 
