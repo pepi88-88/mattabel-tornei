@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import useSWR from 'swr'
+import PrepareOffline from '../../../components/PrepareOffline'
+import {offlineJSON} from '../../../lib/offlineClient'
 
-const fetcher = (u: string) => fetch(u).then(r => r.json()).catch(() => null)
+const fetcher = (u: string) => offlineJSON(u).catch(() => null)
 
 type Tour = { id: string; name: string }
 type Tournament = { id: string; name: string; date?: string }
@@ -177,7 +179,16 @@ const versionRef = useRef<string | null>(null)
 const savedSnapshotRef = useRef('')
 const draftKey = (id: string) => 'mattabel:gironi:pending:' + id
 const pendingRef = useRef<string | null>(null)
+const [offlineGroupsConflict,setOfflineGroupsConflict]=useState(false)
 const [retrySave, setRetrySave] = useState(0)
+const [gironiOnline,setGironiOnline]=useState(true)
+useEffect(()=>{
+ const update=()=>{setGironiOnline(navigator.onLine);if(navigator.onLine)setRetrySave(v=>v+1)}
+ update()
+ window.addEventListener('online',update)
+ window.addEventListener('offline',update)
+ return ()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}
+},[])
 
 // Non attivare mai il salvataggio dopo un GET fallito.
 useEffect(() => {
@@ -186,14 +197,11 @@ useEffect(() => {
   setSaveStatus('Caricamento...')
   versionRef.current = null
   pendingRef.current = null
+  setOfflineGroupsConflict(false)
   if (!tId) return
   ;(async () => {
     try {
-      const res = await fetch(`/api/groups/state?tournament_id=${encodeURIComponent(tId)}`, {
-        headers: { 'x-role': 'admin' }, cache: 'no-store'
-      })
-      if (!res.ok) throw new Error('Caricamento fallito (' + res.status + ')')
-      const js = await res.json()
+      const js = await offlineJSON(`/api/groups/state?tournament_id=${encodeURIComponent(tId)}`)
       const st: Partial<PersistServer> = js?.state || {}
       if (!js?.updated_at) throw new Error('Versione dello stato assente')
       if (cancelled) return
@@ -212,13 +220,17 @@ useEffect(() => {
           if (parsed?.data && JSON.stringify(parsed.data) === JSON.stringify(serverDraft)) {
             localStorage.removeItem(draftKey(tId))
             setSaveStatus('Salvato su Supabase')
-          } else
-          if (parsed?.data && window.confirm('Esiste una modifica ai gironi non sincronizzata su questo dispositivo. Vuoi recuperarla?')) {
+          } else if (parsed?.data) {
             loaded = parsed.data
             pendingRef.current = JSON.stringify(loaded)
-          } else {
-            // Non cancelliamo la bozza senza una scelta esplicita.
-            setSaveStatus('Bozza locale disponibile: ricarica per recuperarla')
+            // Draft preesistenti privi di baseData non vengono risincronizzati
+            // senza confronto, per evitare sovrascritture accidentali.
+            if (navigator.onLine && JSON.stringify(parsed.baseData || {}) !== JSON.stringify(serverDraft)) {
+              setOfflineGroupsConflict(true)
+              setSaveStatus('Conflitto: gironi modificati su server. Bozza locale conservata.')
+            } else {
+              setSaveStatus('Bozza locale recuperata, in attesa di sincronizzazione')
+            }
           }
         } catch { setSaveStatus('Bozza locale non leggibile') }
       }
@@ -232,7 +244,7 @@ useEffect(() => {
       setScores(loaded.scores)
       setIsPublic(loaded.isPublic)
       setReady(true)
-      if (!pending) setSaveStatus('Salvato su Supabase')
+      if (!pending) setSaveStatus(navigator.onLine?'Salvato su Supabase':'Gironi disponibili offline')
     } catch (e) {
       if (!cancelled) setSaveStatus('Errore caricamento: nessuna sovrascrittura. Ricarica la pagina.')
     }
@@ -240,54 +252,97 @@ useEffect(() => {
   return () => { cancelled = true }
 }, [tId])
 
-// Salva una bozza sincrona nel browser prima di inviare i dati al server.
-// Ogni PATCH usa la versione letta: se un'altra pagina ha salvato, rilegge e riprova.
+// Bozza locale sincrona anche senza rete; sincronizzazione protetta da
+// versione e confronto dei dati, senza cancellare le modifiche di altri Staff.
 useEffect(() => {
   if (!ready || !tId || !versionRef.current) return
   const data = { groupsCount, meta, assign, times, gField, matchFields, matchOrder, scores, isPublic }
-  const snapshot = JSON.stringify(data)
-  if (snapshot === savedSnapshotRef.current && !pendingRef.current) return
-  try { localStorage.setItem(draftKey(tId), JSON.stringify({ data, savedAt: Date.now() })) }
-  catch { setSaveStatus('Spazio locale non disponibile: non chiudere la pagina') }
-  setSaveStatus('Salvataggio in corso...')
-  let cancelled = false
-  const timer = setTimeout(async () => {
-    try {
-      for (let attempt = 0; attempt < 5; attempt++) {
-        if (cancelled) return
-        const read = await fetch(`/api/groups/state?tournament_id=${encodeURIComponent(tId)}`, {
-          headers: { 'x-role': 'admin' }, cache: 'no-store'
-        })
-        if (!read.ok) throw new Error('Lettura fallita')
-        const current = await read.json()
-        if (!current.updated_at) throw new Error('Versione mancante')
-        const changes = { ...data, labels: { ...(current.state?.labels || {}), ...(regMap || {}) } }
-        const res = await fetch('/api/groups/state', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
-          body: JSON.stringify({ tournament_id: tId, changes, base_updated_at: current.updated_at })
-        })
-        if (res.status === 409) continue
-        if (!res.ok) throw new Error('Salvataggio fallito (' + res.status + ')')
-        const result = await res.json()
-        if (cancelled) return
-        versionRef.current = result.updated_at
-        savedSnapshotRef.current = snapshot
-        if (localStorage.getItem(draftKey(tId))) {
-          const pending = JSON.parse(localStorage.getItem(draftKey(tId)) || '{}')
-          if (JSON.stringify(pending.data) === snapshot) localStorage.removeItem(draftKey(tId))
+  const snapshot=JSON.stringify(data)
+  const existingRaw=localStorage.getItem(draftKey(tId))
+  if(snapshot===savedSnapshotRef.current && !existingRaw)return
+  let draft:any
+  try{
+    const old=existingRaw?JSON.parse(existingRaw):null
+    draft={
+      data,
+      baseData:old?.baseData??JSON.parse(savedSnapshotRef.current),
+      baseVersion:old?.baseVersion??versionRef.current,
+      savedAt:Date.now()
+    }
+    localStorage.setItem(draftKey(tId),JSON.stringify(draft))
+  }catch{
+    setSaveStatus('Memoria locale non disponibile: non uscire dalla pagina')
+    return
+  }
+  if(offlineGroupsConflict)return
+  if(!navigator.onLine){
+    setSaveStatus('Offline: modifiche gironi salvate sul dispositivo')
+    return
+  }
+  setSaveStatus('Sincronizzazione gironi in corso…')
+  let cancelled=false
+  const currentTournament=tId
+  const timer=setTimeout(async()=>{
+    try{
+      for(let attempt=0;attempt<4;attempt++){
+        if(cancelled)return
+        const read=await fetch('/api/groups/state?tournament_id='+encodeURIComponent(currentTournament),
+          {cache:'no-store',headers:{'x-role':'admin'}})
+        if(!read.ok)throw new Error('Lettura non riuscita')
+        const current=await read.json()
+        if(!current?.updated_at)throw new Error('Versione mancante')
+        const st=current.state||{}
+        const serverData={
+          groupsCount:st.groupsCount??4,meta:st.meta??{},assign:st.assign??{},
+          times:st.times??{},gField:st.gField??{},matchFields:st.matchFields??{},
+          matchOrder:st.matchOrder??{},scores:st.scores??{},
+          isPublic:typeof st.isPublic==='boolean'?st.isPublic:false
         }
-        pendingRef.current = null
-        setSaveStatus('Salvato su Supabase')
+        const serverSnapshot=JSON.stringify(serverData)
+        if(serverSnapshot!==JSON.stringify(draft.baseData)&&serverSnapshot!==snapshot){
+          if(!cancelled){
+            setOfflineGroupsConflict(true)
+            setSaveStatus('Conflitto: gironi modificati da altro Staff. Bozza locale preservata.')
+          }
+          return
+        }
+        if(serverSnapshot===snapshot){
+          if(!cancelled){
+            savedSnapshotRef.current=snapshot
+            const latest=localStorage.getItem(draftKey(currentTournament))
+            if(latest && JSON.stringify(JSON.parse(latest).data)===snapshot)
+              localStorage.removeItem(draftKey(currentTournament))
+            pendingRef.current=null
+            setSaveStatus('Salvato su Supabase')
+          }
+          return
+        }
+        const changes={...data,labels:{...(st.labels||{}),...(regMap||{})}}
+        const res=await fetch('/api/groups/state',{
+          method:'PATCH',headers:{'Content-Type':'application/json','x-role':'admin'},
+          body:JSON.stringify({tournament_id:currentTournament,changes,base_updated_at:current.updated_at})
+        })
+        if(res.status===409)continue
+        if(!res.ok)throw new Error('Salvataggio fallito ('+res.status+')')
+        if(!cancelled){
+          const result=await res.json()
+          versionRef.current=result.updated_at
+          savedSnapshotRef.current=snapshot
+          const latest=localStorage.getItem(draftKey(currentTournament))
+          if(latest && JSON.stringify(JSON.parse(latest).data)===snapshot)
+            localStorage.removeItem(draftKey(currentTournament))
+          pendingRef.current=null
+          setSaveStatus('Salvato su Supabase')
+        }
         return
       }
       throw new Error('Conflitto tra salvataggi')
-    } catch {
-      if (!cancelled) setSaveStatus('Modifiche conservate nel browser. Riprova modificando un dato o ricarica.')
+    }catch{
+      if(!cancelled)setSaveStatus('Modifiche conservate sul dispositivo, ancora da sincronizzare.')
     }
-  }, 450)
-  return () => { cancelled = true; clearTimeout(timer) }
-}, [ready, tId, groupsCount, meta, assign, times, gField, matchFields, matchOrder, scores, isPublic, retrySave])
+  },450)
+  return ()=>{cancelled=true;clearTimeout(timer)}
+},[ready,tId,groupsCount,meta,assign,times,gField,matchFields,matchOrder,scores,isPublic,retrySave,offlineGroupsConflict])
 
   // util
   const regToLetter = useMemo(() => { const m: Record<string, string> = {}; for (const [k, v] of Object.entries(assign)) { if (!v) continue; const L = k.split('-')[0]; m[v] = L } return m }, [assign])
@@ -872,6 +927,18 @@ function commitTimeUncontrolled(
   return (
     <div className="mt-groups-page p-2 sm:p-3 xl:p-6">
       <h1 className="mt-groups-title">Crea Gironi</h1>
+<PrepareOffline tournamentId={tId} tourId={tourId} />
+      {!gironiOnline&&<div role="status" className="my-2 rounded border border-amber-500 p-3 text-amber-200">
+        Offline: tour, tappa e gironi modificabili. I cambiamenti restano su questo dispositivo fino al ritorno di Internet.
+      </div>}
+      {offlineGroupsConflict&&<div role="alert" className="my-2 rounded border border-red-500 p-3 text-red-200">
+        Gironi cambiati su un altro dispositivo: la bozza locale è al sicuro e non verrà sincronizzata automaticamente.
+        <button type="button" className="ml-3 underline" onClick={()=>{
+          if(!window.confirm('Scartare le modifiche LOCALI ai gironi? Questa operazione non è reversibile.'))return
+          localStorage.removeItem(draftKey(tId))
+          window.location.reload()
+        }}>Scarta bozza locale</button>
+      </div>}
       <div className="mt-groups-workspace card p-3 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 xl:gap-6">
         {/* colonna sinistra */}
         <div className="mt-groups-main space-y-6">

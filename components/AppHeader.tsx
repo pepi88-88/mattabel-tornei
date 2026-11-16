@@ -59,7 +59,15 @@ function NavLink({ href, label, icon, active }: { href:string; label:string; ico
         const before = new CustomEvent('mattabel:before-admin-nav', {
           cancelable: true, detail: { href },
         })
-        if (window.dispatchEvent(before)) router.push(href)
+        if (window.dispatchEvent(before)) {
+          if (!navigator.onLine) {
+            const supported=['/admin/risultati','/admin/pagamenti','/admin/gironi','/admin/crea-tabellone']
+            if(!supported.includes(href)){
+              try{sessionStorage.setItem('mattabel:offline:last-unavailable',label)}catch{}
+              window.location.assign('/admin/offline')
+            }else window.location.assign(href)
+          } else router.push(href)
+        }
       }}
       title={label}
       className={[
@@ -105,7 +113,16 @@ export default function AppHeader() {
     const before = new CustomEvent('mattabel:before-admin-nav', {
       cancelable: true, detail: { href },
     })
-    if (window.dispatchEvent(before)) router.push(href)
+    if (window.dispatchEvent(before)) {
+          if (!navigator.onLine) {
+            const supported=['/admin/risultati','/admin/pagamenti','/admin/gironi','/admin/crea-tabellone']
+            if(!supported.includes(href)){
+              const item=NAV_ITEMS.find(i=>i.href===href)
+              try{sessionStorage.setItem('mattabel:offline:last-unavailable',item?.label||href)}catch{}
+              window.location.assign('/admin/offline')
+            }else window.location.assign(href)
+          } else router.push(href)
+        }
   }
 
   if (

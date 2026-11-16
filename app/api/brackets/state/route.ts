@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await s
     .from('bracket_states')
-    .select('state, is_public')
+    .select('state, is_public, updated_at')
     .eq('tournament_id', tournament_id)
     .maybeSingle()
 
@@ -23,20 +23,20 @@ export async function GET(req: NextRequest) {
   // Se non admin: mostra solo se is_public === true
   if (!isAdmin) {
     if (data?.is_public) {
-      return NextResponse.json({ state: data.state ?? {}, is_public: true })
+      return NextResponse.json({ state: data.state ?? {}, is_public: true, updated_at: data.updated_at })
     }
     // non pubblici -> ritorna vuoto
     return NextResponse.json({ state: {}, is_public: false })
   }
 
   // Admin: ritorna sempre
-  return NextResponse.json({ state: data?.state || {}, is_public: data?.is_public ?? false })
+  return NextResponse.json({ state: data?.state || {}, is_public: data?.is_public ?? false, updated_at: data?.updated_at || 'new' })
 }
 
 export async function PUT(req: NextRequest) {
   if (!requireAdmin(req)) return new NextResponse('Unauthorized', { status: 401 })
   const s = supabaseAdmin()
-  const body = await req.json().catch(()=>null) as { tournament_id?: string; state?: any; is_public?: boolean }
+  const body = await req.json().catch(()=>null) as { tournament_id?: string; state?: any; is_public?: boolean; base_updated_at?: string }
   const tournament_id = String(body?.tournament_id || '').trim()
   const state = body?.state ?? {}
   const is_public = typeof body?.is_public === 'boolean' ? body.is_public : undefined
@@ -49,8 +49,13 @@ export async function PUT(req: NextRequest) {
   // independently saved event standings, which must not be overwritten by
   // a later bracket edit or auto-save from another page.
   const { data: previous, error: readError } = await s.from('bracket_states')
-    .select('state').eq('tournament_id', tournament_id).maybeSingle()
+    .select('state, updated_at').eq('tournament_id', tournament_id).maybeSingle()
   if (readError) return NextResponse.json({ error: readError.message }, { status: 500 })
+  // I salvataggi offline usano la versione esatta letta in precedenza.
+  // Un altro Staff potrebbe aver cambiato lo stesso tabellone durante l'assenza di rete.
+  if (body?.base_updated_at && previous?.updated_at !== body.base_updated_at) {
+    return NextResponse.json({ error: 'Il tabellone è cambiato su un altro dispositivo', updated_at: previous?.updated_at }, { status: 409 })
+  }
   const previousRankings = !Array.isArray(previous?.state)
     ? previous?.state?.rankingOverrides : undefined
   const nextState = !Array.isArray(state) && state && typeof state === 'object' && previousRankings
@@ -58,6 +63,16 @@ export async function PUT(req: NextRequest) {
   const payload: any = { tournament_id, state: nextState, updated_at: new Date().toISOString() }
   if (is_public !== undefined) payload.is_public = is_public   // opzionale
 
+  if (body?.base_updated_at && previous) {
+    // Confronto anche nella UPDATE: lettura e scrittura non devono sovrascrivere una modifica intermedia.
+    const { data: updated, error } = await s.from('bracket_states')
+      .update(payload).eq('tournament_id', tournament_id)
+      .eq('updated_at', body.base_updated_at)
+      .select('updated_at').maybeSingle()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!updated) return NextResponse.json({ error: 'Conflitto di salvataggio' }, { status: 409 })
+    return NextResponse.json({ ok: true, updated_at: updated.updated_at })
+  }
   const { error } = await s.from('bracket_states').upsert(payload)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
