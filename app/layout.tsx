@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   applicationName: 'Mattabel Tornei',
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, title: 'Mattabel Tornei', statusBarStyle: 'black-translucent' },
-  icons: { apple: [{ url: '/logo-mattabel.png' }], icon: [{ url: '/logo-mattabel.png' }] },
+  icons: { apple: [{ url: '/pwa-icon/192', sizes: '192x192', type: 'image/png' }], icon: [{ url: '/pwa-icon/192', sizes: '192x192', type: 'image/png' }] },
 }
 
 // ✅ niente blocchi allo zoom qui
