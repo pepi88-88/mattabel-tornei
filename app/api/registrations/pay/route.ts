@@ -19,9 +19,23 @@ export async function PATCH(req: Request) {
     }
 
     const s = supabaseAdmin()
+    // Valore atteso opzionale per la sincronizzazione offline: evita che
+    // un tablet vecchio sostituisca un pagamento registrato da altro Staff.
+    const expected = b?.expected
+    if (expected && typeof expected === 'object') {
+      const side = Object.keys(updates)[0]
+      if (Object.keys(updates).length !== 1 || typeof expected[side] !== 'boolean') {
+        return NextResponse.json({ error: 'Versione pagamento non valida' }, { status: 400 })
+      }
+      const {data, error} = await s.from('registrations').update(updates)
+        .eq('id', id).eq(side, expected[side])
+        .select('id').maybeSingle()
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (!data) return NextResponse.json({ error:'Pagamento modificato su altro dispositivo', conflict:true }, { status:409 })
+      return NextResponse.json({ok:true})
+    }
     const { error } = await s.from('registrations').update(updates).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Errore' }, { status: 500 })
