@@ -938,7 +938,7 @@ function commitTimeUncontrolled(
           localStorage.removeItem(draftKey(tId))
           window.location.reload()
         }}>Scarta bozza locale</button>
-      </div>
+      </div>}
       <div className="mt-groups-workspace card p-3 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 xl:gap-6">
         {/* colonna sinistra */}
         <div className="mt-groups-main space-y-6">
