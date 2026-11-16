@@ -2076,7 +2076,14 @@ const activeForDisplay = useMemo(() => {
 return (
   <div className="mt-results-page relative z-0 p-2 sm:p-3 xl:p-6 space-y-6 xl:space-y-8 pointer-events-auto min-w-0">
     <h1 className="mt-results-title">Risultati Girone/Tabellone</h1>
-    <PrepareOffline tournamentId={tId} tourId={tourId} />
+    <PrepareOffline tournamentId={tId} tourId={tourId} statusBadge={
+      <div role="status" className={offlineOnline
+        ? 'rounded border border-emerald-700 px-3 py-2 text-emerald-300'
+        : 'rounded border border-amber-500 px-3 py-2 text-amber-300'}>
+        {offlineOnline?'● Online':'● Offline — bozza salvata solo su questo dispositivo'}
+        {offlineConflict&&' · Conflitto: sincronizzazione sospesa'}
+      </div>
+    } />
     {bracketsSyncError&&<div role="alert" className="rounded border border-amber-500 p-3 text-amber-200">
       {bracketsSyncError}
       {bracketsConflict&&<button type="button" className="ml-3 underline"
@@ -2087,10 +2094,7 @@ return (
         }}>Scarta bozza e ricarica dal server</button>}
     </div>}
    
-    <div role="status" className={offlineOnline?'border border-emerald-700 text-emerald-300 rounded p-2':'border border-amber-500 text-amber-300 rounded p-2'}>
-      {offlineOnline?'● Online':'● Offline — bozza salvata solo su questo dispositivo'}
-      {offlineConflict&&' · Conflitto: sincronizzazione sospesa'}
-     </div>
+
      {resultsSaveError && <div role="alert" className="rounded border border-amber-500 p-3 text-amber-300">
        {resultsSaveError}
        {offlineConflict&&<button type="button" className="ml-3 underline"
