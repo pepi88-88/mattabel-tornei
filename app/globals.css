@@ -127,7 +127,9 @@ html,body{
     width: max-content;
     min-width: 0;
     zoom: var(--ranking-zoom, 0.65);
-    touch-action: pan-x pan-y;
+    /* Il pinch deve arrivare al gestore della classifica, anche su celle
+       e righe: touch-action pan-x pan-y lo intercettava sul browser. */
+    touch-action: none;
   }
   .ranking-mobile-zoom.ranking-mobile-expanded {
     min-width: 820px;
