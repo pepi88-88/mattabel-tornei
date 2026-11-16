@@ -1,8 +1,8 @@
 'use client'
 import useSWR from 'swr'
 import PrepareOffline from '@/components/PrepareOffline'
-import {offlineJSON} from '@/lib/offlineClient'
-import { useEffect, useMemo, useState } from 'react'
+import {offlineJSON, cacheOfflineJSON, offlineQueueKey, readOfflineQueue, putOfflineQueue} from '@/lib/offlineClient'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 const fetcher = (u: string) => offlineJSON(u)
 
@@ -78,7 +78,30 @@ export default function PagamentiPage() {
     tId ? `/api/registrations/for-payments?tournament_id=${tId}` : null,
     fetcher
   )
-  const items = data?.items ?? []
+  type PaymentChange = {id:string;side:'A'|'B'|'C'|'D';value:boolean;expected:boolean}
+  const [pendingPayments,setPendingPayments]=useState<PaymentChange[]>([])
+  const [paymentsConflict,setPaymentsConflict]=useState('')
+  const [paymentsMessage,setPaymentsMessage]=useState('')
+  const syncingPayments=useRef(false)
+  const keyPayments=tId?offlineQueueKey('payments',tId):''
+  useEffect(()=>{
+    setPendingPayments(tId?readOfflineQueue<PaymentChange[]>(offlineQueueKey('payments',tId),[]):[])
+    setPaymentsConflict('')
+    setPaymentsMessage('')
+  },[tId])
+  const queueUpdate=(list:PaymentChange[])=>{
+    if(!keyPayments)return false
+    if(!putOfflineQueue(keyPayments,list)){
+      setPaymentsMessage('Memoria piena: modifica non conservata. Non chiudere la pagina.')
+      return false
+    }
+    setPendingPayments(list)
+    return true
+  }
+  const items = (data?.items ?? []).map((r:any)=>{
+    const changes=pendingPayments.filter(x=>x.id===r.id)
+    return changes.reduce((acc:any,x)=>({...acc,['paid_'+x.side.toLowerCase()]:x.value}),r)
+  })
   const [view,setView] = useState<'lista'|'gironi'>('lista')
   // Il riepilogo economico non deve comparire in presenza di atleti.
   const [showStats,setShowStats] = useState(false)
@@ -172,6 +195,50 @@ else notFull.push(r)
     return [...notFull, ...full]
   }, [payableItems, search])
 
+  const syncPayments=async()=>{
+    if(!tId || syncingPayments.current || !navigator.onLine || paymentsConflict)return
+    syncingPayments.current=true
+    try{
+      let list=readOfflineQueue<PaymentChange[]>(offlineQueueKey('payments',tId),[])
+      for(const entry of [...list]){
+        const field='paid_'+entry.side.toLowerCase()
+        let response:Response
+        try{
+          response=await fetch('/api/registrations/pay',{
+            method:'PATCH',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({id:entry.id,[field]:entry.value,expected:{[field]:entry.expected}})
+          })
+        }catch{
+          setPaymentsMessage('Connessione assente: pagamenti conservati sul dispositivo.')
+          return
+        }
+        if(response.status===409){
+          setPaymentsConflict('Pagamento modificato da un altro Staff. Controllare prima di sincronizzare.')
+          return
+        }
+        if(!response.ok){
+          setPaymentsMessage('Sincronizzazione pagamenti non riuscita ('+response.status+').')
+          return
+        }
+        list=readOfflineQueue<PaymentChange[]>(offlineQueueKey('payments',tId),[])
+          .filter(x=>!(x.id===entry.id&&x.side===entry.side&&x.value===entry.value&&x.expected===entry.expected))
+        putOfflineQueue(offlineQueueKey('payments',tId),list)
+        setPendingPayments(list)
+      }
+      if(!list.length){
+        setPaymentsMessage('Pagamenti sincronizzati con Supabase.')
+        mutate()
+      }
+    }finally{syncingPayments.current=false}
+  }
+  useEffect(()=>{
+    if(!tId || !pendingPayments.length)return
+    const onLine=()=>{void syncPayments()}
+    window.addEventListener('online',onLine)
+    if(navigator.onLine) void syncPayments()
+    return ()=>window.removeEventListener('online',onLine)
+  },[tId,pendingPayments.length,paymentsConflict])
+
   async function togglePaid(id: string, side: 'A' | 'B' | 'C' | 'D', value: boolean) {
     // trova la riga per messaggio più chiaro
     const reg = items.find((r: any) => r.id === id)
@@ -206,39 +273,23 @@ else if (side === 'C') body.paid_c = value
 else body.paid_d = value
 
 
-    // ottimistico
-    const prev = data
-    mutate(
-      {
-        items: items.map((r: any) =>
-          r.id === id
-            ? {
-                ...r,
-                paid_a: side === 'A' ? value : r.paid_a,
-paid_b: side === 'B' ? value : r.paid_b,
-paid_c: side === 'C' ? value : r.paid_c,
-paid_d: side === 'D' ? value : r.paid_d,
-
-              }
-            : r
-        ),
-      },
-      false
-    )
-
-    const res = await fetch('/api/registrations/pay', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-
-    if (!res.ok) {
-      mutate(prev, false)
-      const js = await res.json().catch(() => ({}))
-      alert(js?.error || 'Errore aggiornamento pagamento')
-    } else {
-      mutate()
-    }
+    const field='paid_'+side.toLowerCase()
+    const old=pendingPayments.find(x=>x.id===id&&x.side===side)
+    const previousValue=!!reg?.[field]
+    const updated=[
+      ...pendingPayments.filter(x=>!(x.id===id&&x.side===side)),
+      {id,side,value,expected:old?.expected??previousValue}
+    ]
+    // Prima persistiamo, poi rendiamo visibile la spunta, così un blackout
+    // non lascia una modifica che non sia stata memorizzata.
+    if(!queueUpdate(updated))return
+    const updatedData={...data,items:(data?.items||[]).map((r:any)=>
+      r.id===id?{...r,[field]:value}:r
+    )}
+    mutate(updatedData,false)
+    cacheOfflineJSON('/api/registrations/for-payments?tournament_id='+tId,updatedData)
+    setPaymentsMessage(navigator.onLine?'Pagamento da sincronizzare…':'Pagamento salvato sul dispositivo (offline).')
+    if(navigator.onLine)void syncPayments()
   }
 
 
@@ -275,6 +326,13 @@ paid_d: side === 'D' ? value : r.paid_d,
     <div className="mt-payments-page space-y-4 xl:space-y-6 p-2 sm:p-3 xl:p-6">
       <h1 className="mt-simple-page-title">Pagamenti</h1>
       <PrepareOffline tournamentId={tId} />
+      {!!pendingPayments.length&&<div role="status" className="rounded border border-amber-500 p-2 text-amber-200">
+        Pagamenti da sincronizzare: {pendingPayments.length}.
+        <button type="button" onClick={()=>void syncPayments()} disabled={!!paymentsConflict}
+          className="ml-3 underline">Sincronizza</button>
+      </div>}
+      {paymentsMessage&&<p role="status" className="text-sm text-sky-200">{paymentsMessage}</p>}
+      {paymentsConflict&&<p role="alert" className="rounded border border-red-500 p-2 text-red-300">{paymentsConflict}</p>
       {/* intestazione: stessi selettori di Iscrizioni */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
