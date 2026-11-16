@@ -55,6 +55,7 @@ export default function InstallMattabel(){
       </button>
     </div>
     <p className="mt-install-note">Gratis · Nessun APK · Nessun App Store</p>
+    <p className="mt-install-note mt-install-help">Per segnalazioni o problemi, rivolgersi a Gino. 🏐</p>
     {installed && <p className="mt-install-note">Mattabel Tornei è già aperta come app.</p>}
     {target && <div className="mt-install-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setTarget(null)}}>
       <section className="mt-install-modal" role="dialog" aria-modal="true" aria-labelledby="mt-install-title">
