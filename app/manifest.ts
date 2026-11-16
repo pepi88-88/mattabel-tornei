@@ -14,7 +14,8 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'any',
     lang: 'it',
     icons: [
-      { src: '/logo-mattabel.png', sizes: 'any', type: 'image/png', purpose: 'any' },
+      { src: '/pwa-icon/192', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/pwa-icon/512', sizes: '512x512', type: 'image/png', purpose: 'any' },
     ],
   }
 }
