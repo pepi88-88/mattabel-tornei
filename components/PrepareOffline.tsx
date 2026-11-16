@@ -18,7 +18,7 @@ export default function PrepareOffline({tournamentId}:{tournamentId:string}){
        '/api/registrations/for-payments?tournament_id='+encodeURIComponent(tournamentId),
        '/api/registrations/by-tournament?tournament_id='+encodeURIComponent(tournamentId),
      ]
-     await Promise.all(urls.map(offlineJSON))
+     await Promise.all(urls.map(url=>offlineJSON(url,{requireNetwork:true})))
      const registration=await navigator.serviceWorker.ready
      if(!registration.active)throw new Error('Cache delle pagine non pronta')
      await new Promise<void>((resolve,reject)=>{
