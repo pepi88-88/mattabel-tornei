@@ -16,6 +16,7 @@ export default function PrepareOffline({tournamentId}:{tournamentId:string}){
        '/api/groups/state?tournament_id='+encodeURIComponent(tournamentId),
        '/api/brackets/state?tournament_id='+encodeURIComponent(tournamentId),
        '/api/registrations/for-payments?tournament_id='+encodeURIComponent(tournamentId),
+       '/api/registrations/by-tournament?tournament_id='+encodeURIComponent(tournamentId),
      ]
      await Promise.all(urls.map(offlineJSON))
      const registration=await navigator.serviceWorker.ready
