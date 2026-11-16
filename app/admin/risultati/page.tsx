@@ -1688,6 +1688,15 @@ useEffect(() => {
   const [bracketsLoadKey, setBracketsLoadKey] = useState('')
   const [bracketsLoadError, setBracketsLoadError] = useState('')
   const bracketsBaselineRef = useRef('')
+  const [bracketsSyncError,setBracketsSyncError]=useState('')
+  const [bracketsConflict,setBracketsConflict]=useState(false)
+  const [bracketsRetry,setBracketsRetry]=useState(0)
+  const bracketDraftKey=(id:string)=>'mattabel:offline:brackets:pending:'+id
+  useEffect(()=>{
+    const retry=()=>setBracketsRetry(n=>n+1)
+    window.addEventListener('online',retry)
+    return ()=>window.removeEventListener('online',retry)
+  },[])
   const bracketsRequestRef = useRef(0)
   const [brackets, setBrackets] = useState<BracketType[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -1780,6 +1789,8 @@ const resolveToken = useMemo(() => {
   const key = tourId && tId ? tourId + ':' + tId : ''
   setBracketsLoadKey('')
   setBracketsLoadError('')
+  setBracketsSyncError('')
+  setBracketsConflict(false)
   bracketsBaselineRef.current = ''
   setBrackets([])
   setActiveId(null)
@@ -1791,21 +1802,37 @@ const resolveToken = useMemo(() => {
   if (!key) return () => controller.abort()
   ;(async () => {
     try {
-      const response = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`, {
-        headers: { 'x-role': 'admin' }, cache: 'no-store', signal: controller.signal
-      })
-      if (!response.ok) throw new Error('Caricamento tabelloni fallito')
-      const json = await response.json()
+      const json = await offlineJSON(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`)
       if (controller.signal.aborted || request !== bracketsRequestRef.current) return
       const raw = json?.state
       const items = Array.isArray(raw) ? raw : (raw?.items || [])
       if (!Array.isArray(items)) throw new Error('Formato tabelloni non valido')
       const normalized = items.map(normalizeBracket)
-      const winners = Array.isArray(raw) ? {} : (raw?.winnersById || {})
-      const ita = Array.isArray(raw) ? {} : (raw?.itaScoresById || {})
-      const courts = Array.isArray(raw) ? {} : (raw?.courtsByBracket || {})
-      const bracketScores = Array.isArray(raw) ? {} : (raw?.bracketScoresById || {})
-      bracketsBaselineRef.current = JSON.stringify({ winners, ita, courts, bracketScores })
+      let winners = Array.isArray(raw) ? {} : (raw?.winnersById || {})
+      let ita = Array.isArray(raw) ? {} : (raw?.itaScoresById || {})
+      let courts = Array.isArray(raw) ? {} : (raw?.courtsByBracket || {})
+      let bracketScores = Array.isArray(raw) ? {} : (raw?.bracketScoresById || {})
+      const serverSnapshot=JSON.stringify({ winners, ita, courts, bracketScores })
+      bracketsBaselineRef.current = serverSnapshot
+      try {
+        const pending=JSON.parse(localStorage.getItem(bracketDraftKey(tId))||'null')
+        if(pending?.state){
+          if(pending.snapshot===serverSnapshot){
+            localStorage.removeItem(bracketDraftKey(tId))
+          }else{
+            if(navigator.onLine && pending.baseSnapshot!==serverSnapshot){
+              setBracketsConflict(true)
+              setBracketsSyncError('Tabelloni modificati da altro Staff: bozza locale conservata, sincronizzazione bloccata.')
+            }else{
+              setBracketsSyncError('Bozza tabellone recuperata dal tablet; non ancora sincronizzata.')
+            }
+            winners=pending.state.winners
+            ita=pending.state.ita
+            courts=pending.state.courts
+            bracketScores=pending.state.bracketScores
+          }
+        }
+      }catch{}
       setBrackets(normalized)
       setActiveId(normalized[0]?.id ?? null)
       setWinnersById(winners)
@@ -1827,10 +1854,22 @@ useEffect(() => {
   const key = tourId && tId ? tourId + ':' + tId : ''
   if (!key || bracketsLoadKey !== key || bracketsLoadError) return
   const snapshot = JSON.stringify({ winners: winnersById, ita: itaScoresById, courts: courtsByBracket, bracketScores: bracketScoresById })
-  if (snapshot === bracketsBaselineRef.current) return
+  if (snapshot === bracketsBaselineRef.current && !localStorage.getItem(bracketDraftKey(tId))) return
   const request = bracketsRequestRef.current
   let cancelled = false
   const id = tId
+  let draft:any
+  try {
+    draft=JSON.parse(localStorage.getItem(bracketDraftKey(id))||'null')
+    draft={
+      snapshot,baseSnapshot:draft?.baseSnapshot??bracketsBaselineRef.current,
+      state:{winners:winnersById,ita:itaScoresById,courts:courtsByBracket,bracketScores:bracketScoresById},
+      savedAt:Date.now()
+    }
+    localStorage.setItem(bracketDraftKey(id),JSON.stringify(draft))
+  }catch{setBracketsSyncError('Impossibile conservare tabelloni sul dispositivo.');return}
+  if(bracketsConflict)return
+  if(!navigator.onLine){setBracketsSyncError('Offline: tabelloni conservati sul dispositivo.');return}
   const timer = setTimeout(async () => {
     try {
       const response = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(id)}`, {
@@ -1839,6 +1878,24 @@ useEffect(() => {
       if (!response.ok) throw new Error('Lettura fallita')
       const json = await response.json()
       if (cancelled || request !== bracketsRequestRef.current) return
+      const serverState=json?.state
+      const serverSnapshot=JSON.stringify({
+        winners:Array.isArray(serverState)?{}:(serverState?.winnersById||{}),
+        ita:Array.isArray(serverState)?{}:(serverState?.itaScoresById||{}),
+        courts:Array.isArray(serverState)?{}:(serverState?.courtsByBracket||{}),
+        bracketScores:Array.isArray(serverState)?{}:(serverState?.bracketScoresById||{})
+      })
+      if(serverSnapshot!==draft.baseSnapshot && serverSnapshot!==snapshot){
+        setBracketsConflict(true)
+        setBracketsSyncError('Conflitto con tabelloni modificati da altro Staff. Copia locale conservata.')
+        return
+      }
+      if(serverSnapshot===snapshot){
+        bracketsBaselineRef.current=snapshot
+        localStorage.removeItem(bracketDraftKey(id))
+        setBracketsSyncError('')
+        return
+      }
       const previous = json?.state
       const items = Array.isArray(previous) ? previous : (previous?.items || [])
       const next = {
@@ -1864,17 +1921,27 @@ useEffect(() => {
       if (cancelled || request !== bracketsRequestRef.current) return
       const saved = await fetch('/api/brackets/state', {
         method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
-        body: JSON.stringify({ tournament_id: id, state: next }),
+        body: JSON.stringify({ tournament_id: id, state: next, base_updated_at: json?.updated_at }),
       })
+      if(saved.status===409){
+        setBracketsConflict(true)
+        setBracketsSyncError('Conflitto di salvataggio tabellone. Bozza locale conservata.')
+        return
+      }
       if (!saved.ok) throw new Error('Salvataggio fallito')
-      if (!cancelled && request === bracketsRequestRef.current) bracketsBaselineRef.current = snapshot
+      if (!cancelled && request === bracketsRequestRef.current){
+        bracketsBaselineRef.current = snapshot
+        const latest=JSON.parse(localStorage.getItem(bracketDraftKey(id))||'null')
+        if(latest?.snapshot===snapshot)localStorage.removeItem(bracketDraftKey(id))
+        setBracketsSyncError('')
+      }
     } catch {
       if (!cancelled && request === bracketsRequestRef.current)
-        setBracketsLoadError('Salvataggio risultati tabellone non riuscito. Ricarica prima di continuare.')
+        setBracketsSyncError('Tabelloni salvati sul dispositivo, ancora da sincronizzare.')
     }
   }, 450)
   return () => { cancelled = true; clearTimeout(timer) }
-}, [tourId, tId, bracketsLoadKey, bracketsLoadError, winnersById, itaScoresById, courtsByBracket, bracketScoresById])
+}, [tourId, tId, bracketsLoadKey, bracketsLoadError, winnersById, itaScoresById, courtsByBracket, bracketScoresById, bracketsRetry, bracketsConflict])
 
   const active = useMemo(() => brackets.find(b => b.id === activeId) || null, [activeId, brackets])
 
@@ -2015,6 +2082,7 @@ return (
   <div className="mt-results-page relative z-0 p-2 sm:p-3 xl:p-6 space-y-6 xl:space-y-8 pointer-events-auto min-w-0">
     <h1 className="mt-results-title">Risultati Girone/Tabellone</h1>
     <PrepareOffline tournamentId={tId} />
+    {bracketsSyncError&&<div role="alert" className="rounded border border-amber-500 p-3 text-amber-200">{bracketsSyncError}</div>}
    
     <div role="status" className={offlineOnline?'border border-emerald-700 text-emerald-300 rounded p-2':'border border-amber-500 text-amber-300 rounded p-2'}>
       {offlineOnline?'● Online':'● Offline — bozza salvata solo su questo dispositivo'}
