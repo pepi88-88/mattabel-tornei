@@ -1,7 +1,7 @@
 'use client'
 
-import PrepareOffline from '@/components/PrepareOffline'
-import {offlineJSON} from '@/lib/offlineClient'
+import PrepareOffline from '../../../components/PrepareOffline'
+import {offlineJSON} from '../../../lib/offlineClient'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import useSWR from 'swr'
 import BracketCanvas, {
