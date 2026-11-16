@@ -1062,7 +1062,17 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato √
 
   ;(async () => {
     try {
-    const gm = await loadGroupsStateFromSupabase(tId)
+    let gm: Awaited<ReturnType<typeof loadGroupsStateFromSupabase>>
+    let usingOfflineCache=false
+    try {
+      gm=await loadGroupsStateFromSupabase(tId)
+      try{localStorage.setItem('mattabel:risultati:cache:'+tId,JSON.stringify(gm))}catch{}
+    }catch(err){
+      const saved=localStorage.getItem('mattabel:risultati:cache:'+tId)
+      if(!saved)throw err
+      gm=JSON.parse(saved)
+      usingOfflineCache=true
+    }
     if (cancelled) return
     setStore({
   groupsCount: gm.groupsCount,
@@ -1073,6 +1083,8 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato √
 })
     const fields = gm.matchFields || {}
     lastResultsSnapshot.current = JSON.stringify({ times: gm.times, scores: gm.scores, matchFields: fields })
+    setOfflineConflict(false)
+    setResultsSaveError(usingOfflineCache?'Copia locale: i risultati non sono ancora sincronizzati.':'')
     let restoredTimes = gm.times
     let restoredScores = gm.scores
     let restoredFields = fields
@@ -1083,10 +1095,14 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato √
         if (parsed?.times && parsed?.scores) {
           if (JSON.stringify({ times: parsed.times, scores: parsed.scores, matchFields: parsed.matchFields ?? {} }) === lastResultsSnapshot.current) {
             localStorage.removeItem('mattabel:risultati:pending:' + tId)
-          } else if (window.confirm('Esistono risultati non sincronizzati. Vuoi recuperarli?')) {
-            restoredTimes = parsed.times
-            restoredScores = parsed.scores
-            restoredFields = parsed.matchFields ?? fields
+          } else {
+            restoredTimes=parsed.times
+            restoredScores=parsed.scores
+            restoredFields=parsed.matchFields??fields
+            if(!usingOfflineCache && parsed.baseSnapshot!==lastResultsSnapshot.current){
+              setOfflineConflict(true)
+              setResultsSaveError('Conflitto: dati cambiati sul server. Bozza conservata, sincronizzazione sospesa.')
+            }
           }
         }
       }
@@ -1303,18 +1319,37 @@ const missingGroupMatches = letters.map((letter) => {
 // Risultati: aggiornamento parziale. Non riscrivere mai gruppi, assegnazioni o conferme.
 const lastResultsSnapshot = useRef<string>('')
 const [resultsSaveError, setResultsSaveError] = useState('')
+const [offlineConflict,setOfflineConflict]=useState(false)
+const [offlineOnline,setOfflineOnline]=useState(true)
+const [offlineRetry,setOfflineRetry]=useState(0)
+useEffect(()=>{
+ const onChange=()=>{setOfflineOnline(navigator.onLine);if(navigator.onLine)setOfflineRetry(x=>x+1)}
+ onChange()
+ window.addEventListener('online',onChange);window.addEventListener('offline',onChange)
+ return ()=>{window.removeEventListener('online',onChange);window.removeEventListener('offline',onChange)}
+},[])
 const resultsDraftKey = (id: string) => 'mattabel:risultati:pending:' + id
 useEffect(() => {
   if (!tId || isLoadingState || loadedFor !== tId) return
   const snapshot = JSON.stringify({ times, scores, matchFields })
-  if (snapshot === lastResultsSnapshot.current) return
-  const id = tId
+  if (snapshot === lastResultsSnapshot.current && !localStorage.getItem(resultsDraftKey(tId))) return
+  const id=tId
   try {
-    localStorage.setItem(resultsDraftKey(id), JSON.stringify({ times, scores, matchFields, savedAt: Date.now() }))
-  } catch {
-    setResultsSaveError('Impossibile conservare i risultati nel browser.')
+    const previous=JSON.parse(localStorage.getItem(resultsDraftKey(id))||'null')
+    localStorage.setItem(resultsDraftKey(id),JSON.stringify({
+      times,scores,matchFields,savedAt:Date.now(),
+      baseSnapshot:previous?.baseSnapshot??lastResultsSnapshot.current
+    }))
+  }catch{
+    setResultsSaveError('Memoria locale non disponibile: non chiudere la pagina.')
+    return
   }
-  let cancelled = false
+  if(offlineConflict)return
+  if(!navigator.onLine){
+    setResultsSaveError('Offline: modifiche salvate sul dispositivo, non ancora ufficiali.')
+    return
+  }
+  let cancelled=false
   const timer = setTimeout(async () => {
     try {
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -1325,6 +1360,27 @@ useEffect(() => {
         if (!read.ok) throw new Error('Lettura fallita')
         const current = await read.json()
         if (!current.updated_at) throw new Error('Versione mancante')
+        const serverSnapshot=JSON.stringify({
+          times:current.state?.times||{},scores:current.state?.scores||{},
+          matchFields:current.state?.matchFields||{}
+        })
+        const pending=JSON.parse(localStorage.getItem(resultsDraftKey(id))||'null')
+        const base=pending?.baseSnapshot??lastResultsSnapshot.current
+        if(serverSnapshot!==base && serverSnapshot!==snapshot){
+          if(!cancelled){
+            setOfflineConflict(true)
+            setResultsSaveError('Conflitto con altro Staff: bozza locale conservata, nessun risultato sovrascritto.')
+          }
+          return
+        }
+        if(serverSnapshot===snapshot){
+          if(!cancelled){
+            lastResultsSnapshot.current=snapshot
+            localStorage.removeItem(resultsDraftKey(id))
+            setResultsSaveError('')
+          }
+          return
+        }
         const res = await fetch('/api/groups/state', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
           body: JSON.stringify({ tournament_id: id, base_updated_at: current.updated_at,
@@ -1355,7 +1411,7 @@ useEffect(() => {
     }
   }, 450)
   return () => { cancelled = true; clearTimeout(timer) }
-}, [tId, times, scores, matchFields, isLoadingState, loadedFor])
+}, [tId, times, scores, matchFields, isLoadingState, loadedFor, offlineRetry, offlineConflict])
 
   // ---------- Classifica + avulsa: salvataggi ----------
   type TeamStat = {
@@ -1957,7 +2013,11 @@ return (
   <div className="mt-results-page relative z-0 p-2 sm:p-3 xl:p-6 space-y-6 xl:space-y-8 pointer-events-auto min-w-0">
     <h1 className="mt-results-title">Risultati Girone/Tabellone</h1>
    
-    {resultsSaveError && <div role="alert" className="rounded border border-amber-500 p-3 text-amber-300">{resultsSaveError}</div>}
+    <div role="status" className={offlineOnline?'border border-emerald-700 text-emerald-300 rounded p-2':'border border-amber-500 text-amber-300 rounded p-2'}>
+      {offlineOnline?'‚óè Online':'‚óè Offline ‚Äî bozza salvata solo su questo dispositivo'}
+      {offlineConflict&&' ¬∑ Conflitto: sincronizzazione sospesa'}
+     </div>
+     {resultsSaveError && <div role="alert" className="rounded border border-amber-500 p-3 text-amber-300">{resultsSaveError}</div>}
     {/* Header filtri */}
     <div className="mt-results-controls flex flex-wrap items-end gap-3">
       <div className="flex flex-col">
