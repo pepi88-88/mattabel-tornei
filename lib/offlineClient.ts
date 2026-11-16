@@ -6,13 +6,14 @@ const cacheKey = (url: string) => 'mattabel:offline:get:' + url
 export async function offlineJSON(url: string, options?: {requireNetwork?:boolean}): Promise<any> {
   try {
     const response = await fetch(url, {cache:'no-store'})
+    if (response.status===401 || response.status===403) throw new Error('AUTH_REQUIRED')
     if (!response.ok) throw new Error('HTTP '+response.status)
     const json = await response.json()
     try { localStorage.setItem(cacheKey(url),JSON.stringify(json)) } catch {}
     return json
   } catch (err) {
     // 401/403 must not be treated as proof of an offline connection.
-    if (options?.requireNetwork) throw err
+    if (options?.requireNetwork || (err instanceof Error && err.message==='AUTH_REQUIRED')) throw err
     try {
       const stored = localStorage.getItem(cacheKey(url))
       if (stored) return JSON.parse(stored)
