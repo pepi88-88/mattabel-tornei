@@ -106,6 +106,7 @@ export default function ClassificaInner() {
   const currentZoomRef = React.useRef(mobileZoom)
   const rankingTouchRef = React.useRef<HTMLDivElement>(null)
   const pinchStartRef = React.useRef<{distance:number; zoom:number} | null>(null)
+  const dragStartRef = React.useRef<{x:number;y:number;left:number;top:number} | null>(null)
   const clampZoom = React.useCallback((n:number)=>Math.min(1.5, Math.max(0.35, Math.round(n*100)/100)),[])
 
   React.useEffect(()=>{
@@ -126,16 +127,37 @@ export default function ClassificaInner() {
       touches[0].clientY-touches[1].clientY
     )
     const start=(event:TouchEvent)=>{
-      if(event.touches.length===2) pinchStartRef.current={distance:distance(event.touches), zoom:currentZoomRef.current}
+      if(event.touches.length===2){
+        pinchStartRef.current={distance:distance(event.touches),zoom:currentZoomRef.current}
+        dragStartRef.current=null
+      }else if(event.touches.length===1){
+        const touch=event.touches[0]
+        dragStartRef.current={x:touch.clientX,y:touch.clientY,left:el.scrollLeft,top:window.scrollY}
+      }
     }
     const move=(event:TouchEvent)=>{
-      const start=pinchStartRef.current
-      if(!start || event.touches.length!==2 || start.distance<=0) return
-      event.preventDefault()
-      setMobileZoom(clampZoom(start.zoom*distance(event.touches)/start.distance))
+      if(event.touches.length===2){
+        if(!pinchStartRef.current){
+          pinchStartRef.current={distance:distance(event.touches),zoom:currentZoomRef.current}
+        }
+        const start=pinchStartRef.current
+        if(start.distance<=0)return
+        // La tabella stessa gestisce il gesto, non il browser.
+        event.preventDefault()
+        setMobileZoom(clampZoom(start.zoom*distance(event.touches)/start.distance))
+      }else if(event.touches.length===1 && dragStartRef.current){
+        // Con touch-action:none sulla tabella, manteniamo sia lo
+        // scorrimento orizzontale sia quello verticale con un dito.
+        if(!(event.target instanceof Element) || !event.target.closest('.ranking-mobile-zoom'))return
+        const touch=event.touches[0],from=dragStartRef.current
+        event.preventDefault()
+        el.scrollLeft=from.left+from.x-touch.clientX
+        window.scrollTo(window.scrollX,from.top+from.y-touch.clientY)
+      }
     }
     const end=(event:TouchEvent)=>{
-      if(event.touches.length<2) pinchStartRef.current=null
+      if(event.touches.length<2)pinchStartRef.current=null
+      if(event.touches.length===0)dragStartRef.current=null
     }
     el.addEventListener('touchstart',start,{passive:true})
     el.addEventListener('touchmove',move,{passive:false})
