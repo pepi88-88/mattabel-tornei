@@ -47,7 +47,16 @@ self.addEventListener('message',event=>{
      for(const path of PAGES){
        const res=await fetch(path,{credentials:'same-origin',cache:'no-store'})
        if(!res.ok)throw new Error('Impossibile memorizzare '+path+' ('+res.status+')')
+       const page=res.clone()
        await cache.put(path,res)
+       // Memorizziamo anche gli script e i CSS referenziati nell'HTML,
+       // altrimenti le pagine preparate non diventano interattive offline.
+       const html=await page.text()
+       const assets=[...html.matchAll(/(?:src|href)="(\/_next\/static\/[^"]+)"/g)].map(m=>m[1].replace(/&amp;/g,'&'))
+       for(const asset of new Set(assets)){
+         const assetRes=await fetch(asset,{cache:'reload'})
+         if(assetRes.ok)await cache.put(asset,assetRes)
+       }
      }
      port?.postMessage({ok:true})
    }catch(err){port?.postMessage({ok:false,error:String(err)})}
