@@ -3,7 +3,7 @@
 // Cache privata del solo browser utilizzato dallo Staff.
 // Nessun dato viene pubblicato: restano disponibili gli ultimi dati scaricati.
 const cacheKey = (url: string) => 'mattabel:offline:get:' + url
-export async function offlineJSON(url: string): Promise<any> {
+export async function offlineJSON(url: string, options?: {requireNetwork?:boolean}): Promise<any> {
   try {
     const response = await fetch(url, {cache:'no-store'})
     if (!response.ok) throw new Error('HTTP '+response.status)
@@ -11,6 +11,8 @@ export async function offlineJSON(url: string): Promise<any> {
     try { localStorage.setItem(cacheKey(url),JSON.stringify(json)) } catch {}
     return json
   } catch (err) {
+    // 401/403 must not be treated as proof of an offline connection.
+    if (options?.requireNetwork) throw err
     try {
       const stored = localStorage.getItem(cacheKey(url))
       if (stored) return JSON.parse(stored)
