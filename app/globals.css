@@ -4134,3 +4134,28 @@ html[data-mattabel-theme] .admin-topline .mt-staff-exit{
   html[data-mattabel-theme] .admin-topline .mt-staff-carousel-shortcut,
   html[data-mattabel-theme] .admin-topline .mt-staff-exit{flex-shrink:0!important}
 }
+
+/* Mattabel Tornei — pulsanti installazione home e istruzioni Android/iOS */
+.mt-install-area {margin-top:22px;padding-top:18px;border-top:1px solid rgba(148,163,184,.2);text-align:center}
+.mt-install-heading {font-size:13px!important;font-weight:750;color:#d6e8ff!important;margin:0 0 12px!important}
+.mt-install-buttons {display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.mt-install-btn {display:flex;align-items:center;justify-content:center;gap:7px;min-height:43px;padding:8px 10px;border:1px solid rgba(148,163,184,.45);border-radius:9px;font-size:12px;font-weight:750;line-height:1.3;white-space:normal;transition:background .2s,transform .2s;color:#fff}
+.mt-install-btn:hover {transform:translateY(-1px);background:#26496d}
+.mt-install-android {background:#123d38;border-color:#2b9a78}
+.mt-install-apple {background:#182a44;border-color:#667a99}
+.mt-install-note {font-size:11px!important;color:#9aacc2!important;margin:9px 0 0!important}
+.mt-install-backdrop {position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,8,20,.8);padding:16px;overflow-y:auto}
+.mt-install-modal {position:relative;width:min(100%,510px);max-height:calc(100dvh - 32px);overflow:auto;text-align:left;border-radius:17px;background:#0d2038;color:#e4eeff;border:1px solid #3e6388;padding:27px;box-shadow:0 30px 80px #0009}
+.mt-install-modal h2 {font-size:21px;font-weight:800;margin:0 30px 13px 0}
+.mt-install-modal p {font-size:14px;line-height:1.6;color:#cedbeb;margin:0 0 12px}
+.mt-install-modal ol {list-style:decimal;margin:14px 0 22px;padding-left:23px}
+.mt-install-modal li {font-size:14px;line-height:1.55;margin:0 0 11px;padding-left:2px}
+.mt-install-modal strong {color:#fff}
+.mt-install-close {position:absolute;top:10px;right:16px;font-size:27px;line-height:1;color:#b7cce5;padding:5px}
+.mt-install-done {background:#f89431;color:#09182b;border-radius:9px;font-weight:800;padding:11px 19px;width:100%}
+.mt-install-modal .mt-install-message {color:#a7e7c4;font-size:13px}
+.mt-install-modal .mt-install-tip {color:#e7c383;font-size:13px}
+@media(max-width:420px) {
+  .mt-install-buttons {grid-template-columns:1fr}
+  .mt-install-area {margin-top:16px;padding-top:15px}
+}
