@@ -1,8 +1,10 @@
 'use client'
 import useSWR from 'swr'
+import PrepareOffline from '@/components/PrepareOffline'
+import {offlineJSON} from '@/lib/offlineClient'
 import { useEffect, useMemo, useState } from 'react'
 
-const fetcher = (u: string) => fetch(u).then(r => r.json())
+const fetcher = (u: string) => offlineJSON(u)
 
 // Stessa palette A–P della pagina Creazione Gironi: colori coerenti con i temi Mattabel.
 const GROUP_COLORS: Record<string,string> = {
@@ -272,6 +274,7 @@ paid_d: side === 'D' ? value : r.paid_d,
   return (
     <div className="mt-payments-page space-y-4 xl:space-y-6 p-2 sm:p-3 xl:p-6">
       <h1 className="mt-simple-page-title">Pagamenti</h1>
+      <PrepareOffline tournamentId={tId} />
       {/* intestazione: stessi selettori di Iscrizioni */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
