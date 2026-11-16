@@ -59,7 +59,13 @@ function NavLink({ href, label, icon, active }: { href:string; label:string; ico
         const before = new CustomEvent('mattabel:before-admin-nav', {
           cancelable: true, detail: { href },
         })
-        if (window.dispatchEvent(before)) router.push(href)
+        if (window.dispatchEvent(before)) {
+          // La navigazione Next RSC richiede Internet; con rete assente
+          // carica l'HTML salvato dal Service Worker.
+          if (!navigator.onLine && ['/admin/risultati','/admin/pagamenti','/admin/gironi'].includes(href))
+            window.location.assign(href)
+          else router.push(href)
+        }
       }}
       title={label}
       className={[
@@ -105,7 +111,13 @@ export default function AppHeader() {
     const before = new CustomEvent('mattabel:before-admin-nav', {
       cancelable: true, detail: { href },
     })
-    if (window.dispatchEvent(before)) router.push(href)
+    if (window.dispatchEvent(before)) {
+          // La navigazione Next RSC richiede Internet; con rete assente
+          // carica l'HTML salvato dal Service Worker.
+          if (!navigator.onLine && ['/admin/risultati','/admin/pagamenti','/admin/gironi'].includes(href))
+            window.location.assign(href)
+          else router.push(href)
+        }
   }
 
   if (
