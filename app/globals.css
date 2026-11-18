@@ -4348,3 +4348,26 @@ html[data-mattabel-theme] .admin-nav-tablet > button{
     font-size:12px!important;
   }
 }
+
+
+/* iPhone/iPad installed Web App: solid navigation bar, no frosted-glass
+   backdrop. Prevents the staff commands appearing blurred while scrolling. */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) {
+    html[data-mattabel-theme] header:has(.admin-topline),
+    html[data-mattabel-theme] .athlete-topbar {
+      background-color:var(--mt-header,#0d233d)!important;
+      background-image:none!important;
+      -webkit-backdrop-filter:none!important;
+      backdrop-filter:none!important;
+      filter:none!important;
+      opacity:1!important;
+      box-shadow:0 3px 12px rgba(0,0,0,.22)!important;
+    }
+    html[data-mattabel-theme] header:has(.admin-topline) .admin-topline,
+    html[data-mattabel-theme] .athlete-topbar .athlete-topline {
+      -webkit-backdrop-filter:none!important;
+      backdrop-filter:none!important;
+    }
+  }
+}
