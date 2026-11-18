@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: 'Gironi, tabelloni, risultati e classifiche dei tornei beach volley Mattabel.',
   applicationName: 'Mattabel Tornei',
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'Mattabel Tornei', statusBarStyle: 'black-translucent' },
+  appleWebApp: { capable: true, title: 'Mattabel Tornei', statusBarStyle: 'default' },
   icons: { apple: [{ url: '/pwa-icon/192', sizes: '192x192', type: 'image/png' }], icon: [{ url: '/pwa-icon/192', sizes: '192x192', type: 'image/png' }] },
 }
 
