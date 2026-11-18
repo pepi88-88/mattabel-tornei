@@ -4185,9 +4185,9 @@ html[data-mattabel-theme] .admin-topline .mt-staff-exit{
 }
 
 
-/* iOS installed Web App: recover a stable, reachable viewport.
-   Do not constrain the document to a clipped 100dvh: when Safari's
-   visual viewport changes or the keyboard opens, the login must scroll. */
+/* iOS installed Web App: preserve the original welcome screen.
+   Only adjust the Staff login to avoid clipped controls and keyboard zoom.
+   Navigation remains within the device's safe area. */
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
     html, body {
@@ -4203,53 +4203,39 @@ html[data-mattabel-theme] .admin-topline .mt-staff-exit{
       padding-top:0;
       padding-bottom:env(safe-area-inset-bottom, 0px);
     }
-    /* Landing and login used to have negative margins + overflow:hidden,
-       which clipped controls and made the entire panel jump on iPhone. */
-    html:has(.mt-access-screen) .container-admin:has(> .mt-access-screen) {
+    html:has(.mt-access-login-screen) .container-admin:has(> .mt-access-login-screen) {
       width:100%;
       max-width:100%;
       padding:0!important;
       margin:0!important;
     }
-    .mt-access-screen {
+    .mt-access-login-screen {
       width:100%!important;
       max-width:100%!important;
       height:auto!important;
-      /* svh is stable while iOS keyboard / toolbar changes size. */
       min-height:100svh!important;
       margin:0!important;
-      padding:
-        max(18px, env(safe-area-inset-top, 0px))
-        12px
-        max(24px, env(safe-area-inset-bottom, 0px))!important;
+      padding:max(18px,env(safe-area-inset-top,0px)) 12px max(24px,env(safe-area-inset-bottom,0px))!important;
       overflow:visible!important;
-      align-items:center;
-      justify-content:center;
     }
-    .mt-access-card{
+    .mt-access-login-card {
       flex-shrink:0;
       max-width:100%;
       margin:0 auto;
     }
-    .mt-access-login-screen {
-      overflow:visible!important;
-    }
     .mt-access-login-card input {
-      font-size:16px!important; /* no automatic keyboard zoom on iOS */
+      font-size:16px!important;
     }
-    /* Keep staff commands BELOW the status bar, and keep them tappable. */
     header:has(.admin-topline){
-      top:env(safe-area-inset-top, 0px)!important;
+      top:env(safe-area-inset-top,0px)!important;
     }
     .admin-header-spacer{
       box-sizing:border-box;
-      padding-top:env(safe-area-inset-top, 0px);
+      padding-top:env(safe-area-inset-top,0px);
     }
     .athlete-topbar{
-      top:env(safe-area-inset-top, 0px)!important;
+      top:env(safe-area-inset-top,0px)!important;
     }
-    /* iOS should not bounce the whole page when touching its top edge.
-       Do NOT disable native pinch or the classifica's own zoom gestures. */
     .mt-access-choices button,
     .mt-login-form button,
     .mt-install-btn,
@@ -4259,23 +4245,18 @@ html[data-mattabel-theme] .admin-topline .mt-staff-exit{
       touch-action:manipulation;
     }
   }
-  @media (display-mode: standalone) and (max-width: 767px) {
-    .mt-access-screen {
+  @media (display-mode: standalone) and (max-width:767px) {
+    .mt-access-login-screen {
       justify-content:flex-start!important;
     }
-    .mt-access-card{
+    .mt-access-login-card {
       padding:18px 15px!important;
-    }
-    .mt-access-logo img {
-      max-width:min(42vw,170px);
-      max-height:170px;
     }
     .mt-access-login-logo img {
       max-width:140px;
       max-height:140px;
     }
-    .mt-access-card h1{margin:4px 0 8px;}
-    .mt-access-choices{margin-top:17px;}
+    .mt-access-login-card h1{margin:4px 0 8px;}
     .mt-access-login-card>.mt-login-form{margin-top:12px;}
     html[data-mattabel-theme] .admin-topline{
       display:flex!important;
@@ -4288,14 +4269,14 @@ html[data-mattabel-theme] .admin-topline .mt-staff-exit{
       width:100%!important;
       max-width:100%!important;
     }
-    html[data-mattabel-theme] .admin-topline .mt-header-brand-wordmark {
+    html[data-mattabel-theme] .admin-topline .mt-header-brand-wordmark{
       order:0!important;
       width:auto!important;
       min-width:45px!important;
       max-width:65px!important;
       flex-shrink:0!important;
     }
-    html[data-mattabel-theme] .admin-topline .admin-nav-tablet {
+    html[data-mattabel-theme] .admin-topline .admin-nav-tablet{
       order:10!important;
       width:100%!important;
       flex:1 0 100%!important;
@@ -4311,7 +4292,7 @@ html[data-mattabel-theme] .admin-topline .mt-staff-exit{
     html[data-mattabel-theme] .admin-topline .mt-brand-settings-link,
     html[data-mattabel-theme] .admin-topline .mt-staff-carousel-shortcut,
     html[data-mattabel-theme] .admin-topline .mt-staff-exit,
-    html[data-mattabel-theme] .admin-topline .mattabel-theme-picker {
+    html[data-mattabel-theme] .admin-topline .mattabel-theme-picker{
       order:1!important;
     }
     html[data-mattabel-theme] .admin-topline .mattabel-theme-picker select{
@@ -4323,7 +4304,6 @@ html[data-mattabel-theme] .admin-topline .mt-staff-exit{
     }
   }
 }
-
 
 /* Staff quick navigation: the page selector remains the primary control.
    Results/Payments may stay beside it on tablet, not Regia/Attese. */
