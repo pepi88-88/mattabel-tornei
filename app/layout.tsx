@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <IosPersistentZoom />
         <AppUpdateNotice />
         <AppHeader />
-        <main className="container-admin mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
+        <main id="mattabel-main-content" className="container-admin mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
           {children}
         </main>
       </body>
