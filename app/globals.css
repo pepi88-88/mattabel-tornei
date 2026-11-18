@@ -4323,3 +4323,28 @@ html[data-mattabel-theme] .admin-topline .mt-staff-exit{
     }
   }
 }
+
+
+/* Staff quick navigation: the page selector remains the primary control.
+   Results/Payments may stay beside it on tablet, not Regia/Attese. */
+html[data-mattabel-theme] .admin-nav-tablet{
+  min-width:0!important;
+  flex:1 1 auto!important;
+}
+html[data-mattabel-theme] .admin-nav-tablet > select{
+  flex:1 1 0%!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:none!important;
+  font-size:16px!important;
+}
+html[data-mattabel-theme] .admin-nav-tablet > button{
+  flex:0 0 auto!important;
+}
+@media(min-width:768px) and (max-width:1100px){
+  html[data-mattabel-theme] .admin-nav-tablet{gap:5px!important;}
+  html[data-mattabel-theme] .admin-nav-tablet > button{
+    padding:7px 8px!important;
+    font-size:12px!important;
+  }
+}
