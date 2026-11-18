@@ -4215,8 +4215,8 @@ html[data-mattabel-theme] .admin-topline .mt-staff-exit{
       width:100%!important;
       max-width:100%!important;
       height:auto!important;
+      /* svh is stable while iOS keyboard / toolbar changes size. */
       min-height:100svh!important;
-      min-height:100dvh!important;
       margin:0!important;
       padding:
         max(18px, env(safe-area-inset-top, 0px))
