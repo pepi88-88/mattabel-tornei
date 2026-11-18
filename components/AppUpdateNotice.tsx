@@ -8,6 +8,7 @@ const CHECK_INTERVAL=5*60*1000
 // Nel browser normale (PC o telefono) un semplice refresh carica il deploy
 // aggiornato. Il prompt serve soltanto alle Web App installate standalone.
 function isInstalledApp(){
+  if(typeof window==='undefined')return false
   return window.matchMedia('(display-mode: standalone)').matches ||
     window.matchMedia('(display-mode: fullscreen)').matches ||
     Boolean((navigator as Navigator & {standalone?:boolean}).standalone)
