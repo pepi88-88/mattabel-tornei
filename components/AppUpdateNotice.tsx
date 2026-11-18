@@ -5,6 +5,14 @@ import {useCallback,useEffect,useRef,useState} from 'react'
 const VERSION_KEY='mattabel:app:version'
 const CHECK_INTERVAL=5*60*1000
 
+// Nel browser normale (PC o telefono) un semplice refresh carica il deploy
+// aggiornato. Il prompt serve soltanto alle Web App installate standalone.
+function isInstalledApp(){
+  return window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    Boolean((navigator as Navigator & {standalone?:boolean}).standalone)
+}
+
 // Le bozze non sincronizzate rimangono sul dispositivo: non ricaricare
 // la pagina finché esistono. Le cache offline sono escluse dal controllo.
 function hasPendingChanges(){
@@ -43,7 +51,7 @@ export default function AppUpdateNotice(){
   const activating=useRef(false)
 
   const check=useCallback(async()=>{
-    if(checking.current||!navigator.onLine)return
+    if(!isInstalledApp()||checking.current||!navigator.onLine)return
     checking.current=true
     try{
       const response=await fetch('/api/app-version?ts='+Date.now(),{
@@ -131,13 +139,13 @@ export default function AppUpdateNotice(){
     }
   }
 
-  if(!available||dismissed===available)return null
+  if(!isInstalledApp()||!available||dismissed===available)return null
   return <aside className="fixed bottom-4 left-3 right-3 z-[99999] mx-auto max-w-md rounded-xl border border-sky-600 bg-slate-950 p-4 text-slate-100 shadow-[0_18px_50px_rgba(0,0,0,.65)]" role="status" aria-live="polite">
     <div className="flex items-start justify-between gap-3">
       <div>
         <div className="font-bold text-base">🏐 Aggiornamento Mattabel disponibile</div>
         <p className="mt-1 text-sm text-slate-300">
-          {pending?'Ci sono modifiche ancora da sincronizzare. Connettiti e salvale prima di aggiornare.':'Una nuova versione di Mattabel Tornei è pronta.'}
+          {pending?'Sono presenti bozze locali da verificare, anche di tornei precedenti. Controlla i salvataggi prima di aggiornare.':'Una nuova versione di Mattabel Tornei è pronta.'}
         </p>
       </div>
       <button type="button" onClick={()=>setDismissed(available)} aria-label="Ricordamelo più tardi" className="shrink-0 rounded px-2 py-1 text-slate-300 hover:bg-slate-800">✕</button>
