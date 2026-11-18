@@ -36,8 +36,8 @@ export default function IosPersistentZoom(){
       zoom=clamp(value)
       content.style.zoom=String(zoom)
       // Keep the content's visible width equal to the device width at any zoom.
-      content.style.width=`calc(100% / ${zoom})`
-      content.style.maxWidth=`calc(var(--admin-container) / ${zoom})`
+      content.style.width=`${100/zoom}%`
+      content.style.maxWidth='none'
     }
     apply(zoom)
     let start:{distance:number;zoom:number}|null=null
