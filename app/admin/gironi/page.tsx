@@ -259,7 +259,7 @@ useEffect(() => {
             if (parsed.baseData && !equalDraftValue(parsed.baseData,serverDraft)) {
               const merged=mergeGroupDraft(parsed.baseData,parsed.data,serverDraft)
               if (merged) {
-                loaded=merged
+                loaded={...merged,matchFields:merged.matchFields??{},matchOrder:merged.matchOrder??{}}
                 localStorage.setItem(draftKey(tId),JSON.stringify({
                   ...parsed,data:merged,baseData:serverDraft,baseVersion:js.updated_at
                 }))
