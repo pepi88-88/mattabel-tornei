@@ -994,7 +994,18 @@ function commitTimeUncontrolled(
         Offline: tour, tappa e gironi modificabili. I cambiamenti restano su questo dispositivo fino al ritorno di Internet.
       </div>}
       {offlineGroupsConflict&&<div role="alert" className="my-2 rounded border border-red-500 p-3 text-red-200">
-        Gironi cambiati su un altro dispositivo: la bozza locale è al sicuro e non verrà sincronizzata automaticamente.
+        Conflitto: questa bozza e i dati di Supabase modificano gli stessi elementi. Per sicurezza non sovrascrivo nessuna delle due versioni.
+        <button type="button" className="ml-3 underline" onClick={()=>{
+          const raw=localStorage.getItem(draftKey(tId))
+          if(!raw)return alert('Nessuna bozza locale trovata.')
+          const blob=new Blob([raw],{type:'application/json'})
+          const url=URL.createObjectURL(blob)
+          const link=document.createElement('a')
+          link.href=url
+          link.download='mattabel-bozza-gironi-'+tId+'.json'
+          link.click()
+          setTimeout(()=>URL.revokeObjectURL(url),1000)
+        }}>Scarica copia della bozza</button>
         <button type="button" className="ml-3 underline" onClick={()=>{
           if(!window.confirm('Scartare le modifiche LOCALI ai gironi? Questa operazione non è reversibile.'))return
           localStorage.removeItem(draftKey(tId))
