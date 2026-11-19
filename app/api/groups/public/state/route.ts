@@ -27,7 +27,9 @@ export async function GET(req: NextRequest) {
   }
 
   // Se non è pubblico, NON 403: restituisci il contratto che la UI atleta si aspetta
-  const flagPublic = !!data.is_public || !!data.state?.isPublic
+  // Il flag salvato in Supabase è la fonte di verità: se lo Staff
+  // disattiva la pubblicazione, la vecchia proprietà JSON non deve riaprirla.
+  const flagPublic = data.is_public === true
   if (!flagPublic) {
     return NextResponse.json({ is_public: false, state: null })
   }

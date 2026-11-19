@@ -232,7 +232,8 @@ useEffect(() => {
   if (!tId) return
   ;(async () => {
     try {
-      const js = await offlineJSON(`/api/groups/state?tournament_id=${encodeURIComponent(tId)}`)
+      // Online, use the authoritative Supabase response; never mistake a stale offline cache for fresh server data.
+      const js = await offlineJSON(`/api/groups/state?tournament_id=${encodeURIComponent(tId)}`, {requireNetwork:navigator.onLine})
       const st: Partial<PersistServer> = js?.state || {}
       if (!js?.updated_at) throw new Error('Versione dello stato assente')
       if (cancelled) return
@@ -994,7 +995,7 @@ function commitTimeUncontrolled(
         Offline: tour, tappa e gironi modificabili. I cambiamenti restano su questo dispositivo fino al ritorno di Internet.
       </div>}
       {offlineGroupsConflict&&<div role="alert" className="my-2 rounded border border-red-500 p-3 text-red-200">
-        Conflitto: questa bozza e i dati di Supabase modificano gli stessi elementi. Per sicurezza non sovrascrivo nessuna delle due versioni.
+        Due versioni dello stesso girone risultano diverse. Il salvataggio automatico continua normalmente negli altri casi; qui è necessaria una scelta per non perdere modifiche.
         <button type="button" className="ml-3 underline" onClick={()=>{
           const raw=localStorage.getItem(draftKey(tId))
           if(!raw)return alert('Nessuna bozza locale trovata.')
@@ -1076,7 +1077,7 @@ function commitTimeUncontrolled(
 
   <button
     className={isPublic ? 'btn btn-success' : 'btn btn-ghost'}
-    onClick={() => setIsPublic(v => !v)} // basta aggiornare lo stato; l’auto-save ci pensa
+    onClick={() => setIsPublic(v => !v)} // viene salvato automaticamente insieme alla colonna is_public
   >
     {isPublic ? 'Visibile agli atleti' : 'Non visibile'}
   </button>
