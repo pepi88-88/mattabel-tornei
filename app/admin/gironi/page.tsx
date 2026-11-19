@@ -84,6 +84,37 @@ type PersistServer = {
 }
 
 
+// Merge three versions without erasing work by another Staff member.
+// Different groups/slots can be merged automatically; the same changed slot
+// with different values always requires an explicit choice.
+const GROUP_DRAFT_FIELDS=['groupsCount','meta','assign','times','gField','matchFields','matchOrder','scores','isPublic'] as const
+type GroupDraftFields=typeof GROUP_DRAFT_FIELDS[number]
+type GroupDraft=Pick<PersistServer,GroupDraftFields>
+const equalDraftValue=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b)
+function mergeGroupDraft(base:GroupDraft, local:GroupDraft, remote:GroupDraft):GroupDraft|null{
+  const merged={...remote} as GroupDraft
+  const isRecord=(v:unknown):v is Record<string,unknown>=>Boolean(v)&&typeof v==='object'&&!Array.isArray(v)
+  for(const field of GROUP_DRAFT_FIELDS){
+    const b=base[field],l=local[field],r=remote[field]
+    if(equalDraftValue(l,b))continue // unchanged locally; keep Supabase
+    if(equalDraftValue(r,b)||equalDraftValue(r,l)){
+      ;(merged as any)[field]=l
+      continue
+    }
+    if(!isRecord(b)||!isRecord(l)||!isRecord(r))return null
+    const next:Record<string,unknown>={...r}
+    for(const key of new Set([...Object.keys(b),...Object.keys(l)])){
+      const before=b[key],fromLocal=l[key],fromServer=r[key]
+      if(equalDraftValue(fromLocal,before))continue
+      if(!equalDraftValue(fromServer,before)&&!equalDraftValue(fromServer,fromLocal))return null
+      if(Object.prototype.hasOwnProperty.call(l,key))next[key]=fromLocal
+      else delete next[key]
+    }
+    ;(merged as any)[field]=next
+  }
+  return merged
+}
+
 // util
 const chunk = <T,>(arr: T[], size: number) => { const o: T[][] = []; for (let i = 0; i < arr.length; i += size) o.push(arr.slice(i, i + size)); return o }
 
@@ -223,13 +254,26 @@ useEffect(() => {
           } else if (parsed?.data) {
             loaded = parsed.data
             pendingRef.current = JSON.stringify(loaded)
-            // Draft preesistenti privi di baseData non vengono risincronizzati
-            // senza confronto, per evitare sovrascritture accidentali.
-            if (navigator.onLine && JSON.stringify(parsed.baseData || {}) !== JSON.stringify(serverDraft)) {
+            // Recover remote changes to *different* groups/slots automatically,
+            // while refusing to overwrite a slot that both devices changed.
+            if (parsed.baseData && !equalDraftValue(parsed.baseData,serverDraft)) {
+              const merged=mergeGroupDraft(parsed.baseData,parsed.data,serverDraft)
+              if (merged) {
+                loaded={...merged,matchFields:merged.matchFields??{},matchOrder:merged.matchOrder??{}}
+                localStorage.setItem(draftKey(tId),JSON.stringify({
+                  ...parsed,data:merged,baseData:serverDraft,baseVersion:js.updated_at
+                }))
+                pendingRef.current=JSON.stringify(merged)
+                setSaveStatus('Modifiche compatibili recuperate: invio automatico a Supabase…')
+              } else {
+                setOfflineGroupsConflict(true)
+                setSaveStatus('Conflitto: due dispositivi hanno modificato gli stessi gironi. Bozza locale protetta.')
+              }
+            } else if (!parsed.baseData && navigator.onLine) {
               setOfflineGroupsConflict(true)
-              setSaveStatus('Conflitto: gironi modificati su server. Bozza locale conservata.')
+              setSaveStatus('Bozza precedente senza versione: verifica prima di sincronizzare.')
             } else {
-              setSaveStatus('Bozza locale recuperata, in attesa di sincronizzazione')
+              setSaveStatus('Bozza locale recuperata, sincronizzazione automatica in corso…')
             }
           }
         } catch { setSaveStatus('Bozza locale non leggibile') }
@@ -300,9 +344,27 @@ useEffect(() => {
         }
         const serverSnapshot=JSON.stringify(serverData)
         if(serverSnapshot!==JSON.stringify(draft.baseData)&&serverSnapshot!==snapshot){
-          if(!cancelled){
+          const merged=mergeGroupDraft(draft.baseData,draft.data,serverData)
+          if(merged && !cancelled){
+            // New baseline from the server; React schedules the next autosave.
+            versionRef.current=current.updated_at
+            savedSnapshotRef.current=serverSnapshot
+            localStorage.setItem(draftKey(currentTournament),JSON.stringify({
+              ...draft,data:merged,baseData:serverData,baseVersion:current.updated_at
+            }))
+            setGroupsCount(merged.groupsCount)
+            setMeta(merged.meta)
+            setAssign(merged.assign)
+            setTimes(merged.times)
+            setGField(merged.gField)
+            setMatchFields(merged.matchFields||{})
+            setMatchOrder(merged.matchOrder||{})
+            setScores(merged.scores)
+            setIsPublic(merged.isPublic)
+            setSaveStatus('Modifiche di altri Staff unite: sincronizzazione automatica…')
+          } else if(!cancelled){
             setOfflineGroupsConflict(true)
-            setSaveStatus('Conflitto: gironi modificati da altro Staff. Bozza locale preservata.')
+            setSaveStatus('Conflitto sullo stesso dato: bozza protetta. Verifica prima di sostituire dati Supabase.')
           }
           return
         }
@@ -932,7 +994,18 @@ function commitTimeUncontrolled(
         Offline: tour, tappa e gironi modificabili. I cambiamenti restano su questo dispositivo fino al ritorno di Internet.
       </div>}
       {offlineGroupsConflict&&<div role="alert" className="my-2 rounded border border-red-500 p-3 text-red-200">
-        Gironi cambiati su un altro dispositivo: la bozza locale è al sicuro e non verrà sincronizzata automaticamente.
+        Conflitto: questa bozza e i dati di Supabase modificano gli stessi elementi. Per sicurezza non sovrascrivo nessuna delle due versioni.
+        <button type="button" className="ml-3 underline" onClick={()=>{
+          const raw=localStorage.getItem(draftKey(tId))
+          if(!raw)return alert('Nessuna bozza locale trovata.')
+          const blob=new Blob([raw],{type:'application/json'})
+          const url=URL.createObjectURL(blob)
+          const link=document.createElement('a')
+          link.href=url
+          link.download='mattabel-bozza-gironi-'+tId+'.json'
+          link.click()
+          setTimeout(()=>URL.revokeObjectURL(url),1000)
+        }}>Scarica copia della bozza</button>
         <button type="button" className="ml-3 underline" onClick={()=>{
           if(!window.confirm('Scartare le modifiche LOCALI ai gironi? Questa operazione non è reversibile.'))return
           localStorage.removeItem(draftKey(tId))
