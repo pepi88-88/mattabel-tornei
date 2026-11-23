@@ -17,5 +17,5 @@ export function isSuperAdmin() {
   const parts = token.split('.')
   if (parts.length !== 3 || !/^\d+$/.test(parts[0]) || !/^[a-f0-9]{48}$/.test(parts[1]) || !/^[a-f0-9]{64}$/.test(parts[2])) return false
   if (Number(parts[0]) <= Math.floor(Date.now()/1000)) return false
-  return timingSafeEqual(Buffer.from(parts[2],'hex'),Buffer.from(sign(parts.slice(0,2).join('.')),'hex'))
+  return timingSafeEqual(new TextEncoder().encode(parts[2]),new TextEncoder().encode(sign(parts.slice(0,2).join('.'))))
 }
