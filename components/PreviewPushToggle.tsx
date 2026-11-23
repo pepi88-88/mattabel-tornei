@@ -11,9 +11,9 @@ export default function PreviewPushToggle(){
  const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription()
  setActive(!!sub&&Notification.permission==='granted');setReady(true)
  }).catch(()=>{})},[])
- async function toggle(){setBusy(true);setError('');try{const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription()
+ async function toggle(){setBusy(true);setError('');try{if(!active&&await Notification.requestPermission()!=='granted')throw new Error('Autorizza le notifiche nelle impostazioni del browser.');const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription()
  if(active&&sub){await saveSubscription(sub,'remove');await sub.unsubscribe();setActive(false);localStorage.setItem('preview-push-dismissed','1');setDismissed(true)}
- else{if(await Notification.requestPermission()!=='granted')throw new Error('Autorizza le notifiche nelle impostazioni del browser.');sub=sub||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyBytes(key)});await saveSubscription(sub,'add');setActive(true);setDismissed(true)}
+ else{sub=sub||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyBytes(key)});await saveSubscription(sub,'add');setActive(true);setDismissed(true)}
  }catch(e){setError(e instanceof Error?e.message:'Notifiche non disponibili')}finally{setBusy(false)}}
  if(!key)return null
  return <div className="card p-3 mx-2 my-2 flex flex-wrap items-center gap-2 text-sm">
