@@ -9,6 +9,13 @@ export default function Notifications(){
  const {data,error:loadError,mutate}=useSWR('/api/notifiche',fetcher,{refreshInterval:15000})
  const {data:tournaments}=useSWR('/api/tournaments',fetcher)
  const {data:regs,error:regsError}=useSWR(tid?'/api/registrations/by-tournament?tournament_id='+encodeURIComponent(tid):null,fetcher)
+ const [pushMessage,setPushMessage]=useState(''),[pushResult,setPushResult]=useState('')
+ const {data:push,error:pushError,mutate:refreshPush}=useSWR(tab==='push'?'/api/notifiche/push':null,fetcher)
+ async function broadcast(){
+  if(!pushMessage.trim()||!push?.enabled||!push.count||!confirm('Inviare questa notifica a '+push.count+' dispositivi di prova?'))return
+  setBusy(true);setError('');setPushResult('')
+  try{const r=await fetch('/api/notifiche/push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:pushMessage,confirm:true})});const j=await r.json();if(!r.ok)throw new Error(j.error||'Invio non riuscito');setPushResult('Accettate dal servizio push: '+j.sent+' · Non riuscite: '+j.failed+(j.historySaved?'':' · Storico non salvato'));setPushMessage('');await refreshPush()}catch(e){setError(e instanceof Error?e.message:'Errore invio')}finally{setBusy(false)}
+ }
  const players:Player[]=data?.players||[]
  const phone=(id:string):string=>data?.contacts?.find((c:any)=>c.player_id===id)?.phone||''
  const checked=(id:string):boolean=>!!data?.checks?.find((c:any)=>c.player_id===id&&c.tournament_id===tid)?.contacted
@@ -22,7 +29,17 @@ export default function Notifications(){
  return <div className="space-y-4 p-2 sm:p-4 xl:p-6"><h1 className="text-xl font-semibold text-center">Notifiche</h1>
  <div className="flex flex-wrap justify-center gap-2">{[['push','Notifiche push'],['contacts','Contatti atleti'],['confirm','Conferme torneo']].map(([id,label])=><button key={id} className={button+(tab===id?' border-orange-500 font-bold':'')} onClick={()=>{setTab(id);setFilter('all')}}>{label}</button>)}</div>
  {(error||loadError)&&<p role="alert" className="text-red-400">{error||loadError?.message}</p>}
- {tab==='push'?<div className="card p-4 space-y-3"><h2 className="font-semibold">Notifiche push</h2><p>Invio broadcast in attesa della configurazione del servizio push.</p></div>:<><div className="card p-4 space-y-2"><label htmlFor="wa-message">Messaggio WhatsApp</label><textarea id="wa-message" className="input w-full min-h-[100px]" value={message} onChange={e=>setMessage(e.target.value)} placeholder="Scrivi il messaggio da inviare…"/><p className="text-sm opacity-70">Il messaggio non viene salvato. Conferma l'invio direttamente su WhatsApp.</p></div>
+ {tab==='push'?<div className="card p-4 space-y-3"><h2 className="font-semibold">Notifiche push</h2><p className="text-sm opacity-80">PREVIEW · Solo dispositivi iscritti a questo indirizzo di prova.</p>
+ {pushError&&<p role="alert" className="text-red-400">{pushError.message}</p>}
+ {!push?.enabled&&<p>Servizio push non ancora configurato.</p>}
+ <p>Dispositivi iscritti: <strong>{push?.count??'—'}</strong></p>
+ <label className="block">Titolo: <strong>Mattabel</strong></label>
+ <textarea className="input w-full min-h-[120px]" maxLength={500} value={pushMessage} onChange={e=>setPushMessage(e.target.value)} placeholder="Scrivi una comunicazione…"/>
+ <div className="flex flex-wrap justify-between items-center gap-2"><span>{pushMessage.length}/500</span><button className={button+' border-orange-500 font-bold'} disabled={busy||!push?.enabled||!push.count||!pushMessage.trim()} onClick={()=>void broadcast()}>Invia notifica</button></div>
+ {pushResult&&<p role="status">{pushResult}</p>}
+ <h3 className="font-semibold pt-3">Storico invii</h3>
+ {(push?.history||[]).map((h:any)=><div key={h.id} className="border-b border-neutral-700 py-2"><p>{h.message}</p><p className="text-sm opacity-70">{new Date(h.created_at).toLocaleString('it-IT')} · Accettate: {h.sent} · Non riuscite: {h.failed}</p></div>)}
+ {!push?.history?.length&&<p className="text-sm opacity-70">Nessun invio registrato.</p>}</div>:<><div className="card p-4 space-y-2"><label htmlFor="wa-message">Messaggio WhatsApp</label><textarea id="wa-message" className="input w-full min-h-[100px]" value={message} onChange={e=>setMessage(e.target.value)} placeholder="Scrivi il messaggio da inviare…"/><p className="text-sm opacity-70">Il messaggio non viene salvato. Conferma l'invio direttamente su WhatsApp.</p></div>
  {tab==='contacts'?<div className="card p-4 space-y-3"><div className="flex flex-wrap gap-2"><input className="input flex-1" placeholder="Cerca atleta" value={query} onChange={e=>setQuery(e.target.value)}/><select className="input" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">Tutti</option><option value="with">Con numero</option><option value="without">Senza numero</option></select><button className={button} onClick={()=>setReveal(!reveal)}>{reveal?'Nascondi numeri':'Mostra numeri'}</button></div>
  {players.filter(p=>(p.last_name+' '+p.first_name).toLowerCase().includes(query.toLowerCase())&&(filter==='all'||(filter==='with'?!!phone(p.id):!phone(p.id)))).map(p=><div key={p.id} className="flex flex-wrap items-center gap-2 border-b border-neutral-700 py-2"><strong className="flex-1">{p.last_name} {p.first_name}</strong><span>{phone(p.id)?reveal?phone(p.id):'•••• '+phone(p.id).slice(-3):'Senza numero'}</span><button disabled={busy} className={button} onClick={()=>{const n=prompt('Numero con prefisso internazionale (vuoto per rimuovere)',phone(p.id));if(n!==null)void save({kind:'contact',player_id:p.id,phone:n.replace(/[\s()-]/g,'')})}}>Modifica</button>{wa(p.id)}</div>)}</div>:<div className="card p-4 space-y-3"><select className="input w-full" value={tid} onChange={e=>setTid(e.target.value)}><option value="">Seleziona torneo</option>{(tournaments?.items||[]).map((t:any)=><option key={t.id} value={t.id}>{t.name} {t.event_date||''}</option>)}</select>
  {regsError&&<p role="alert">Errore caricamento iscritti</p>}
