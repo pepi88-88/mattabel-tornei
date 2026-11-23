@@ -102,6 +102,8 @@ function ExitButton() {
 
 export default function AppHeader() {
   const role = useRole()
+  const [superAdmin,setSuperAdmin] = React.useState(false)
+  React.useEffect(()=>{fetch('/api/auth/superadmin',{cache:'no-store'}).then(r=>r.json()).then(v=>setSuperAdmin(v.allowed===true)).catch(()=>setSuperAdmin(false))},[])
   const pathname = usePathname()
   const router = useRouter()
   const navigate = (href: string) => {
@@ -133,11 +135,12 @@ export default function AppHeader() {
   ) return null
 
   // Filtra voci per ruolo (se ruolo non ancora letto => mostra nulla, eviti flash)
-  const visible =
+  const regular =
     role === 'admin' || role === 'coach'
       ? NAV_ITEMS.filter(i => i.roles === 'any' || i.roles.includes(role))
       : [] // atleta o undefined: niente voci admin/coach
 
+  const visible: Item[] = superAdmin ? [{href:'/admin/notifiche',label:'Notifiche',icon:'broadcast',roles:['admin']},...regular] : regular
   return (
     <>
       {/* HEADER sticky */}
