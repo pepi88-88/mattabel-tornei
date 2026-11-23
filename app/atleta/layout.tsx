@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import BrandLogo from '../../components/BrandLogo'
+import PreviewPushToggle from '../../components/PreviewPushToggle'
 import ThemeSwitcher from '../../components/ThemeSwitcher'
 import NavigationIcon, { type NavigationIconName } from '../../components/NavigationIcon'
 
@@ -72,6 +73,7 @@ export default function AthleteLayout({ children }: { children: React.ReactNode 
 
       {/* Contenuto */}
       <main className="mt-athlete-main flex-1 container-admin mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <PreviewPushToggle />
         {children}
       </main>
     </div>
