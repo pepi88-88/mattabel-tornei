@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server'
-import {isSuperAdmin} from '@/lib/superadmin-session'
-import {pushConfig,sendPush} from '@/lib/preview-webpush'
+import {isSuperAdmin} from '../../../../lib/superadmin-session'
+import {pushConfig,sendPush} from '../../../../lib/preview-webpush'
 import {supabaseAdmin} from '@/lib/supabaseServer'
 export const dynamic='force-dynamic'
 export const maxDuration=60
