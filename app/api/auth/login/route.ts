@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   let role: 'admin' | 'coach' | null = null
 
   const expected = process.env.SUPER_ADMIN_PASS || ''
-  const superLogin = user === 'Pres' && expected.length >= 12 && Buffer.byteLength(pass) === Buffer.byteLength(expected) && timingSafeEqual(new TextEncoder().encode(pass), new TextEncoder().encode(expected)) && (process.env.SUPER_ADMIN_SESSION_SECRET || '').length >= 32
+  const superLogin = process.env.VERCEL_ENV === 'preview' && user === 'Pres' && expected.length >= 8 && Buffer.byteLength(pass) === Buffer.byteLength(expected) && timingSafeEqual(new TextEncoder().encode(pass), new TextEncoder().encode(expected)) && (process.env.SUPER_ADMIN_SESSION_SECRET || '').length >= 32
   if (superLogin) {
     role = 'admin'
   } else if (user === process.env.ADMIN_USER && pass === process.env.ADMIN_PASS) {
