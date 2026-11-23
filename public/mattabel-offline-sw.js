@@ -31,7 +31,7 @@ self.addEventListener('fetch',event=>{
  const req=event.request
  if(req.method!=='GET')return
  const url=new URL(req.url)
- if(url.origin!==self.location.origin || url.pathname.startsWith('/api/'))return
+ if(url.origin!==self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/notifiche'))return
  if(req.mode==='navigate'){
    event.respondWith((async()=>{
      const cache=await caches.open(VERSION)
@@ -85,5 +85,19 @@ self.addEventListener('message',event=>{
      }
      port?.postMessage({ok:true})
    }catch(err){port?.postMessage({ok:false,error:String(err)})}
+ })())
+})
+
+self.addEventListener('push',event=>{
+ let data={}
+ try{data=event.data?.json()||{}}catch{}
+ event.waitUntil(self.registration.showNotification('Mattabel',{body:String(data.body||'Nuova comunicazione Mattabel'),icon:'/pwa-icon/192',badge:'/pwa-icon/192'}))
+})
+self.addEventListener('notificationclick',event=>{
+ event.notification.close()
+ event.waitUntil((async()=>{
+ const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true})
+ for(const client of windows){if(new URL(client.url).pathname.startsWith('/atleta'))return client.focus()}
+ return self.clients.openWindow('/atleta/tornei')
  })())
 })
