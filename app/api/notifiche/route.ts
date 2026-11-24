@@ -4,14 +4,23 @@ import { supabaseAdmin } from '@/lib/supabaseServer'
 export const dynamic='force-dynamic'
 const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{'Cache-Control':'private, no-store'}})
 const valid=(v:unknown)=>typeof v==='string' && /^[a-zA-Z0-9_-]{1,100}$/.test(v)
+async function allRows(query:(from:number,to:number)=>PromiseLike<{data:any[]|null;error:unknown}>){
+ const rows:any[]=[]
+ for(let from=0;;from+=500){
+  const {data,error}=await query(from,from+499)
+  if(error)return {data:null,error}
+  rows.push(...(data||[]))
+  if(!data||data.length<500)return {data:rows,error:null}
+ }
+}
 export async function GET(){
  if(!isSuperAdmin()) return reply({error:'Non autorizzato'},403)
  const s=supabaseAdmin()
  const [players,contacts,checks,teams]=await Promise.all([
- s.from('players').select('id,first_name,last_name').order('last_name').limit(10000),
- s.from('preview_notification_contacts').select('*'),
- s.from('preview_notification_checks').select('*'),
- s.from('preview_notification_teams').select('*')])
+ allRows((a,b)=>s.from('players').select('id,first_name,last_name').order('last_name').order('id').range(a,b)),
+ allRows((a,b)=>s.from('preview_notification_contacts').select('*').order('player_id').range(a,b)),
+ allRows((a,b)=>s.from('preview_notification_checks').select('*').order('tournament_id').order('player_id').range(a,b)),
+ allRows((a,b)=>s.from('preview_notification_teams').select('*').order('tournament_id').order('registration_id').range(a,b))])
  if([players,contacts,checks,teams].some(x=>x.error)) return reply({error:'Archivio Preview non configurato'},503)
  return reply({players:players.data,contacts:contacts.data,checks:checks.data,teams:teams.data})
 }
