@@ -1,5 +1,7 @@
 'use client'
 
+
+import {volatileDrafts} from '../../../lib/volatileDrafts'
 /* ============================================================================
    Creazione tabellone
    - SE classico (linee fino alle semifinali) + winner box
@@ -938,12 +940,12 @@ useEffect(() => {
       setOfflineBracketStatus('')
       let loadedItems=normalized
       let loadedWinners=serverWinners
-      const pendingRaw=localStorage.getItem(bracketDraftKey(tId))
+      const pendingRaw=volatileDrafts.getItem(bracketDraftKey(tId))
       if(pendingRaw){
         const pending=JSON.parse(pendingRaw)
         if(pending?.rows && pending?.winners){
           const pendingSnapshot=JSON.stringify({items:pending.rows,winnersById:pending.winners})
-          if(pendingSnapshot===serverBase)localStorage.removeItem(bracketDraftKey(tId))
+          if(pendingSnapshot===serverBase)volatileDrafts.removeItem(bracketDraftKey(tId))
           else{
             loadedItems=pending.rows.map(normalizeBracket)
             loadedWinners=pending.winners
@@ -996,22 +998,22 @@ const persistBracketDraft=(tournamentId:string,rows:Bracket[],
   let draft:any
   try{
     const key=bracketDraftKey(tournamentId)
-    const old=JSON.parse(localStorage.getItem(key)||'null')
+    const old=JSON.parse(volatileDrafts.getItem(key)||'null')
     draft={
       rows,winners:chosenWinners,
       baseSnapshot:old?.baseSnapshot??bracketBaseRef.current,
       savedAt:Date.now()
     }
-    localStorage.setItem(key,JSON.stringify(draft))
+    volatileDrafts.setItem(key,JSON.stringify(draft))
   }catch{
     setBracketsSaveState('error')
     setOfflineBracketStatus('Memoria locale non disponibile: non cambiare pagina.')
     return Promise.reject(new Error('Memoria locale'))
   }
   if(!navigator.onLine){
-    setOfflineBracketStatus('Offline: modifiche ai tabelloni salvate sul dispositivo.')
-    setBracketsSaveState('saved')
-    return Promise.resolve()
+    setOfflineBracketStatus('Offline: tabelloni NON salvati. Riconnettiti senza chiudere la pagina.')
+    setBracketsSaveState('error')
+    return Promise.reject(new Error('Connessione assente'))
   }
   if(offlineBracketConflict)return Promise.resolve()
   const save=async()=>{
@@ -1034,9 +1036,9 @@ const persistBracketDraft=(tournamentId:string,rows:Bracket[],
       }
       if(currentSnapshot===newSnapshot){
         bracketBaseRef.current=newSnapshot
-        const latest=JSON.parse(localStorage.getItem(bracketDraftKey(tournamentId))||'null')
+        const latest=JSON.parse(volatileDrafts.getItem(bracketDraftKey(tournamentId))||'null')
         if(latest && JSON.stringify(latest.rows)===JSON.stringify(rows))
-          localStorage.removeItem(bracketDraftKey(tournamentId))
+          volatileDrafts.removeItem(bracketDraftKey(tournamentId))
         setBracketsSaveState('saved')
         setOfflineBracketStatus('')
         return
@@ -1070,15 +1072,15 @@ const persistBracketDraft=(tournamentId:string,rows:Bracket[],
       }
       if(!put.ok)throw new Error('Salvataggio fallito')
       bracketBaseRef.current=JSON.stringify({items:rows,winnersById:winners})
-      const latest=JSON.parse(localStorage.getItem(bracketDraftKey(tournamentId))||'null')
+      const latest=JSON.parse(volatileDrafts.getItem(bracketDraftKey(tournamentId))||'null')
       if(latest && JSON.stringify(latest.rows)===JSON.stringify(rows)&&
          JSON.stringify(latest.winners)===JSON.stringify(chosenWinners))
-        localStorage.removeItem(bracketDraftKey(tournamentId))
+        volatileDrafts.removeItem(bracketDraftKey(tournamentId))
       setBracketsSaveState('saved')
       setOfflineBracketStatus('')
     }catch{
       setBracketsSaveState('error')
-      setOfflineBracketStatus('Tabellone conservato sul tablet; ancora da sincronizzare.')
+      setOfflineBracketStatus('Salvataggio Supabase non riuscito. Non chiudere la pagina.')
     }
   }
   const pending=bracketsSaveQueue.current.catch(()=>{}).then(save)
@@ -1316,7 +1318,7 @@ return (
       {offlineBracketStatus}
       {offlineBracketConflict&&<button type="button" className="ml-3 underline" onClick={()=>{
         if(!window.confirm('Scartare la bozza LOCALE dei tabelloni? Le modifiche offline andranno perse.'))return
-        localStorage.removeItem(bracketDraftKey(tId))
+        volatileDrafts.removeItem(bracketDraftKey(tId))
         window.location.reload()
       }}>Scarta bozza locale</button>}
     </div>}
