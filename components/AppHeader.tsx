@@ -103,8 +103,8 @@ function ExitButton() {
 export default function AppHeader() {
   const role = useRole()
   const [superAdmin,setSuperAdmin] = React.useState(false)
-  React.useEffect(()=>{fetch('/api/auth/superadmin',{cache:'no-store'}).then(r=>r.json()).then(v=>setSuperAdmin(v.allowed===true)).catch(()=>setSuperAdmin(false))},[])
   const pathname = usePathname()
+  React.useEffect(()=>{let valid=true;if(role!=='admin'){setSuperAdmin(false);return}fetch('/api/auth/superadmin',{cache:'no-store'}).then(r=>r.json()).then(v=>{if(valid)setSuperAdmin(v.allowed===true)}).catch(()=>{if(valid)setSuperAdmin(false)});return()=>{valid=false}},[pathname,role])
   const router = useRouter()
   const navigate = (href: string) => {
     if (href === '__exit__') {
@@ -140,7 +140,7 @@ export default function AppHeader() {
       ? NAV_ITEMS.filter(i => i.roles === 'any' || i.roles.includes(role))
       : [] // atleta o undefined: niente voci admin/coach
 
-  const visible: Item[] = superAdmin ? [{href:'/admin/notifiche',label:'Notifiche',icon:'broadcast',roles:['admin']},...regular] : regular
+  const visible: Item[] = role==='admin' && superAdmin ? [{href:'/admin/notifiche',label:'Notifiche',icon:'broadcast',roles:['admin']},...regular] : regular
   return (
     <>
       {/* HEADER sticky */}
