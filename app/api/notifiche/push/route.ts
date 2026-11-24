@@ -9,9 +9,9 @@ export async function GET(req:NextRequest){
  if(!isSuperAdmin())return json({error:'Non autorizzato'},403)
  if(!pushConfig().enabled)return json({enabled:false,count:0,history:[]})
  const s=supabaseAdmin(),origin=req.nextUrl.origin
- const [subs,history]=await Promise.all([s.from('preview_push_subscriptions').select('id',{count:'exact',head:true}).eq('origin',origin),s.from('preview_push_history').select('id,message,sent,failed,created_at').eq('origin',origin).order('created_at',{ascending:false}).limit(30)])
+ const [subs,history]=await Promise.all([s.from('preview_push_subscriptions').select('id,endpoint',{count:'exact'}).eq('origin',origin).order('id').limit(1000),s.from('preview_push_history').select('id,message,sent,failed,created_at').eq('origin',origin).order('created_at',{ascending:false}).limit(30)])
  if(subs.error||history.error)return json({error:'Archivio push non configurato'},503)
- return json({enabled:true,count:subs.count||0,history:history.data||[]})
+ return json({enabled:true,count:subs.count||0,history:history.data||[],devices:(subs.data||[]).map(d=>({id:d.id,provider: d.endpoint.includes('push.apple.com')?'Apple':d.endpoint.includes('mozilla.com')?'Firefox':d.endpoint.includes('windows.com')?'Windows':d.endpoint.includes('fcm.googleapis.com')?'Google / Chrome':'Browser'}))})
 }
 export async function POST(req:NextRequest){
  if(!isSuperAdmin()||req.headers.get('origin')!==req.nextUrl.origin)return json({error:'Non autorizzato'},403)
@@ -27,4 +27,12 @@ export async function POST(req:NextRequest){
  for(let i=0;i<all.length;i+=20)await Promise.all(all.slice(i,i+20).map(async sub=>{try{const code=await sendPush(sub,message);if(code>=200&&code<300)sent++;else{failed++;if(code===404||code===410)await s.from('preview_push_subscriptions').delete().eq('id',sub.id).eq('origin',origin)}}catch{failed++}}))
  const saved=await s.from('preview_push_history').insert({origin,message,sent,failed})
  return json({ok:true,sent,failed,historySaved:!saved.error})
+}
+
+export async function DELETE(req:NextRequest){
+ if(!isSuperAdmin()||req.headers.get('origin')!==req.nextUrl.origin)return json({error:'Non autorizzato'},403)
+ const b=await req.json().catch(()=>null)
+ if(typeof b?.id!=='string'||!/^[a-f0-9]{64}$/.test(b.id))return json({error:'Dispositivo non valido'},400)
+ const {error}=await supabaseAdmin().from('preview_push_subscriptions').delete().eq('id',b.id).eq('origin',req.nextUrl.origin)
+ return error?json({error:'Rimozione non riuscita'},500):json({ok:true})
 }
