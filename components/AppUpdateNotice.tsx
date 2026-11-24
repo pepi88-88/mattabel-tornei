@@ -1,6 +1,7 @@
 'use client'
 
 import {useCallback,useEffect,useRef,useState} from 'react'
+import {hasUnsavedChanges,legacyDraftKeys,discardLegacyDrafts} from '../lib/volatileDrafts'
 
 const VERSION_KEY='mattabel:app:version'
 const CHECK_INTERVAL=5*60*1000
@@ -12,34 +13,6 @@ function isInstalledApp(){
   return window.matchMedia('(display-mode: standalone)').matches ||
     window.matchMedia('(display-mode: fullscreen)').matches ||
     Boolean((navigator as Navigator & {standalone?:boolean}).standalone)
-}
-
-// Le bozze non sincronizzate rimangono sul dispositivo: non ricaricare
-// la pagina finché esistono. Le cache offline sono escluse dal controllo.
-function hasPendingChanges(){
-  try{
-    for(let i=0;i<localStorage.length;i++){
-      const key=localStorage.key(i)||''
-      if(!(
-        /^mattabel:risultati:pending:/.test(key)||
-        /^mattabel:gironi:pending:/.test(key)||
-        /^mattabel:offline:(?:brackets|creation|payments):pending:/.test(key)
-      ))continue
-      const raw=localStorage.getItem(key)
-      if(!raw)continue
-      try{
-        const value=JSON.parse(raw)
-        if(value==null||value===false)continue
-        if(Array.isArray(value)&&value.length===0)continue
-        if(typeof value==='object'&&Object.keys(value).length===0)continue
-      }catch{}
-      return true
-    }
-  }catch{
-    // Se non possiamo verificare le bozze, non ricarichiamo.
-    return true
-  }
-  return false
 }
 
 export default function AppUpdateNotice(){
@@ -68,7 +41,7 @@ export default function AppUpdateNotice(){
         localStorage.setItem(VERSION_KEY,next)
       }else if(previous!==next){
         setAvailable(next)
-        setPending(hasPendingChanges())
+        setPending(hasUnsavedChanges())
       }
     }catch{
       // Offline o API temporaneamente indisponibile: nessun refresh.
@@ -94,13 +67,28 @@ export default function AppUpdateNotice(){
     }
   },[check])
 
+  useEffect(()=>{
+    const beforeUnload=(event:BeforeUnloadEvent)=>{if(hasUnsavedChanges()){event.preventDefault();event.returnValue=''}}
+    const beforeNav=(event:Event)=>{
+      if(!hasUnsavedChanges())return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      window.alert('Ci sono modifiche non ancora salvate su Supabase. Attendi il salvataggio o verifica la connessione prima di cambiare pagina.')
+    }
+    window.addEventListener('beforeunload',beforeUnload)
+    window.addEventListener('mattabel:before-admin-nav',beforeNav,true)
+    return()=>{window.removeEventListener('beforeunload',beforeUnload);window.removeEventListener('mattabel:before-admin-nav',beforeNav,true)}
+  },[])
+
   async function applyUpdate(){
     if(busy)return
     if(!navigator.onLine){setPending(false);return}
-    if(hasPendingChanges()){
+    if(hasUnsavedChanges()){
       setPending(true)
       return
     }
+    if(legacyDraftKeys().length && !window.confirm('Sono presenti vecchie bozze offline. Vuoi scartarle e aggiornare usando i dati Supabase? Nessun dato sul server verrà cancellato.'))return
+    discardLegacyDrafts()
     setPending(false)
     setBusy(true)
     try{
@@ -146,7 +134,7 @@ export default function AppUpdateNotice(){
       <div>
         <div className="font-bold text-base">🏐 Aggiornamento Mattabel disponibile</div>
         <p className="mt-1 text-sm text-slate-300">
-          {pending?'Sono presenti bozze locali da verificare, anche di tornei precedenti. Controlla i salvataggi prima di aggiornare.':'Una nuova versione di Mattabel Tornei è pronta.'}
+          {pending?'Ci sono modifiche della sessione attuale non ancora salvate su Supabase. Attendi il salvataggio prima di aggiornare.':'Una nuova versione di Mattabel Tornei è pronta.'}
         </p>
       </div>
       <button type="button" onClick={()=>setDismissed(available)} aria-label="Ricordamelo più tardi" className="shrink-0 rounded px-2 py-1 text-slate-300 hover:bg-slate-800">✕</button>
@@ -154,7 +142,7 @@ export default function AppUpdateNotice(){
     <div className="mt-3 flex flex-wrap gap-2">
       <button type="button" disabled={busy||!navigator.onLine} onClick={()=>void applyUpdate()}
         className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
-        {busy?'Aggiornamento…':pending?'Verifica sincronizzazione':'Aggiorna ora'}
+        {busy?'Aggiornamento…':pending?'Verifica salvataggio':'Aggiorna ora'}
       </button>
       <button type="button" onClick={()=>setDismissed(available)} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-200">
         Più tardi
