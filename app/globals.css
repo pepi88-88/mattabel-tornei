@@ -4351,3 +4351,52 @@ html[data-mattabel-theme] .admin-nav-tablet > button{
     }
   }
 }
+
+
+/* Notifications: responsive to card width, including compact desktop grids. */
+.mt-notify-page{width:100%;min-width:0}
+.mt-notify-page .mt-notify-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:stretch;min-width:0}
+@media(min-width:768px){
+ .mt-notify-page .mt-notify-columns-2,.mt-notify-page .mt-notify-columns-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(min-width:1280px){
+ .mt-notify-page .mt-notify-columns-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+.mt-notify-contact,.mt-notify-team{container-type:inline-size;min-width:0;max-width:100%}
+.mt-notify-contact-inner{display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:6px;min-width:0}
+.mt-notify-name{display:block;min-width:0;white-space:normal;word-break:normal;overflow-wrap:anywhere;font-weight:700;line-height:1.35}
+.mt-notify-contact-actions{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:5px;min-width:0}
+.mt-notify-number{min-width:0;white-space:normal;overflow-wrap:anywhere;font-size:.8rem;opacity:.85}
+.mt-notify-contact-actions button,.mt-notify-member-actions button{min-width:0;white-space:nowrap;max-width:100%;padding-inline:8px!important;font-size:.75rem!important;min-height:36px}
+.mt-notify-contact-actions button:last-child,.mt-notify-member-actions button:last-child{width:auto!important}
+.mt-notify-member{display:grid;grid-template-columns:14px minmax(0,1fr);align-items:center;gap:5px;min-width:0;padding-block:4px}
+.mt-notify-member-actions{grid-column:2;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;min-width:0}
+.mt-notify-member-actions button:first-child{width:100px!important}
+.mt-notify-team-status button{white-space:normal;min-height:36px}
+@container(min-width:430px){
+ .mt-notify-contact-inner{grid-template-columns:minmax(0,1fr) auto}
+ .mt-notify-member{grid-template-columns:14px minmax(0,1fr) auto}
+ .mt-notify-member-actions{grid-column:3;flex-wrap:nowrap}
+}
+@container(max-width:240px){
+ .mt-notify-contact-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .mt-notify-number{grid-column:1/-1}
+ .mt-notify-member-actions{justify-content:stretch}
+ .mt-notify-member-actions button:first-child{width:auto!important}
+ .mt-notify-member-actions button{flex:1 1 auto}
+}
+@media(max-width:767px){
+ .mt-notify-page{padding:0!important}
+ .mt-notify-page .card{padding:9px!important}
+ .mt-notify-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px!important}
+ .mt-notify-tabs button{padding:8px 4px!important;font-size:.75rem!important;line-height:1.25;min-height:42px;white-space:normal}
+ .mt-notify-page .mt-notify-column-picker{display:none}
+ .mt-notify-sync{text-align:center!important;font-size:.7rem!important}
+ .mt-notify-contact{padding:9px!important}
+ .mt-notify-name{font-size:.9rem}
+ .mt-notify-search{width:100%!important;max-width:none!important;min-width:0!important}
+ .mt-notify-page input:not([type=checkbox]):not([type=radio]):not([type=file]),.mt-notify-page select,.mt-notify-page textarea{max-width:100%;min-width:0;font-size:16px!important}
+ .mt-notify-team-status{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px!important}
+ .mt-notify-team-status>span{grid-column:1/-1}
+ .mt-notify-team-status button{padding:5px 3px!important;font-size:.7rem!important}
+}
