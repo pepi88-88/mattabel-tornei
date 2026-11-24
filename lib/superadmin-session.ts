@@ -3,7 +3,8 @@ import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto'
 import { cookies } from 'next/headers'
 
 export const SUPER_COOKIE = 'mattabel_pres_session'
-const TTL = 8 * 60 * 60
+export const SUPER_SESSION_TTL = 365 * 24 * 60 * 60
+const TTL = SUPER_SESSION_TTL
 function secret() { return process.env.SUPER_ADMIN_SESSION_SECRET || '' }
 function sign(value: string) { return createHmac('sha256', secret()+'\x00'+(process.env.SUPER_ADMIN_PASS||'')).update(value).digest('hex') }
 export function createSuperSession() {
