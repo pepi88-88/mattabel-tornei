@@ -2,6 +2,7 @@
 
 import MattabelAccessLogo from '../components/MattabelAccessLogo'
 import InstallMattabel from '../components/InstallMattabel'
+import PreviewPushToggle from '../components/PreviewPushToggle'
 import { useRouter } from 'next/navigation'
 
 export default function Home() {
@@ -25,6 +26,7 @@ export default function Home() {
      <span aria-hidden="true" className="mt-access-choice-icon">▣</span><span>Staff</span>
     </button>
    </div>
+   <PreviewPushToggle entry />
    <InstallMattabel />
   </section>
  </main>
