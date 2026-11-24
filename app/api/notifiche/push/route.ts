@@ -23,7 +23,7 @@ export async function POST(req:NextRequest){
  if(error)return json({error:'Archivio push non disponibile'},503)
  let sent=0,failed=0
  const all=data||[]
- if(all.length>100)return json({error:'Limite di sicurezza Preview: massimo 100 dispositivi per invio'},409)
+ if(all.length>100)return json({error:'Limite di sicurezza: massimo 100 dispositivi per invio'},409)
  for(let i=0;i<all.length;i+=20)await Promise.all(all.slice(i,i+20).map(async sub=>{try{const code=await sendPush(sub,message);if(code>=200&&code<300)sent++;else{failed++;if(code===404||code===410)await s.from('preview_push_subscriptions').delete().eq('id',sub.id).eq('origin',origin)}}catch{failed++}}))
  const saved=await s.from('preview_push_history').insert({origin,message,sent,failed})
  return json({ok:true,sent,failed,historySaved:!saved.error})
