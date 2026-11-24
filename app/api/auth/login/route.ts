@@ -1,6 +1,6 @@
 // app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createSuperSession, SUPER_COOKIE } from '../../../../lib/superadmin-session'
+import { createSuperSession, SUPER_COOKIE, SUPER_SESSION_TTL } from '../../../../lib/superadmin-session'
 import { timingSafeEqual } from 'node:crypto'
 
 export async function POST(req: NextRequest) {
@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
+    ...(superLogin ? {maxAge:SUPER_SESSION_TTL,secure:process.env.NODE_ENV==='production'} : {}),
   })
 
   // 🔴 COOKIE "COMUNE" CHE IL MIDDLEWARE SI ASPETTA
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
+    ...(superLogin ? {maxAge:SUPER_SESSION_TTL,secure:process.env.NODE_ENV==='production'} : {}),
   })
 
   // (facoltativo) mantieni anche quello per ruolo, se ti serve in futuro
@@ -49,10 +51,11 @@ export async function POST(req: NextRequest) {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
+    ...(superLogin ? {maxAge:SUPER_SESSION_TTL,secure:process.env.NODE_ENV==='production'} : {}),
   })
 
   if (superLogin) {
-    res.cookies.set(SUPER_COOKIE, createSuperSession(), { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/', maxAge: 28800 })
+    res.cookies.set(SUPER_COOKIE, createSuperSession(), { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/', maxAge: SUPER_SESSION_TTL })
   } else {
     res.cookies.set(SUPER_COOKIE, '', { path: '/', maxAge: 0 })
   }
