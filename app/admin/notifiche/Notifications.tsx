@@ -86,7 +86,7 @@ export default function Notifications(){
  <div className="flex flex-wrap justify-center gap-2">{[['push','Notifiche push'],['contacts','Contatti atleti'],['confirm','Conferme torneo']].map(([id,label])=><button key={id} className={button} style={tab===id?selected:undefined} aria-pressed={tab===id} onClick={()=>{setTab(id);setFilter('all')}}>{label}</button>)}</div>
  <p className="text-xs text-right opacity-80" role="status">{syncState==='saving'?'Salvataggio su Supabase…':syncState==='error'?'Preferenze non salvate — riprova':'Preferenze sincronizzate su Supabase'}</p>
  {(error||loadError||prefError)&&<p role="alert" className="text-red-400">{error||loadError?.message||prefError?.message}</p>}
- {tab==='push'?<div className="card p-2 sm:p-4 space-y-3 min-w-0"><h2 className="font-semibold">Notifiche push</h2><p className="text-sm opacity-80">PREVIEW · Solo dispositivi iscritti a questo indirizzo di prova.</p>
+ {tab==='push'?<div className="card p-2 sm:p-4 space-y-3 min-w-0"><h2 className="font-semibold">Notifiche push</h2><p className="text-sm opacity-80">Solo dispositivi iscritti alle notifiche di questo sito.</p>
  {pushError&&<p role="alert" className="text-red-400">{pushError.message}</p>}
  {!push?.enabled&&<p>Servizio push non ancora configurato.</p>}
  <div className="flex flex-wrap items-center gap-2"><p className="font-semibold">Dispositivi iscritti: <strong className="text-xl">{push?.count??'—'}</strong></p><button className={button} onClick={()=>void refreshPush()}>Aggiorna</button></div>
