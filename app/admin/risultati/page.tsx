@@ -1,5 +1,7 @@
 'use client'
 
+
+import {volatileDrafts} from '../../../lib/volatileDrafts'
 import PrepareOffline from '../../../components/PrepareOffline'
 import {offlineJSON} from '../../../lib/offlineClient'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
@@ -1059,17 +1061,8 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato �
 
   ;(async () => {
     try {
-    let gm: Awaited<ReturnType<typeof loadGroupsStateFromSupabase>>
-    let usingOfflineCache=false
-    try {
-      gm=await loadGroupsStateFromSupabase(tId)
-      try{localStorage.setItem('mattabel:risultati:cache:'+tId,JSON.stringify(gm))}catch{}
-    }catch(err){
-      const saved=localStorage.getItem('mattabel:risultati:cache:'+tId)
-      if(!saved)throw err
-      gm=JSON.parse(saved)
-      usingOfflineCache=true
-    }
+    const gm=await loadGroupsStateFromSupabase(tId)
+    const usingOfflineCache=false
     if (cancelled) return
     setStore({
   groupsCount: gm.groupsCount,
@@ -1086,12 +1079,12 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato �
     let restoredScores = gm.scores
     let restoredFields = fields
     try {
-      const pending = localStorage.getItem('mattabel:risultati:pending:' + tId)
+      const pending = volatileDrafts.getItem('mattabel:risultati:pending:' + tId)
       if (pending) {
         const parsed = JSON.parse(pending)
         if (parsed?.times && parsed?.scores) {
           if (JSON.stringify({ times: parsed.times, scores: parsed.scores, matchFields: parsed.matchFields ?? {} }) === lastResultsSnapshot.current) {
-            localStorage.removeItem('mattabel:risultati:pending:' + tId)
+            volatileDrafts.removeItem('mattabel:risultati:pending:' + tId)
           } else {
             restoredTimes=parsed.times
             restoredScores=parsed.scores
@@ -1329,11 +1322,11 @@ const resultsDraftKey = (id: string) => 'mattabel:risultati:pending:' + id
 useEffect(() => {
   if (!tId || isLoadingState || loadedFor !== tId) return
   const snapshot = JSON.stringify({ times, scores, matchFields })
-  if (snapshot === lastResultsSnapshot.current && !localStorage.getItem(resultsDraftKey(tId))) return
+  if (snapshot === lastResultsSnapshot.current && !volatileDrafts.getItem(resultsDraftKey(tId))) return
   const id=tId
   try {
-    const previous=JSON.parse(localStorage.getItem(resultsDraftKey(id))||'null')
-    localStorage.setItem(resultsDraftKey(id),JSON.stringify({
+    const previous=JSON.parse(volatileDrafts.getItem(resultsDraftKey(id))||'null')
+    volatileDrafts.setItem(resultsDraftKey(id),JSON.stringify({
       times,scores,matchFields,savedAt:Date.now(),
       baseSnapshot:previous?.baseSnapshot??lastResultsSnapshot.current
     }))
@@ -1343,7 +1336,7 @@ useEffect(() => {
   }
   if(offlineConflict)return
   if(!navigator.onLine){
-    setResultsSaveError('Offline: modifiche salvate sul dispositivo, non ancora ufficiali.')
+    setResultsSaveError('Offline: risultati NON salvati. Riconnettiti senza chiudere la pagina.')
     return
   }
   let cancelled=false
@@ -1361,7 +1354,7 @@ useEffect(() => {
           times:current.state?.times||{},scores:current.state?.scores||{},
           matchFields:current.state?.matchFields||{}
         })
-        const pending=JSON.parse(localStorage.getItem(resultsDraftKey(id))||'null')
+        const pending=JSON.parse(volatileDrafts.getItem(resultsDraftKey(id))||'null')
         const base=pending?.baseSnapshot??lastResultsSnapshot.current
         if(serverSnapshot!==base && serverSnapshot!==snapshot){
           if(!cancelled){
@@ -1373,7 +1366,7 @@ useEffect(() => {
         if(serverSnapshot===snapshot){
           if(!cancelled){
             lastResultsSnapshot.current=snapshot
-            localStorage.removeItem(resultsDraftKey(id))
+            volatileDrafts.removeItem(resultsDraftKey(id))
             setResultsSaveError('')
           }
           return
@@ -1390,11 +1383,11 @@ useEffect(() => {
         if (!cancelled) {
           lastResultsSnapshot.current = snapshot
           try {
-            const pending = localStorage.getItem(resultsDraftKey(id))
+            const pending = volatileDrafts.getItem(resultsDraftKey(id))
             if (pending) {
               const parsed = JSON.parse(pending)
               if (JSON.stringify({ times: parsed.times, scores: parsed.scores, matchFields: parsed.matchFields ?? {} }) === snapshot) {
-                localStorage.removeItem(resultsDraftKey(id))
+                volatileDrafts.removeItem(resultsDraftKey(id))
               }
             }
           } catch {}
@@ -1404,7 +1397,7 @@ useEffect(() => {
       }
       throw new Error('Conflitto salvataggi')
     } catch {
-      if (!cancelled) setResultsSaveError('Risultati conservati nel browser, non ancora sincronizzati.')
+      if (!cancelled) setResultsSaveError('Salvataggio Supabase non riuscito. Non chiudere la pagina.')
     }
   }, 450)
   return () => { cancelled = true; clearTimeout(timer) }
@@ -1810,10 +1803,10 @@ const resolveToken = useMemo(() => {
       const serverSnapshot=JSON.stringify({ winners, ita, courts, bracketScores })
       bracketsBaselineRef.current = serverSnapshot
       try {
-        const pending=JSON.parse(localStorage.getItem(bracketDraftKey(tId))||'null')
+        const pending=JSON.parse(volatileDrafts.getItem(bracketDraftKey(tId))||'null')
         if(pending?.state){
           if(pending.snapshot===serverSnapshot){
-            localStorage.removeItem(bracketDraftKey(tId))
+            volatileDrafts.removeItem(bracketDraftKey(tId))
           }else{
             if(navigator.onLine && pending.baseSnapshot!==serverSnapshot){
               setBracketsConflict(true)
@@ -1849,22 +1842,22 @@ useEffect(() => {
   const key = tourId && tId ? tourId + ':' + tId : ''
   if (!key || bracketsLoadKey !== key || bracketsLoadError) return
   const snapshot = JSON.stringify({ winners: winnersById, ita: itaScoresById, courts: courtsByBracket, bracketScores: bracketScoresById })
-  if (snapshot === bracketsBaselineRef.current && !localStorage.getItem(bracketDraftKey(tId))) return
+  if (snapshot === bracketsBaselineRef.current && !volatileDrafts.getItem(bracketDraftKey(tId))) return
   const request = bracketsRequestRef.current
   let cancelled = false
   const id = tId
   let draft:any
   try {
-    draft=JSON.parse(localStorage.getItem(bracketDraftKey(id))||'null')
+    draft=JSON.parse(volatileDrafts.getItem(bracketDraftKey(id))||'null')
     draft={
       snapshot,baseSnapshot:draft?.baseSnapshot??bracketsBaselineRef.current,
       state:{winners:winnersById,ita:itaScoresById,courts:courtsByBracket,bracketScores:bracketScoresById},
       savedAt:Date.now()
     }
-    localStorage.setItem(bracketDraftKey(id),JSON.stringify(draft))
+    volatileDrafts.setItem(bracketDraftKey(id),JSON.stringify(draft))
   }catch{setBracketsSyncError('Impossibile conservare tabelloni sul dispositivo.');return}
   if(bracketsConflict)return
-  if(!navigator.onLine){setBracketsSyncError('Offline: tabelloni conservati sul dispositivo.');return}
+  if(!navigator.onLine){setBracketsSyncError('Offline: tabelloni NON salvati. Riconnettiti senza chiudere la pagina.');return}
   const timer = setTimeout(async () => {
     try {
       const response = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(id)}`, {
@@ -1887,7 +1880,7 @@ useEffect(() => {
       }
       if(serverSnapshot===snapshot){
         bracketsBaselineRef.current=snapshot
-        localStorage.removeItem(bracketDraftKey(id))
+        volatileDrafts.removeItem(bracketDraftKey(id))
         setBracketsSyncError('')
         return
       }
@@ -1926,13 +1919,13 @@ useEffect(() => {
       if (!saved.ok) throw new Error('Salvataggio fallito')
       if (!cancelled && request === bracketsRequestRef.current){
         bracketsBaselineRef.current = snapshot
-        const latest=JSON.parse(localStorage.getItem(bracketDraftKey(id))||'null')
-        if(latest?.snapshot===snapshot)localStorage.removeItem(bracketDraftKey(id))
+        const latest=JSON.parse(volatileDrafts.getItem(bracketDraftKey(id))||'null')
+        if(latest?.snapshot===snapshot)volatileDrafts.removeItem(bracketDraftKey(id))
         setBracketsSyncError('')
       }
     } catch {
       if (!cancelled && request === bracketsRequestRef.current)
-        setBracketsSyncError('Tabelloni salvati sul dispositivo, ancora da sincronizzare.')
+        setBracketsSyncError('Salvataggio Supabase non riuscito. Non chiudere la pagina.')
     }
   }, 450)
   return () => { cancelled = true; clearTimeout(timer) }
@@ -2080,7 +2073,7 @@ return (
       <div role="status" className={offlineOnline
         ? 'rounded border border-emerald-700 px-3 py-2 text-emerald-300'
         : 'rounded border border-amber-500 px-3 py-2 text-amber-300'}>
-        {offlineOnline?'● Online':'● Offline — bozza salvata solo su questo dispositivo'}
+        {offlineOnline?'● Online':'● Offline — modifiche non salvate'}
         {offlineConflict&&' · Conflitto: sincronizzazione sospesa'}
       </div>
     } />
@@ -2089,7 +2082,7 @@ return (
       {bracketsConflict&&<button type="button" className="ml-3 underline"
         onClick={()=>{
           if(!window.confirm('Scartare la bozza LOCALE dei tabelloni? Le modifiche non sincronizzate andranno perse.'))return
-          localStorage.removeItem(bracketDraftKey(tId))
+          volatileDrafts.removeItem(bracketDraftKey(tId))
           window.location.reload()
         }}>Scarta bozza e ricarica dal server</button>}
     </div>}
@@ -2100,7 +2093,7 @@ return (
        {offlineConflict&&<button type="button" className="ml-3 underline"
          onClick={()=>{
            if(!window.confirm('Scartare i risultati dei gironi salvati SOLO su questo dispositivo? Non potranno più essere recuperati.'))return
-           localStorage.removeItem(resultsDraftKey(tId))
+           volatileDrafts.removeItem(resultsDraftKey(tId))
            window.location.reload()
          }}>Scarta bozza gironi e ricarica</button>}
      </div>}
