@@ -1,6 +1,6 @@
 'use client'
 
-import {volatileDrafts} from '../../../lib/volatileDrafts'
+import {volatileDrafts,hasUnsavedChanges} from '../../../lib/volatileDrafts'
 import useSWR from 'swr'
 import PrepareOffline from '../../../components/PrepareOffline'
 import {offlineJSON, cacheOfflineJSON, offlineQueueKey, readOfflineQueue, putOfflineQueue} from '../../../lib/offlineClient'
@@ -26,6 +26,7 @@ export default function PagamentiPage() {
     if (s) setTourId(s)
   }, [])
   function onPickTour(id: string) {
+    if(hasUnsavedChanges()){alert('Attendi il salvataggio su Supabase prima di cambiare torneo.');return}
     setTourId(id)
     localStorage.setItem('selectedTourId', id)
     localStorage.removeItem('selectedTournamentId')
@@ -71,6 +72,7 @@ export default function PagamentiPage() {
   }, [tId, tappeVisibili])
 
   function onPickTappa(id: string) {
+    if(hasUnsavedChanges()){alert('Attendi il salvataggio su Supabase prima di cambiare torneo.');return}
     setTId(id)
     localStorage.setItem('selectedTournamentId', id)
   }
