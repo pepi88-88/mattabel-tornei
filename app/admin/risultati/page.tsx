@@ -1,7 +1,7 @@
 'use client'
 
 
-import {volatileDrafts} from '../../../lib/volatileDrafts'
+import {volatileDrafts,hasUnsavedChanges} from '../../../lib/volatileDrafts'
 import PrepareOffline from '../../../components/PrepareOffline'
 import {offlineJSON} from '../../../lib/offlineClient'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
@@ -2079,6 +2079,7 @@ return (
     } />
     {bracketsSyncError&&<div role="alert" className="rounded border border-amber-500 p-3 text-amber-200">
       {bracketsSyncError}
+      {!bracketsConflict&&<button type="button" className="ml-3 underline" onClick={()=>setBracketsRetry(x=>x+1)}>Riprova salvataggio</button>}
       {bracketsConflict&&<button type="button" className="ml-3 underline"
         onClick={()=>{
           if(!window.confirm('Scartare la bozza LOCALE dei tabelloni? Le modifiche non sincronizzate andranno perse.'))return
@@ -2090,6 +2091,7 @@ return (
 
      {resultsSaveError && <div role="alert" className="rounded border border-amber-500 p-3 text-amber-300">
        {resultsSaveError}
+       {!offlineConflict&&loadedFor===tId&&<button type="button" className="ml-3 underline" onClick={()=>setOfflineRetry(x=>x+1)}>Riprova salvataggio</button>}
        {offlineConflict&&<button type="button" className="ml-3 underline"
          onClick={()=>{
            if(!window.confirm('Scartare i risultati dei gironi salvati SOLO su questo dispositivo? Non potranno più essere recuperati.'))return
@@ -2105,6 +2107,7 @@ return (
           className="input w-56"
           value={tourId}
           onChange={(e) => {
+            if(hasUnsavedChanges()){alert('Attendi il salvataggio su Supabase prima di cambiare torneo.');return}
             setTourId(e.target.value)
             setTId('')
           }}
@@ -2122,7 +2125,7 @@ return (
         <select
   className="input w-64"
   value={tId}
-  onChange={(e) => {localStorage.setItem('selectedTournamentId',e.target.value);setTId(e.target.value)}}
+  onChange={(e) => {if(hasUnsavedChanges()){alert('Attendi il salvataggio su Supabase prima di cambiare torneo.');return};localStorage.setItem('selectedTournamentId',e.target.value);setTId(e.target.value)}}
 >
   {tappeVisibili.map((t) => (
     <option key={t.id} value={t.id}>
