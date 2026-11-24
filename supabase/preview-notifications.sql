@@ -15,3 +15,12 @@ alter table public.preview_push_history enable row level security;
 revoke all on public.preview_push_subscriptions,public.preview_push_history from anon,authenticated;
 grant select,insert,update,delete on public.preview_push_subscriptions,public.preview_push_history to service_role;
 grant usage,select on sequence public.preview_push_history_id_seq to service_role;
+
+create table if not exists public.preview_notification_preferences (
+ key text primary key check (key in ('tid','columns','tab','pushTemplates')),
+ value jsonb not null,
+ updated_at timestamptz not null default now()
+);
+alter table public.preview_notification_preferences enable row level security;
+revoke all on public.preview_notification_preferences from public,anon,authenticated;
+grant select,insert,update,delete on public.preview_notification_preferences to service_role;
