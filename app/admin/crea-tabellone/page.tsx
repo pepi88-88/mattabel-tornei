@@ -1,7 +1,7 @@
 'use client'
 
 
-import {volatileDrafts} from '../../../lib/volatileDrafts'
+import {volatileDrafts,hasUnsavedChanges} from '../../../lib/volatileDrafts'
 /* ============================================================================
    Creazione tabellone
    - SE classico (linee fino alle semifinali) + winner box
@@ -976,7 +976,7 @@ useEffect(() => {
     } catch {
       if (!cancelled) {
         // Non inizializzare un tabellone vuoto quando manca la rete.
-        setOfflineBracketStatus('Tabelloni non disponibili nel dispositivo. Prepara offline con Internet.')
+        setOfflineBracketStatus('Caricamento tabelloni non riuscito. Verifica la connessione e ricarica.')
         setBrackets([])
         setActiveId(null)
       }
@@ -1089,7 +1089,7 @@ const persistBracketDraft=(tournamentId:string,rows:Bracket[],
 }
 useEffect(()=>{
   if(!tId||!loadedRemote||!brackets.length)return
-  const timer=setTimeout(()=>void persistBracketDraft(tId,brackets,winnersById),300)
+  const timer=setTimeout(()=>{void persistBracketDraft(tId,brackets,winnersById).catch(()=>{})},300)
   return ()=>clearTimeout(timer)
 },[tId,loadedRemote,brackets,winnersById,bracketRetry,offlineBracketConflict])
 useEffect(()=>{
@@ -1099,6 +1099,7 @@ useEffect(()=>{
     event.preventDefault()
     const destination=event.detail.href
     persistBracketDraft(tId,brackets,winnersById).then(()=>{
+      if(hasUnsavedChanges()){window.alert('Salvataggio non completato. Riprova prima di cambiare pagina.');return}
       if(!navigator.onLine&&!['/admin/risultati','/admin/pagamenti','/admin/gironi','/admin/crea-tabellone'].includes(destination)){
         try{sessionStorage.setItem('mattabel:offline:last-unavailable',destination)}catch{}
         window.location.assign('/admin/offline')
@@ -1316,6 +1317,7 @@ return (
     <PrepareOffline tournamentId={tId} tourId={tourId}/>
     {offlineBracketStatus&&<div role="status" className="rounded border border-amber-500 p-3 text-amber-200">
       {offlineBracketStatus}
+      {!offlineBracketConflict&&brackets.length>0&&<button type="button" className="ml-3 underline" onClick={()=>setBracketRetry(x=>x+1)}>Riprova salvataggio</button>}
       {offlineBracketConflict&&<button type="button" className="ml-3 underline" onClick={()=>{
         if(!window.confirm('Scartare la bozza LOCALE dei tabelloni? Le modifiche offline andranno perse.'))return
         volatileDrafts.removeItem(bracketDraftKey(tId))
@@ -1335,7 +1337,7 @@ return (
       <select
         className="input w-56 h-12 text-base"
         value={tourId}
-        onChange={e=>{ localStorage.setItem('selectedTourId',e.target.value);localStorage.removeItem('selectedTournamentId');setTourId(e.target.value);setTId('');setTappe([]) }}
+        onChange={e=>{ if(hasUnsavedChanges()){alert('Attendi il salvataggio su Supabase prima di cambiare torneo.');return};localStorage.setItem('selectedTourId',e.target.value);localStorage.removeItem('selectedTournamentId');setTourId(e.target.value);setTId('');setTappe([]) }}
       >
         {tours.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
       </select>
@@ -1347,7 +1349,7 @@ return (
       <select
         className="input w-56 h-12 text-base"
         value={tId}
-        onChange={e=>{localStorage.setItem('selectedTournamentId',e.target.value);setTId(e.target.value)}}
+        onChange={e=>{if(hasUnsavedChanges()){alert('Attendi il salvataggio su Supabase prima di cambiare torneo.');return};localStorage.setItem('selectedTournamentId',e.target.value);setTId(e.target.value)}}
       >
         {tappe.map(t => (
           <option key={t.id} value={t.id}>
