@@ -1,5 +1,7 @@
 'use client'
 
+
+import {volatileDrafts} from '../../../lib/volatileDrafts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import useSWR from 'swr'
@@ -245,12 +247,12 @@ useEffect(() => {
       }
       savedSnapshotRef.current = JSON.stringify(serverDraft)
       let loaded = serverDraft
-      const pending = localStorage.getItem(draftKey(tId))
+      const pending = volatileDrafts.getItem(draftKey(tId))
       if (pending) {
         try {
           const parsed = JSON.parse(pending)
           if (parsed?.data && JSON.stringify(parsed.data) === JSON.stringify(serverDraft)) {
-            localStorage.removeItem(draftKey(tId))
+            volatileDrafts.removeItem(draftKey(tId))
             setSaveStatus('Salvato su Supabase')
           } else if (parsed?.data) {
             loaded = parsed.data
@@ -261,7 +263,7 @@ useEffect(() => {
               const merged=mergeGroupDraft(parsed.baseData,parsed.data,serverDraft)
               if (merged) {
                 loaded={...merged,matchFields:merged.matchFields??{},matchOrder:merged.matchOrder??{}}
-                localStorage.setItem(draftKey(tId),JSON.stringify({
+                volatileDrafts.setItem(draftKey(tId),JSON.stringify({
                   ...parsed,data:merged,baseData:serverDraft,baseVersion:js.updated_at
                 }))
                 pendingRef.current=JSON.stringify(merged)
@@ -303,7 +305,7 @@ useEffect(() => {
   if (!ready || !tId || !versionRef.current) return
   const data = { groupsCount, meta, assign, times, gField, matchFields, matchOrder, scores, isPublic }
   const snapshot=JSON.stringify(data)
-  const existingRaw=localStorage.getItem(draftKey(tId))
+  const existingRaw=volatileDrafts.getItem(draftKey(tId))
   if(snapshot===savedSnapshotRef.current && !existingRaw)return
   let draft:any
   try{
@@ -314,14 +316,14 @@ useEffect(() => {
       baseVersion:old?.baseVersion??versionRef.current,
       savedAt:Date.now()
     }
-    localStorage.setItem(draftKey(tId),JSON.stringify(draft))
+    volatileDrafts.setItem(draftKey(tId),JSON.stringify(draft))
   }catch{
     setSaveStatus('Memoria locale non disponibile: non uscire dalla pagina')
     return
   }
   if(offlineGroupsConflict)return
   if(!navigator.onLine){
-    setSaveStatus('Offline: modifiche gironi salvate sul dispositivo')
+    setSaveStatus('Offline: modifiche NON salvate. Riconnettiti senza chiudere la pagina')
     return
   }
   setSaveStatus('Sincronizzazione gironi in corso…')
@@ -350,7 +352,7 @@ useEffect(() => {
             // New baseline from the server; React schedules the next autosave.
             versionRef.current=current.updated_at
             savedSnapshotRef.current=serverSnapshot
-            localStorage.setItem(draftKey(currentTournament),JSON.stringify({
+            volatileDrafts.setItem(draftKey(currentTournament),JSON.stringify({
               ...draft,data:merged,baseData:serverData,baseVersion:current.updated_at
             }))
             setGroupsCount(merged.groupsCount)
@@ -372,9 +374,9 @@ useEffect(() => {
         if(serverSnapshot===snapshot){
           if(!cancelled){
             savedSnapshotRef.current=snapshot
-            const latest=localStorage.getItem(draftKey(currentTournament))
+            const latest=volatileDrafts.getItem(draftKey(currentTournament))
             if(latest && JSON.stringify(JSON.parse(latest).data)===snapshot)
-              localStorage.removeItem(draftKey(currentTournament))
+              volatileDrafts.removeItem(draftKey(currentTournament))
             pendingRef.current=null
             setSaveStatus('Salvato su Supabase')
           }
@@ -391,9 +393,9 @@ useEffect(() => {
           const result=await res.json()
           versionRef.current=result.updated_at
           savedSnapshotRef.current=snapshot
-          const latest=localStorage.getItem(draftKey(currentTournament))
+          const latest=volatileDrafts.getItem(draftKey(currentTournament))
           if(latest && JSON.stringify(JSON.parse(latest).data)===snapshot)
-            localStorage.removeItem(draftKey(currentTournament))
+            volatileDrafts.removeItem(draftKey(currentTournament))
           pendingRef.current=null
           setSaveStatus('Salvato su Supabase')
         }
@@ -401,7 +403,7 @@ useEffect(() => {
       }
       throw new Error('Conflitto tra salvataggi')
     }catch{
-      if(!cancelled)setSaveStatus('Modifiche conservate sul dispositivo, ancora da sincronizzare.')
+      if(!cancelled)setSaveStatus('Salvataggio Supabase non riuscito. Non chiudere la pagina.')
     }
   },450)
   return ()=>{cancelled=true;clearTimeout(timer)}
@@ -997,7 +999,7 @@ function commitTimeUncontrolled(
       {offlineGroupsConflict&&<div role="alert" className="my-2 rounded border border-red-500 p-3 text-red-200">
         Due versioni dello stesso girone risultano diverse. Il salvataggio automatico continua normalmente negli altri casi; qui è necessaria una scelta per non perdere modifiche.
         <button type="button" className="ml-3 underline" onClick={()=>{
-          const raw=localStorage.getItem(draftKey(tId))
+          const raw=volatileDrafts.getItem(draftKey(tId))
           if(!raw)return alert('Nessuna bozza locale trovata.')
           const blob=new Blob([raw],{type:'application/json'})
           const url=URL.createObjectURL(blob)
@@ -1009,7 +1011,7 @@ function commitTimeUncontrolled(
         }}>Scarica copia della bozza</button>
         <button type="button" className="ml-3 underline" onClick={()=>{
           if(!window.confirm('Scartare le modifiche LOCALI ai gironi? Questa operazione non è reversibile.'))return
-          localStorage.removeItem(draftKey(tId))
+          volatileDrafts.removeItem(draftKey(tId))
           window.location.reload()
         }}>Scarta bozza locale</button>
       </div>}
