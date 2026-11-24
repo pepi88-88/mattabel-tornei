@@ -1,7 +1,7 @@
 'use client'
 import {useEffect,useState} from 'react'
 function keyBytes(value:string){const raw=atob(value.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-value.length%4)%4));return Uint8Array.from(raw,c=>c.charCodeAt(0))}
-async function saveSubscription(sub:PushSubscription,action:string){const r=await fetch('/api/public/preview-push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sub.toJSON(),action})});if(!r.ok)throw new Error('Salvataggio non riuscito')}
+async function saveSubscription(sub:PushSubscription,action:string){const r=await fetch('/api/public/preview-push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sub.toJSON(),action})});if(!r.ok)throw new Error('Salvataggio non riuscito');return r.json()}
 export default function PreviewPushToggle(){
  const [ios,setIos]=useState(false),[standalone,setStandalone]=useState(false),[guide,setGuide]=useState(false)
  const [key,setKey]=useState(''),[active,setActive]=useState(false),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[dismissed,setDismissed]=useState(true)
@@ -11,7 +11,7 @@ export default function PreviewPushToggle(){
  if(apple&&!installed)return
  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))return
  const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription()
- if(sub&&Notification.permission==='granted'){await saveSubscription(sub,'add');setActive(true)};setReady(true)
+ if(sub&&Notification.permission==='granted'){const saved=await saveSubscription(sub,'status');setActive(saved.active===true)};setReady(true)
  }).catch(()=>{setReady('serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window);setError('Impossibile verificare le notifiche. Riprova.')})},[])
  async function toggle(){setBusy(true);setError('');try{if(!active&&await Notification.requestPermission()!=='granted')throw new Error('Autorizza le notifiche nelle impostazioni del browser.');const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription()
  if(active&&sub){await saveSubscription(sub,'remove');await sub.unsubscribe();setActive(false);localStorage.setItem('preview-push-dismissed','1');setDismissed(true)}
