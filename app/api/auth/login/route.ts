@@ -1,6 +1,6 @@
 // app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createSuperSession, SUPER_COOKIE, SUPER_SESSION_TTL } from '../../../../lib/superadmin-session'
+import { createSuperSession, SUPER_COOKIE, SUPER_SESSION_TTL, notificationsEnabled } from '../../../../lib/superadmin-session'
 import { timingSafeEqual } from 'node:crypto'
 
 export async function POST(req: NextRequest) {
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   let role: 'admin' | 'coach' | null = null
 
   const expected = process.env.SUPER_ADMIN_PASS || ''
-  const superLogin = process.env.VERCEL_ENV === 'preview' && user === 'Pres' && expected.length >= 8 && Buffer.byteLength(pass) === Buffer.byteLength(expected) && timingSafeEqual(new TextEncoder().encode(pass), new TextEncoder().encode(expected)) && (process.env.SUPER_ADMIN_SESSION_SECRET || '').length >= 32
+  const superLogin = notificationsEnabled() && user === 'Pres' && expected.length >= 8 && Buffer.byteLength(pass) === Buffer.byteLength(expected) && timingSafeEqual(new TextEncoder().encode(pass), new TextEncoder().encode(expected)) && (process.env.SUPER_ADMIN_SESSION_SECRET || '').length >= 32
   if (superLogin) {
     role = 'admin'
   } else if (user === process.env.ADMIN_USER && pass === process.env.ADMIN_PASS) {
