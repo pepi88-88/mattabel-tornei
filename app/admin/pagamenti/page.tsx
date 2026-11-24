@@ -1,4 +1,6 @@
 'use client'
+
+import {volatileDrafts} from '../../../lib/volatileDrafts'
 import useSWR from 'swr'
 import PrepareOffline from '../../../components/PrepareOffline'
 import {offlineJSON, cacheOfflineJSON, offlineQueueKey, readOfflineQueue, putOfflineQueue} from '../../../lib/offlineClient'
@@ -209,7 +211,7 @@ else notFull.push(r)
             body:JSON.stringify({id:entry.id,[field]:entry.value,expected:{[field]:entry.expected}})
           })
         }catch{
-          setPaymentsMessage('Connessione assente: pagamenti conservati sul dispositivo.')
+          setPaymentsMessage('Connessione assente: pagamenti NON salvati. Non chiudere la pagina.')
           return
         }
         if(response.status===409){
@@ -288,7 +290,7 @@ else body.paid_d = value
     )}
     mutate(updatedData,false)
     cacheOfflineJSON('/api/registrations/for-payments?tournament_id='+tId,updatedData)
-    setPaymentsMessage(navigator.onLine?'Pagamento da sincronizzare…':'Pagamento salvato sul dispositivo (offline).')
+    setPaymentsMessage(navigator.onLine?'Pagamento da sincronizzare…':'Pagamento NON salvato: riconnettiti senza chiudere la pagina.')
     if(navigator.onLine)void syncPayments()
   }
 
@@ -336,7 +338,7 @@ else body.paid_d = value
        {paymentsConflict}
        <button type="button" className="ml-3 underline" onClick={()=>{
          if(!window.confirm('Scartare i pagamenti SOLO LOCALI non sincronizzati? Non sarà possibile recuperarli.'))return
-         localStorage.removeItem(keyPayments)
+         volatileDrafts.removeItem(keyPayments)
          setPendingPayments([])
          setPaymentsConflict('')
          mutate()
