@@ -1,7 +1,7 @@
 'use client'
 
 
-import {volatileDrafts} from '../../../lib/volatileDrafts'
+import {volatileDrafts,hasUnsavedChanges} from '../../../lib/volatileDrafts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import useSWR from 'swr'
@@ -994,7 +994,7 @@ function commitTimeUncontrolled(
       <h1 className="mt-groups-title">Crea Gironi</h1>
 <PrepareOffline tournamentId={tId} tourId={tourId} />
       {!gironiOnline&&<div role="status" className="my-2 rounded border border-amber-500 p-3 text-amber-200">
-        Offline: tour, tappa e gironi modificabili. I cambiamenti restano su questo dispositivo fino al ritorno di Internet.
+        Connessione assente. I cambiamenti non vengono salvati fino al ritorno della rete. Non chiudere la pagina.
       </div>}
       {offlineGroupsConflict&&<div role="alert" className="my-2 rounded border border-red-500 p-3 text-red-200">
         Due versioni dello stesso girone risultano diverse. Il salvataggio automatico continua normalmente negli altri casi; qui è necessaria una scelta per non perdere modifiche.
@@ -1021,13 +1021,13 @@ function commitTimeUncontrolled(
           <div className="mt-groups-controls grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <div>
               <div className="text-xs text-neutral-400 mb-1">Tour</div>
-              <select className="input w-full" value={tourId} onChange={e => {localStorage.setItem('selectedTourId',e.target.value);localStorage.removeItem('selectedTournamentId');setTourId(e.target.value);setTId('')}}>
+              <select className="input w-full" value={tourId} onChange={e => {if(hasUnsavedChanges()){alert('Attendi il salvataggio su Supabase prima di cambiare torneo.');return};localStorage.setItem('selectedTourId',e.target.value);localStorage.removeItem('selectedTournamentId');setTourId(e.target.value);setTId('')}}>
                 {tours.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
             <div>
               <div className="text-xs text-neutral-400 mb-1">Tappa</div>
-             <select className="input w-full" value={tId} onChange={e => {localStorage.setItem('selectedTournamentId',e.target.value);setTId(e.target.value)}}>
+             <select className="input w-full" value={tId} onChange={e => {if(hasUnsavedChanges()){alert('Attendi il salvataggio su Supabase prima di cambiare torneo.');return};localStorage.setItem('selectedTournamentId',e.target.value);setTId(e.target.value)}}>
   {tappeVisibili.map((t:any) => (
     <option key={t.id} value={t.id}>
       {t.name}{t.date ? ` — ${new Date(t.date).toLocaleDateString()}` : ''}
@@ -1046,7 +1046,7 @@ function commitTimeUncontrolled(
               data-save-state={saveStatus.toLowerCase().includes('errore') || saveStatus.toLowerCase().includes('fallit') ? 'error' : saveStatus.toLowerCase().includes('corso') ? 'saving' : saveStatus.toLowerCase().includes('salvat') && !saveStatus.toLowerCase().includes('salvato') ? 'pending' : 'saved'}>
               <span className="mt-groups-save-dot" aria-hidden="true" />
               <span>{saveStatus}</span>
-              {saveStatus.includes('conservate') && <button type="button" className="btn" onClick={() => setRetrySave(x => x + 1)}>Riprova salvataggio</button>}
+              {saveStatus.includes('non riuscito') && <button type="button" className="btn" onClick={() => setRetrySave(x => x + 1)}>Riprova salvataggio</button>}
             </div>
             <div className="mt-groups-action-buttons">
   <button
@@ -1091,7 +1091,7 @@ function commitTimeUncontrolled(
             data-save-state={saveStatus.toLowerCase().includes('errore') || saveStatus.toLowerCase().includes('fallit') ? 'error' : saveStatus.toLowerCase().includes('corso') ? 'saving' : saveStatus.toLowerCase().includes('salvat') && !saveStatus.toLowerCase().includes('salvato') ? 'pending' : 'saved'}>
             <span className="mt-groups-save-dot" aria-hidden="true" />
             <span>{saveStatus}</span>
-            {saveStatus.includes('conservate') && <button type="button" className="btn" onClick={() => setRetrySave(x => x + 1)}>Riprova salvataggio</button>}
+            {saveStatus.includes('non riuscito') && <button type="button" className="btn" onClick={() => setRetrySave(x => x + 1)}>Riprova salvataggio</button>}
           </div>
 
          {/* griglia gironi (responsive, niente chunk) */}
