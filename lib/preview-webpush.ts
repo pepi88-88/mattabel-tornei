@@ -1,8 +1,9 @@
 import 'server-only'
+import {notificationsEnabled} from './superadmin-session'
 import {createECDH,createPrivateKey,createCipheriv,hkdfSync,randomBytes,sign} from 'node:crypto'
 export function pushConfig(){
  const publicKey=process.env.PREVIEW_VAPID_PUBLIC_KEY||'',privateKey=process.env.PREVIEW_VAPID_PRIVATE_KEY||''
- return {publicKey,privateKey,enabled:process.env.VERCEL_ENV==='preview'&&!!publicKey&&!!privateKey}
+ return {publicKey,privateKey,enabled:notificationsEnabled()&&!!publicKey&&!!privateKey}
 }
 export function allowedEndpoint(value:string){
  try{
