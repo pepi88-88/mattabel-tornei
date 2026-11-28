@@ -1,7 +1,7 @@
 'use client'
 
 
-import {flushSnapshot,stageSnapshot,readSnapshot,readTournamentState,SaveConflict,saveMessage,same} from '../../../lib/autosave'
+import {flushSnapshot,stageSnapshot,readSnapshot,readTournamentState,SaveConflict,saveMessage,same,serializeSave} from '../../../lib/autosave'
 import {volatileDrafts,hasUnsavedChanges} from '../../../lib/volatileDrafts'
 import PrepareOffline from '../../../components/PrepareOffline'
 import {offlineJSON} from '../../../lib/offlineClient'
@@ -1104,6 +1104,7 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato �
 
  const toggleBracketsPublic = async () => {
   if (!tId || !tourId || publishingBrackets || bracketsLoadKey !== tourId + ':' + tId || !!bracketsLoadError) return
+  if(hasUnsavedChanges()){window.alert('Attendi il salvataggio su Supabase prima di pubblicare.');return}
   const next = !bracketsPublic
   if (next && !brackets.length) {
     window.alert('Crea prima almeno un tabellone nella pagina Creazione Tabellone.')
@@ -1844,10 +1845,12 @@ useEffect(()=>{
   }
   const smartSave=async()=>{
     if(!active || !smartDraft || smartDraft.bracketId!==active.id || smartLocked || smartSaving)return
+    if(hasUnsavedChanges()){setSmartMessage('Attendi il salvataggio dei risultati prima di modificare gli accoppiamenti.');return}
     const id=active.id,rows=smartDraft.rows.map(m=>({...m}))
     const prelims=smartDraft.prelims?.map(m=>({...m}))
     setSmartSaving(true);setSmartMessage('')
     try{
+      await serializeSave('brackets:'+tId,async()=>{
       const response=await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`,{
         headers:{'x-role':'admin'},cache:'no-store'
       })
@@ -1856,8 +1859,8 @@ useEffect(()=>{
       const items=Array.isArray(previous)?previous:previous?.items
       if(!Array.isArray(items))throw new Error('Dati tabellone non validi')
       const current=items.find((b:any)=>b.id===id)
-      if(!current || JSON.stringify(current.r1)!==JSON.stringify(active.r1) ||
-         (isPreliminarySmart && JSON.stringify(current.prelims)!==JSON.stringify(active.prelims)))
+      if(!current || !same(current.r1,active.r1) ||
+         (isPreliminarySmart && !same(current.prelims,active.prelims)))
         throw new Error('Il tabellone è cambiato su un altro dispositivo: ricarica prima di salvare')
       if(Object.values((Array.isArray(previous)?{}:previous?.winnersById?.[id])||{}).some(Boolean) ||
         Object.values((Array.isArray(previous)?{}:previous?.bracketScoresById?.[id])||{}).some((v:any)=>v?.A!=null||v?.B!=null))
@@ -1866,9 +1869,10 @@ useEffect(()=>{
       const next=Array.isArray(previous)?{items:nextItems}:{...previous,items:nextItems}
       const saved=await fetch('/api/brackets/state',{
         method:'PUT',headers:{'Content-Type':'application/json','x-role':'admin'},
-        body:JSON.stringify({tournament_id:tId,state:next})
+        body:JSON.stringify({tournament_id:tId,state:next,base_updated_at:json.updated_at})
       })
-      if(!saved.ok)throw new Error('Salvataggio non riuscito')
+      if(!saved.ok)throw new Error(saved.status===409?'Dati cambiati durante il salvataggio. Riprova dopo aver ricaricato.':'Salvataggio non riuscito')
+      })
       setBrackets(prev=>prev.map(b=>b.id===id?{...b,r1:rows,...(isPreliminarySmart?{prelims}:{} )}:b))
       setSmartDraft(null);setSmartEdit(false);setSmartPicked(null)
       setSmartMessage('Accoppiamenti salvati.')
@@ -1926,7 +1930,7 @@ return (
       {!bracketsConflict&&<button type="button" className="ml-3 underline" onClick={()=>setBracketsRetry(x=>x+1)}>Riprova salvataggio</button>}
       {bracketsConflict&&<button type="button" className="ml-3 underline"
         onClick={()=>{
-          if(!window.confirm('Scartare la bozza LOCALE dei tabelloni? Le modifiche non sincronizzate andranno perse.'))return
+          if(!window.confirm('Annullare le modifiche della sessione non ancora salvate? I dati Supabase restano invariati.'))return
           volatileDrafts.removeItem(bracketDraftKey(tId))
           window.location.reload()
         }}>Annulla modifiche non salvate e ricarica</button>}
@@ -1938,7 +1942,7 @@ return (
        {!offlineConflict&&loadedFor===tId&&<button type="button" className="ml-3 underline" onClick={()=>setOfflineRetry(x=>x+1)}>Riprova salvataggio</button>}
        {offlineConflict&&<button type="button" className="ml-3 underline"
          onClick={()=>{
-           if(!window.confirm('Scartare i risultati dei gironi salvati SOLO su questo dispositivo? Non potranno più essere recuperati.'))return
+           if(!window.confirm('Annullare i risultati non ancora salvati? I dati Supabase restano invariati.'))return
            volatileDrafts.removeItem(resultsDraftKey(tId))
            window.location.reload()
          }}>Annulla modifiche non salvate e ricarica</button>}
