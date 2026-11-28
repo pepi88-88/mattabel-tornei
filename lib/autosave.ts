@@ -56,3 +56,56 @@ export async function saveWithRetry<T>(read:()=>Promise<T>,write:(remote:T)=>Pro
   await pause(150*(attempt+1))
  }
 }
+
+
+import {volatileDrafts} from './volatileDrafts'
+export type SnapshotDraft={snapshot:string;baseSnapshot:string}
+export function readSnapshot(key:string):SnapshotDraft|null{
+ const raw=volatileDrafts.getItem(key)
+ return raw?JSON.parse(raw):null
+}
+export function stageSnapshot(key:string,baseline:string,desired:unknown):boolean{
+ const snapshot=JSON.stringify(desired),old=readSnapshot(key)
+ if(!old&&baseline&&same(JSON.parse(baseline),desired))return false
+ volatileDrafts.setItem(key,JSON.stringify({snapshot,baseSnapshot:old?.baseSnapshot||baseline}))
+ return true
+}
+type RemoteState={state?:any;updated_at?:string;is_public?:boolean}
+export async function readTournamentState(endpoint:string,id:string):Promise<RemoteState>{
+ const response=await fetch(endpoint+'?tournament_id='+encodeURIComponent(id),{cache:'no-store',headers:{'x-role':'admin'}})
+ if(!response.ok)throw new Error('Lettura Supabase non riuscita ('+response.status+')')
+ const remote=await response.json()
+ if(!remote?.updated_at)throw new Error('Versione Supabase mancante')
+ return remote
+}
+export function flushSnapshot<T>(opts:{
+ key:string;resource:string;read:()=>Promise<RemoteState>;project:(remote:RemoteState)=>T;
+ write:(remote:RemoteState,merged:T,base:T,desired:T)=>Promise<Response>;
+ acknowledge:(snapshot:string)=>void
+}):Promise<void>{
+ return serializeSave(opts.resource,async()=>{
+  for(;;){
+   const draft=readSnapshot(opts.key)
+   if(!draft)return
+   if(!draft.baseSnapshot)throw new Error('Caricamento non completato')
+   if(!navigator.onLine)throw new Error('Connessione assente')
+   const base=JSON.parse(draft.baseSnapshot) as T,desired=JSON.parse(draft.snapshot) as T
+   await saveWithRetry(opts.read,async remote=>{
+    const current=opts.project(remote)
+    const merged=mergeChanges(base,desired,current)
+    if(same(merged,current))return null
+    return opts.write(remote,merged,base,desired)
+   })
+   // Acknowledge even if a React effect has already been replaced.
+   opts.acknowledge(draft.snapshot)
+   const latest=readSnapshot(opts.key)
+   if(!latest)return
+   if(same(JSON.parse(latest.snapshot),desired)){
+    volatileDrafts.removeItem(opts.key)
+    return
+   }
+   volatileDrafts.setItem(opts.key,JSON.stringify({...latest,baseSnapshot:draft.snapshot}))
+  }
+ })
+}
+export const saveMessage=(e:unknown)=>e instanceof SaveConflict?e.message:'Salvataggio Supabase non riuscito. Riprova senza chiudere la pagina.'
