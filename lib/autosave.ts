@@ -60,7 +60,7 @@ export async function saveWithRetry<T>(read:()=>Promise<T>,write:(remote:T)=>Pro
 }
 
 
-export type SnapshotDraft={snapshot:string;baseSnapshot:string}
+export type SnapshotDraft={snapshot:string;baseSnapshot:string;attemptedSnapshot?:string}
 export function readSnapshot(key:string):SnapshotDraft|null{
  const raw=volatileDrafts.getItem(key)
  return raw?JSON.parse(raw):null
@@ -68,7 +68,7 @@ export function readSnapshot(key:string):SnapshotDraft|null{
 export function stageSnapshot(key:string,baseline:string,desired:unknown):boolean{
  const snapshot=JSON.stringify(desired),old=readSnapshot(key)
  if(!old&&baseline&&same(JSON.parse(baseline),desired))return false
- volatileDrafts.setItem(key,JSON.stringify({snapshot,baseSnapshot:old?.baseSnapshot||baseline}))
+ volatileDrafts.setItem(key,JSON.stringify({...old,snapshot,baseSnapshot:old?.baseSnapshot||baseline}))
  return true
 }
 type RemoteState={state?:any;updated_at?:string;is_public?:boolean}
@@ -90,11 +90,28 @@ export function flushSnapshot<T>(opts:{
    if(!draft)return
    if(!draft.baseSnapshot)throw new Error('Caricamento non completato')
    if(!navigator.onLine)throw new Error('Connessione assente')
-   const base=JSON.parse(draft.baseSnapshot) as T,desired=JSON.parse(draft.snapshot) as T
+   let base=JSON.parse(draft.baseSnapshot) as T
+   const desired=JSON.parse(draft.snapshot) as T
    await saveWithRetry(opts.read,async remote=>{
     const current=opts.project(remote)
+    // A previous request may have committed even if its response was lost.
+    // Rebase only when the server already contains ALL its intended changes.
+    const attempted=readSnapshot(opts.key)?.attemptedSnapshot
+    if(attempted){
+     const prior=JSON.parse(attempted) as T
+     let confirmed=false
+     try{confirmed=same(mergeChanges(base,prior,current),current)}catch{}
+     if(confirmed){
+      base=prior
+      opts.acknowledge(attempted)
+      const latest=readSnapshot(opts.key)
+      if(latest)volatileDrafts.setItem(opts.key,JSON.stringify({...latest,baseSnapshot:attempted,attemptedSnapshot:undefined}))
+     }
+    }
     const merged=mergeChanges(base,desired,current)
     if(same(merged,current))return null
+    const latest=readSnapshot(opts.key)
+    if(latest)volatileDrafts.setItem(opts.key,JSON.stringify({...latest,attemptedSnapshot:draft.snapshot}))
     return opts.write(remote,merged,base,desired)
    })
    // Acknowledge even if a React effect has already been replaced.
@@ -105,7 +122,7 @@ export function flushSnapshot<T>(opts:{
     volatileDrafts.removeItem(opts.key)
     return
    }
-   volatileDrafts.setItem(opts.key,JSON.stringify({...latest,baseSnapshot:draft.snapshot}))
+   volatileDrafts.setItem(opts.key,JSON.stringify({...latest,baseSnapshot:draft.snapshot,attemptedSnapshot:undefined}))
   }
  })
 }
