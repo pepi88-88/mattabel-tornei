@@ -1,6 +1,7 @@
 'use client'
 
 
+import {flushSnapshot,stageSnapshot,readSnapshot,readTournamentState,SaveConflict,saveMessage} from '../../../lib/autosave'
 import {volatileDrafts,hasUnsavedChanges} from '../../../lib/volatileDrafts'
 /* ============================================================================
    Creazione tabellone
@@ -693,6 +694,7 @@ export default function CreaTabellonePage() {
   const [tourId, setTourId] = useState<string>('')
   const [tId, setTId]       = useState<string>('')
 const [loadedRemote, setLoadedRemote] = useState(false)
+const [creationLoadedFor,setCreationLoadedFor]=useState('')
 const [offlineBracketStatus,setOfflineBracketStatus]=useState('')
 const [offlineBracketConflict,setOfflineBracketConflict]=useState(false)
 const bracketBaseRef=useRef('')
@@ -919,6 +921,8 @@ function removeBracket() {
 useEffect(() => {
   let cancelled = false
   setLoadedRemote(false)
+  setCreationLoadedFor('')
+  bracketBaseRef.current=''
 
   if (!tId) { 
     setBrackets([]); 
@@ -930,6 +934,8 @@ useEffect(() => {
   ;(async () => {
     try {
       const js = await offlineJSON(`/api/brackets/state?tournament_id=${encodeURIComponent(tId)}`)
+      if(cancelled)return
+      if(!js?.updated_at)throw new Error('Versione mancante')
       const raw = js?.state
       const items = Array.isArray(raw) ? raw : (raw?.items || [])
       const normalized = items.map(normalizeBracket)
@@ -938,25 +944,11 @@ useEffect(() => {
       bracketBaseRef.current=serverBase
       setOfflineBracketConflict(false)
       setOfflineBracketStatus('')
-      let loadedItems=normalized
-      let loadedWinners=serverWinners
-      const pendingRaw=volatileDrafts.getItem(bracketDraftKey(tId))
-      if(pendingRaw){
-        const pending=JSON.parse(pendingRaw)
-        if(pending?.rows && pending?.winners){
-          const pendingSnapshot=JSON.stringify({items:pending.rows,winnersById:pending.winners})
-          if(pendingSnapshot===serverBase)volatileDrafts.removeItem(bracketDraftKey(tId))
-          else{
-            loadedItems=pending.rows.map(normalizeBracket)
-            loadedWinners=pending.winners
-            setOfflineBracketStatus('Bozza tabellone recuperata; in attesa di sincronizzazione.')
-            if(navigator.onLine && pending.baseSnapshot!==serverBase){
-              setOfflineBracketConflict(true)
-              setOfflineBracketStatus('Conflitto: tabelloni modificati altrove. Bozza locale al sicuro.')
-            }
-          }
-        }
-      }
+      const pending=readSnapshot(bracketDraftKey(tId))
+      const restored=pending?JSON.parse(pending.snapshot):{items:normalized,winnersById:serverWinners}
+      if(pending)bracketBaseRef.current=pending.baseSnapshot
+      const loadedItems:Bracket[]=restored.items
+      const loadedWinners=restored.winnersById
 
       if (cancelled) return
 
@@ -973,6 +965,7 @@ useEffect(() => {
       // carica winners/itaScores senza toccare items
       setWinnersById(loadedWinners)
       setItaScoresById(Array.isArray(raw) ? {} : (raw?.itaScoresById || {}))
+      setCreationLoadedFor(tId)
     } catch {
       if (!cancelled) {
         // Non inizializzare un tabellone vuoto quando manca la rete.
@@ -989,126 +982,31 @@ useEffect(() => {
 }, [tId])
 
 
-// Salvataggi locali prima della rete, poi sincronizzazione con controllo
-// della versione per non sovrascrivere altri Staff.
-const bracketsSaveQueue=useRef<Promise<void>>(Promise.resolve())
+// Stage immediately in memory; serialize all saves for the tournament.
 const [bracketsSaveState,setBracketsSaveState]=useState<'idle'|'saving'|'saved'|'error'>('idle')
-const persistBracketDraft=(tournamentId:string,rows:Bracket[],
- chosenWinners:Record<string,Record<string,'A'|'B'|undefined>>):Promise<void>=>{
-  let draft:any
-  try{
-    const key=bracketDraftKey(tournamentId)
-    const old=JSON.parse(volatileDrafts.getItem(key)||'null')
-    draft={
-      rows,winners:chosenWinners,
-      baseSnapshot:old?.baseSnapshot??bracketBaseRef.current,
-      savedAt:Date.now()
-    }
-    volatileDrafts.setItem(key,JSON.stringify(draft))
-  }catch{
-    setBracketsSaveState('error')
-    setOfflineBracketStatus('Memoria locale non disponibile: non cambiare pagina.')
-    return Promise.reject(new Error('Memoria locale'))
-  }
-  if(!navigator.onLine){
-    setOfflineBracketStatus('Offline: tabelloni NON salvati. Riconnettiti senza chiudere la pagina.')
-    setBracketsSaveState('error')
-    return Promise.reject(new Error('Connessione assente'))
-  }
-  if(offlineBracketConflict)return Promise.resolve()
-  const save=async()=>{
-    setBracketsSaveState('saving')
-    try{
-      const res=await fetch('/api/brackets/state?tournament_id='+encodeURIComponent(tournamentId),
-        {cache:'no-store',headers:{'x-role':'admin'}})
-      if(!res.ok)throw new Error('Lettura fallita')
-      const js=await res.json()
-      const prev=js.state||{}
-      const serverRows=(Array.isArray(prev)?prev:prev?.items||[]).map(normalizeBracket)
-      const serverWinners=Array.isArray(prev)?{}:prev?.winnersById||{}
-      const currentSnapshot=JSON.stringify({items:serverRows,winnersById:serverWinners})
-      const newSnapshot=JSON.stringify({items:rows,winnersById:chosenWinners})
-      if(currentSnapshot!==draft.baseSnapshot && currentSnapshot!==newSnapshot){
-        setOfflineBracketConflict(true)
-        setBracketsSaveState('error')
-        setOfflineBracketStatus('Conflitto con altro Staff. Bozza locale conservata.')
-        return
-      }
-      if(currentSnapshot===newSnapshot){
-        bracketBaseRef.current=newSnapshot
-        const latest=JSON.parse(volatileDrafts.getItem(bracketDraftKey(tournamentId))||'null')
-        if(latest && JSON.stringify(latest.rows)===JSON.stringify(rows))
-          volatileDrafts.removeItem(bracketDraftKey(tournamentId))
-        setBracketsSaveState('saved')
-        setOfflineBracketStatus('')
-        return
-      }
-      const winners={...serverWinners} as Record<string,Record<string,'A'|'B'|undefined>>
-      for(const [id,values] of Object.entries(chosenWinners)){
-        const row=rows.find(x=>x.id===id)
-        if(!row || (row.type!=='PSE' && row.type!=='PDE'))continue
-        const merged={...(winners[id]||{})}
-        for(let i=0;i<(row.prelims?.length||0);i++){
-          const code='P'+(i+1),picked=values?.[code]
-          if(picked==='A'||picked==='B')merged[code]=picked
-          else delete merged[code]
-        }
-        winners[id]=merged
-      }
-      const next={
-        ...(Array.isArray(prev)?{}:prev),items:rows,winnersById:winners,
-        itaScoresById:Array.isArray(prev)?{}:prev?.itaScoresById||{},
-        regia:Array.isArray(prev)?{items:{}}:prev?.regia??{items:{}}
-      }
-      const put=await fetch('/api/brackets/state',{
-        method:'PUT',headers:{'Content-Type':'application/json','x-role':'admin'},
-        body:JSON.stringify({tournament_id:tournamentId,state:next,base_updated_at:js.updated_at})
-      })
-      if(put.status===409){
-        setOfflineBracketConflict(true)
-        setBracketsSaveState('error')
-        setOfflineBracketStatus('Conflitto di salvataggio. Bozza locale conservata.')
-        return
-      }
-      if(!put.ok)throw new Error('Salvataggio fallito')
-      bracketBaseRef.current=JSON.stringify({items:rows,winnersById:winners})
-      const latest=JSON.parse(volatileDrafts.getItem(bracketDraftKey(tournamentId))||'null')
-      if(latest && JSON.stringify(latest.rows)===JSON.stringify(rows)&&
-         JSON.stringify(latest.winners)===JSON.stringify(chosenWinners))
-        volatileDrafts.removeItem(bracketDraftKey(tournamentId))
-      setBracketsSaveState('saved')
-      setOfflineBracketStatus('')
-    }catch{
-      setBracketsSaveState('error')
-      setOfflineBracketStatus('Salvataggio Supabase non riuscito. Non chiudere la pagina.')
-    }
-  }
-  const pending=bracketsSaveQueue.current.catch(()=>{}).then(save)
-  bracketsSaveQueue.current=pending
-  return pending
+const persistBracketDraft=(tournamentId:string):Promise<void>=>{
+ const key=bracketDraftKey(tournamentId)
+ if(offlineBracketConflict)return Promise.reject(new SaveConflict())
+ setBracketsSaveState('saving')
+ return flushSnapshot({
+  key,resource:'brackets:'+tournamentId,read:()=>readTournamentState('/api/brackets/state',tournamentId),
+  project:r=>({items:(Array.isArray(r.state)?r.state:r.state?.items||[]).map(normalizeBracket) as Bracket[],winnersById:Array.isArray(r.state)?{}:r.state?.winnersById||{}}),
+  write:(remote,merged)=>{
+   const previous=remote.state||{}
+   const next={...(Array.isArray(previous)?{}:previous),items:merged.items,winnersById:merged.winnersById,itaScoresById:previous?.itaScoresById||{},regia:previous?.regia??{items:{}}}
+   return fetch('/api/brackets/state',{method:'PUT',headers:{'Content-Type':'application/json','x-role':'admin'},body:JSON.stringify({tournament_id:tournamentId,state:next,base_updated_at:remote.updated_at})})
+  },
+  acknowledge:s=>{bracketBaseRef.current=s}
+ }).then(()=>{setOfflineBracketConflict(false);setBracketsSaveState('saved');setOfflineBracketStatus('')}).catch(e=>{setOfflineBracketConflict(e instanceof SaveConflict);setBracketsSaveState('error');setOfflineBracketStatus(saveMessage(e));throw e})
 }
 useEffect(()=>{
-  if(!tId||!loadedRemote||!brackets.length)return
-  const timer=setTimeout(()=>{void persistBracketDraft(tId,brackets,winnersById).catch(()=>{})},300)
-  return ()=>clearTimeout(timer)
-},[tId,loadedRemote,brackets,winnersById,bracketRetry,offlineBracketConflict])
-useEffect(()=>{
-  const handleNavigation=(ev:Event)=>{
-    const event=ev as CustomEvent<{href:string}>
-    if(!event.detail?.href||!tId||!loadedRemote||!brackets.length)return
-    event.preventDefault()
-    const destination=event.detail.href
-    persistBracketDraft(tId,brackets,winnersById).then(()=>{
-      if(hasUnsavedChanges()){window.alert('Salvataggio non completato. Riprova prima di cambiare pagina.');return}
-      if(!navigator.onLine&&!['/admin/risultati','/admin/pagamenti','/admin/gironi','/admin/crea-tabellone'].includes(destination)){
-        try{sessionStorage.setItem('mattabel:offline:last-unavailable',destination)}catch{}
-        window.location.assign('/admin/offline')
-      }else window.location.assign(destination)
-    }).catch(()=>window.alert('Impossibile conservare la bozza. Non cambiare pagina.'))
-  }
-  window.addEventListener('mattabel:before-admin-nav',handleNavigation)
-  return ()=>window.removeEventListener('mattabel:before-admin-nav',handleNavigation)
-},[tId,loadedRemote,brackets,winnersById,offlineBracketConflict])
+ if(!tId||!loadedRemote||creationLoadedFor!==tId||!bracketBaseRef.current)return
+ if(!stageSnapshot(bracketDraftKey(tId),bracketBaseRef.current,{items:brackets,winnersById})){setBracketsSaveState('saved');return}
+ if(offlineBracketConflict)return
+ setBracketsSaveState('saving')
+ const timer=setTimeout(()=>{void persistBracketDraft(tId).catch(()=>{})},350)
+ return ()=>clearTimeout(timer)
+},[tId,loadedRemote,creationLoadedFor,brackets,winnersById,bracketRetry,offlineBracketConflict])
 
 // lettere da usare (come Sorgenti) + limitazione con groupsCount
 const lettersReal = useMemo(() => {
@@ -1322,7 +1220,7 @@ return (
         if(!window.confirm('Scartare la bozza LOCALE dei tabelloni? Le modifiche offline andranno perse.'))return
         volatileDrafts.removeItem(bracketDraftKey(tId))
         window.location.reload()
-      }}>Scarta bozza locale</button>}
+      }}>Annulla modifiche non salvate</button>}
     </div>}
     <style jsx global>{`
       .hide-letter { width:0!important; padding:0!important; margin:0!important; overflow:hidden!important; opacity:0!important; }
