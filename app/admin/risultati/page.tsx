@@ -1,6 +1,7 @@
 'use client'
 
 
+import {flushSnapshot,stageSnapshot,readSnapshot,readTournamentState,SaveConflict,saveMessage,same} from '../../../lib/autosave'
 import {volatileDrafts,hasUnsavedChanges} from '../../../lib/volatileDrafts'
 import PrepareOffline from '../../../components/PrepareOffline'
 import {offlineJSON} from '../../../lib/offlineClient'
@@ -1075,31 +1076,12 @@ const [loadedFor, setLoadedFor] = useState<string>('') // tId per cui lo stato �
     lastResultsSnapshot.current = JSON.stringify({ times: gm.times, scores: gm.scores, matchFields: fields })
     setOfflineConflict(false)
     setResultsSaveError(usingOfflineCache?'Copia locale: i risultati non sono ancora sincronizzati.':'')
-    let restoredTimes = gm.times
-    let restoredScores = gm.scores
-    let restoredFields = fields
-    try {
-      const pending = volatileDrafts.getItem('mattabel:risultati:pending:' + tId)
-      if (pending) {
-        const parsed = JSON.parse(pending)
-        if (parsed?.times && parsed?.scores) {
-          if (JSON.stringify({ times: parsed.times, scores: parsed.scores, matchFields: parsed.matchFields ?? {} }) === lastResultsSnapshot.current) {
-            volatileDrafts.removeItem('mattabel:risultati:pending:' + tId)
-          } else {
-            restoredTimes=parsed.times
-            restoredScores=parsed.scores
-            restoredFields=parsed.matchFields??fields
-            if(!usingOfflineCache && parsed.baseSnapshot!==lastResultsSnapshot.current){
-              setOfflineConflict(true)
-              setResultsSaveError('Conflitto: dati cambiati sul server. Bozza conservata, sincronizzazione sospesa.')
-            }
-          }
-        }
-      }
-    } catch {}
-    setTimes(restoredTimes)
-    setScores(restoredScores)
-    setMatchFields(restoredFields)
+    const pending=readSnapshot('mattabel:risultati:pending:'+tId)
+    const restored=pending?JSON.parse(pending.snapshot):{times:gm.times,scores:gm.scores,matchFields:fields}
+    if(pending)lastResultsSnapshot.current=pending.baseSnapshot
+    setTimes(restored.times)
+    setScores(restored.scores)
+    setMatchFields(restored.matchFields)
     setMatchOrder(gm.matchOrder || {})
     setGroupsConfirmed(gm.groupsConfirmed)
 
@@ -1319,89 +1301,24 @@ useEffect(()=>{
  return ()=>{window.removeEventListener('online',onChange);window.removeEventListener('offline',onChange)}
 },[])
 const resultsDraftKey = (id: string) => 'mattabel:risultati:pending:' + id
+const [resultsSaving,setResultsSaving]=useState(false)
 useEffect(() => {
-  if (!tId || isLoadingState || loadedFor !== tId) return
-  const snapshot = JSON.stringify({ times, scores, matchFields })
-  if (snapshot === lastResultsSnapshot.current && !volatileDrafts.getItem(resultsDraftKey(tId))) return
-  const id=tId
-  try {
-    const previous=JSON.parse(volatileDrafts.getItem(resultsDraftKey(id))||'null')
-    volatileDrafts.setItem(resultsDraftKey(id),JSON.stringify({
-      times,scores,matchFields,savedAt:Date.now(),
-      baseSnapshot:previous?.baseSnapshot??lastResultsSnapshot.current
-    }))
-  }catch{
-    setResultsSaveError('Memoria locale non disponibile: non chiudere la pagina.')
-    return
-  }
-  if(offlineConflict)return
-  if(!navigator.onLine){
-    setResultsSaveError('Offline: risultati NON salvati. Riconnettiti senza chiudere la pagina.')
-    return
-  }
-  let cancelled=false
-  const timer = setTimeout(async () => {
-    try {
-      for (let attempt = 0; attempt < 5; attempt++) {
-        if (cancelled) return
-        const read = await fetch(`/api/groups/state?tournament_id=${encodeURIComponent(id)}`, {
-          headers: { 'x-role': 'admin' }, cache: 'no-store'
-        })
-        if (!read.ok) throw new Error('Lettura fallita')
-        const current = await read.json()
-        if (!current.updated_at) throw new Error('Versione mancante')
-        const serverSnapshot=JSON.stringify({
-          times:current.state?.times||{},scores:current.state?.scores||{},
-          matchFields:current.state?.matchFields||{}
-        })
-        const pending=JSON.parse(volatileDrafts.getItem(resultsDraftKey(id))||'null')
-        const base=pending?.baseSnapshot??lastResultsSnapshot.current
-        if(serverSnapshot!==base && serverSnapshot!==snapshot){
-          if(!cancelled){
-            setOfflineConflict(true)
-            setResultsSaveError('Conflitto con altro Staff: bozza locale conservata, nessun risultato sovrascritto.')
-          }
-          return
-        }
-        if(serverSnapshot===snapshot){
-          if(!cancelled){
-            lastResultsSnapshot.current=snapshot
-            volatileDrafts.removeItem(resultsDraftKey(id))
-            setResultsSaveError('')
-          }
-          return
-        }
-        const res = await fetch('/api/groups/state', {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
-          body: JSON.stringify({ tournament_id: id, base_updated_at: current.updated_at,
-            changes: { times: { ...(current.state?.times || {}), ...times },
-                       scores: { ...(current.state?.scores || {}), ...scores },
-                        matchFields: { ...(current.state?.matchFields || {}), ...matchFields } } })
-        })
-        if (res.status === 409) continue
-        if (!res.ok) throw new Error('Salvataggio fallito')
-        if (!cancelled) {
-          lastResultsSnapshot.current = snapshot
-          try {
-            const pending = volatileDrafts.getItem(resultsDraftKey(id))
-            if (pending) {
-              const parsed = JSON.parse(pending)
-              if (JSON.stringify({ times: parsed.times, scores: parsed.scores, matchFields: parsed.matchFields ?? {} }) === snapshot) {
-                volatileDrafts.removeItem(resultsDraftKey(id))
-              }
-            }
-          } catch {}
-          setResultsSaveError('')
-        }
-        return
-      }
-      throw new Error('Conflitto salvataggi')
-    } catch {
-      if (!cancelled) setResultsSaveError('Salvataggio Supabase non riuscito. Non chiudere la pagina.')
-    }
-  }, 450)
-  return () => { cancelled = true; clearTimeout(timer) }
-}, [tId, times, scores, matchFields, isLoadingState, loadedFor, offlineRetry, offlineConflict])
+ if(!tId||isLoadingState||loadedFor!==tId)return
+ const id=tId,key=resultsDraftKey(id)
+ if(!stageSnapshot(key,lastResultsSnapshot.current,{times,scores,matchFields}))return
+ if(offlineConflict)return
+ setResultsSaving(true)
+ setResultsSaveError('')
+ const timer=setTimeout(()=>{
+  void flushSnapshot({
+   key,resource:'groups:'+id,read:()=>readTournamentState('/api/groups/state',id),
+   project:r=>({times:r.state?.times||{},scores:r.state?.scores||{},matchFields:r.state?.matchFields||{}}),
+   write:(remote,merged)=>fetch('/api/groups/state',{method:'PATCH',headers:{'Content-Type':'application/json','x-role':'admin'},body:JSON.stringify({tournament_id:id,base_updated_at:remote.updated_at,changes:merged})}),
+   acknowledge:s=>{lastResultsSnapshot.current=s}
+  }).then(()=>{setResultsSaveError('');setOfflineConflict(false)}).catch(e=>{setOfflineConflict(e instanceof SaveConflict);setResultsSaveError(saveMessage(e))}).finally(()=>setResultsSaving(false))
+ },350)
+ return ()=>clearTimeout(timer)
+},[tId,times,scores,matchFields,isLoadingState,loadedFor,offlineRetry,offlineConflict])
 
   // ---------- Classifica + avulsa: salvataggi ----------
   type TeamStat = {
@@ -1802,25 +1719,12 @@ const resolveToken = useMemo(() => {
       let bracketScores = Array.isArray(raw) ? {} : (raw?.bracketScoresById || {})
       const serverSnapshot=JSON.stringify({ winners, ita, courts, bracketScores })
       bracketsBaselineRef.current = serverSnapshot
-      try {
-        const pending=JSON.parse(volatileDrafts.getItem(bracketDraftKey(tId))||'null')
-        if(pending?.state){
-          if(pending.snapshot===serverSnapshot){
-            volatileDrafts.removeItem(bracketDraftKey(tId))
-          }else{
-            if(navigator.onLine && pending.baseSnapshot!==serverSnapshot){
-              setBracketsConflict(true)
-              setBracketsSyncError('Tabelloni modificati da altro Staff: bozza locale conservata, sincronizzazione bloccata.')
-            }else{
-              setBracketsSyncError('Bozza tabellone recuperata dal tablet; non ancora sincronizzata.')
-            }
-            winners=pending.state.winners
-            ita=pending.state.ita
-            courts=pending.state.courts
-            bracketScores=pending.state.bracketScores
-          }
-        }
-      }catch{}
+      const pending=readSnapshot(bracketDraftKey(tId))
+      if(pending){
+        const restored=JSON.parse(pending.snapshot)
+        bracketsBaselineRef.current=pending.baseSnapshot
+        winners=restored.winners;ita=restored.ita;courts=restored.courts;bracketScores=restored.bracketScores
+      }
       setBrackets(normalized)
       setActiveId(normalized[0]?.id ?? null)
       setWinnersById(winners)
@@ -1837,99 +1741,39 @@ const resolveToken = useMemo(() => {
   return () => { controller.abort(); bracketsRequestRef.current++ }
 }, [tourId, tId])
 
-// Il caricamento non deve mai attivare un salvataggio automatico.
-useEffect(() => {
-  const key = tourId && tId ? tourId + ':' + tId : ''
-  if (!key || bracketsLoadKey !== key || bracketsLoadError) return
-  const snapshot = JSON.stringify({ winners: winnersById, ita: itaScoresById, courts: courtsByBracket, bracketScores: bracketScoresById })
-  if (snapshot === bracketsBaselineRef.current && !volatileDrafts.getItem(bracketDraftKey(tId))) return
-  const request = bracketsRequestRef.current
-  let cancelled = false
-  const id = tId
-  let draft:any
-  try {
-    draft=JSON.parse(volatileDrafts.getItem(bracketDraftKey(id))||'null')
-    draft={
-      snapshot,baseSnapshot:draft?.baseSnapshot??bracketsBaselineRef.current,
-      state:{winners:winnersById,ita:itaScoresById,courts:courtsByBracket,bracketScores:bracketScoresById},
-      savedAt:Date.now()
-    }
-    volatileDrafts.setItem(bracketDraftKey(id),JSON.stringify(draft))
-  }catch{setBracketsSyncError('Impossibile conservare tabelloni sul dispositivo.');return}
-  if(bracketsConflict)return
-  if(!navigator.onLine){setBracketsSyncError('Offline: tabelloni NON salvati. Riconnettiti senza chiudere la pagina.');return}
-  const timer = setTimeout(async () => {
-    try {
-      const response = await fetch(`/api/brackets/state?tournament_id=${encodeURIComponent(id)}`, {
-        headers: { 'x-role': 'admin' }, cache: 'no-store'
-      })
-      if (!response.ok) throw new Error('Lettura fallita')
-      const json = await response.json()
-      if (cancelled || request !== bracketsRequestRef.current) return
-      const serverState=json?.state
-      const serverSnapshot=JSON.stringify({
-        winners:Array.isArray(serverState)?{}:(serverState?.winnersById||{}),
-        ita:Array.isArray(serverState)?{}:(serverState?.itaScoresById||{}),
-        courts:Array.isArray(serverState)?{}:(serverState?.courtsByBracket||{}),
-        bracketScores:Array.isArray(serverState)?{}:(serverState?.bracketScoresById||{})
-      })
-      if(serverSnapshot!==draft.baseSnapshot && serverSnapshot!==snapshot){
-        setBracketsConflict(true)
-        setBracketsSyncError('Conflitto con tabelloni modificati da altro Staff. Copia locale conservata.')
-        return
-      }
-      if(serverSnapshot===snapshot){
-        bracketsBaselineRef.current=snapshot
-        volatileDrafts.removeItem(bracketDraftKey(id))
-        setBracketsSyncError('')
-        return
-      }
-      const previous = json?.state
-      const items = Array.isArray(previous) ? previous : (previous?.items || [])
-      const next = {
-        ...(Array.isArray(previous) ? {} : (previous || {})),
-        items,
-        winnersById: { ...(Array.isArray(previous) ? {} : previous?.winnersById || {}), ...winnersById },
-        itaScoresById: { ...(Array.isArray(previous) ? {} : previous?.itaScoresById || {}), ...itaScoresById },
-        courtsByBracket: { ...(Array.isArray(previous) ? {} : previous?.courtsByBracket || {}), ...courtsByBracket },
-        bracketScoresById: { ...(Array.isArray(previous) ? {} : previous?.bracketScoresById || {}), ...bracketScoresById },
-      }
-      // Map court changes from the result editor onto the same Regia match keys.
-      // Preserve live/queued status and sequence already selected in Regia.
-      const regiaItems = { ...((Array.isArray(previous) ? {} : previous?.regia?.items) || {}) } as Record<string, any>
-      brackets.filter(b => b.type === 'PSE' || b.type === 'PDE').forEach(b => {
-        Object.entries(courtsByBracket[b.id] || {}).forEach(([code, value]) => {
-          const key = `bracket:${b.id}:${code}`
-          const old = regiaItems[key] || {}
-          const n = Number(value)
-          regiaItems[key] = { ...old, court: String(value).trim() !== '' && Number.isInteger(n) && n > 0 ? n : null }
-        })
-      })
-      next.regia = { ...(Array.isArray(previous) ? {} : previous?.regia || {}), items: regiaItems }
-      if (cancelled || request !== bracketsRequestRef.current) return
-      const saved = await fetch('/api/brackets/state', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-role': 'admin' },
-        body: JSON.stringify({ tournament_id: id, state: next, base_updated_at: json?.updated_at }),
-      })
-      if(saved.status===409){
-        setBracketsConflict(true)
-        setBracketsSyncError('Conflitto di salvataggio tabellone. Bozza locale conservata.')
-        return
-      }
-      if (!saved.ok) throw new Error('Salvataggio fallito')
-      if (!cancelled && request === bracketsRequestRef.current){
-        bracketsBaselineRef.current = snapshot
-        const latest=JSON.parse(volatileDrafts.getItem(bracketDraftKey(id))||'null')
-        if(latest?.snapshot===snapshot)volatileDrafts.removeItem(bracketDraftKey(id))
-        setBracketsSyncError('')
-      }
-    } catch {
-      if (!cancelled && request === bracketsRequestRef.current)
-        setBracketsSyncError('Salvataggio Supabase non riuscito. Non chiudere la pagina.')
-    }
-  }, 450)
-  return () => { cancelled = true; clearTimeout(timer) }
-}, [tourId, tId, bracketsLoadKey, bracketsLoadError, winnersById, itaScoresById, courtsByBracket, bracketScoresById, bracketsRetry, bracketsConflict])
+// Save only changed result fields, serialized with other bracket writes.
+const [bracketsSaving,setBracketsSaving]=useState(false)
+useEffect(()=>{
+ const loadKey=tourId&&tId?tourId+':'+tId:''
+ if(!loadKey||bracketsLoadKey!==loadKey||bracketsLoadError)return
+ const id=tId,key=bracketDraftKey(id)
+ if(!stageSnapshot(key,bracketsBaselineRef.current,{winners:winnersById,ita:itaScoresById,courts:courtsByBracket,bracketScores:bracketScoresById}))return
+ if(bracketsConflict)return
+ setBracketsSaving(true);setBracketsSyncError('')
+ const timer=setTimeout(()=>{
+  void flushSnapshot({
+   key,resource:'brackets:'+id,read:()=>readTournamentState('/api/brackets/state',id),
+   project:r=>({winners:r.state?.winnersById||{},ita:r.state?.itaScoresById||{},courts:r.state?.courtsByBracket||{},bracketScores:r.state?.bracketScoresById||{}}),
+   write:(remote,merged,base,desired)=>{
+    const previous=remote.state||{}
+    const regiaItems={...(previous.regia?.items||{})} as Record<string,any>
+    brackets.filter(b=>b.type==='PSE'||b.type==='PDE').forEach(b=>{
+     const oldCourts=base.courts[b.id]||{},newCourts=desired.courts[b.id]||{}
+     for(const code of new Set([...Object.keys(oldCourts),...Object.keys(newCourts)])){
+      if(same(oldCourts[code],newCourts[code]))continue
+      const value=merged.courts[b.id]?.[code],n=Number(value)
+      const k='bracket:'+b.id+':'+code
+      regiaItems[k]={...(regiaItems[k]||{}),court:String(value??'').trim()!==''&&Number.isInteger(n)&&n>0?n:null}
+     }
+    })
+    const next={...(Array.isArray(previous)?{}:previous),items:Array.isArray(previous)?previous:previous.items||[],winnersById:merged.winners,itaScoresById:merged.ita,courtsByBracket:merged.courts,bracketScoresById:merged.bracketScores,regia:{...(previous.regia||{}),items:regiaItems}}
+    return fetch('/api/brackets/state',{method:'PUT',headers:{'Content-Type':'application/json','x-role':'admin'},body:JSON.stringify({tournament_id:id,state:next,base_updated_at:remote.updated_at})})
+   },
+   acknowledge:s=>{bracketsBaselineRef.current=s}
+  }).then(()=>{setBracketsSyncError('');setBracketsConflict(false)}).catch(e=>{setBracketsConflict(e instanceof SaveConflict);setBracketsSyncError(saveMessage(e))}).finally(()=>setBracketsSaving(false))
+ },350)
+ return ()=>clearTimeout(timer)
+},[tourId,tId,bracketsLoadKey,bracketsLoadError,winnersById,itaScoresById,courtsByBracket,bracketScoresById,bracketsRetry,bracketsConflict])
 
   const active = useMemo(() => brackets.find(b => b.id === activeId) || null, [activeId, brackets])
 
@@ -2073,7 +1917,7 @@ return (
       <div role="status" className={offlineOnline
         ? 'rounded border border-emerald-700 px-3 py-2 text-emerald-300'
         : 'rounded border border-amber-500 px-3 py-2 text-amber-300'}>
-        {offlineOnline?'● Online':'● Offline — modifiche non salvate'}
+        {!offlineOnline?'● Offline':resultsSaveError||bracketsSyncError?'🔴 Salvataggio da verificare':resultsSaving||bracketsSaving?'🟡 Salvataggio in corso…':'🟢 Salvato su Supabase'}
         {offlineConflict&&' · Conflitto: sincronizzazione sospesa'}
       </div>
     } />
@@ -2085,7 +1929,7 @@ return (
           if(!window.confirm('Scartare la bozza LOCALE dei tabelloni? Le modifiche non sincronizzate andranno perse.'))return
           volatileDrafts.removeItem(bracketDraftKey(tId))
           window.location.reload()
-        }}>Scarta bozza e ricarica dal server</button>}
+        }}>Annulla modifiche non salvate e ricarica</button>}
     </div>}
    
 
@@ -2097,7 +1941,7 @@ return (
            if(!window.confirm('Scartare i risultati dei gironi salvati SOLO su questo dispositivo? Non potranno più essere recuperati.'))return
            volatileDrafts.removeItem(resultsDraftKey(tId))
            window.location.reload()
-         }}>Scarta bozza gironi e ricarica</button>}
+         }}>Annulla modifiche non salvate e ricarica</button>}
      </div>}
     {/* Header filtri */}
     <div className="mt-results-controls flex flex-wrap items-end gap-3">
