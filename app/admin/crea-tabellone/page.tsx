@@ -1217,7 +1217,7 @@ return (
       {offlineBracketStatus}
       {!offlineBracketConflict&&brackets.length>0&&<button type="button" className="ml-3 underline" onClick={()=>setBracketRetry(x=>x+1)}>Riprova salvataggio</button>}
       {offlineBracketConflict&&<button type="button" className="ml-3 underline" onClick={()=>{
-        if(!window.confirm('Scartare la bozza LOCALE dei tabelloni? Le modifiche offline andranno perse.'))return
+        if(!window.confirm('Annullare le modifiche non ancora salvate? I dati Supabase restano invariati.'))return
         volatileDrafts.removeItem(bracketDraftKey(tId))
         window.location.reload()
       }}>Annulla modifiche non salvate</button>}
