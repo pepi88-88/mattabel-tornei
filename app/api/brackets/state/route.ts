@@ -53,7 +53,7 @@ export async function PUT(req: NextRequest) {
   if (readError) return NextResponse.json({ error: readError.message }, { status: 500 })
   // I salvataggi offline usano la versione esatta letta in precedenza.
   // Un altro Staff potrebbe aver cambiato lo stesso tabellone durante l'assenza di rete.
-  if (body?.base_updated_at && previous?.updated_at !== body.base_updated_at) {
+  if (body?.base_updated_at && (previous?.updated_at||'new') !== body.base_updated_at) {
     return NextResponse.json({ error: 'Il tabellone è cambiato su un altro dispositivo', updated_at: previous?.updated_at }, { status: 409 })
   }
   const previousRankings = !Array.isArray(previous?.state)
@@ -72,6 +72,11 @@ export async function PUT(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     if (!updated) return NextResponse.json({ error: 'Conflitto di salvataggio' }, { status: 409 })
     return NextResponse.json({ ok: true, updated_at: updated.updated_at })
+  }
+  if(body?.base_updated_at==='new'&&!previous){
+    const {data,error}=await s.from('bracket_states').insert(payload).select('updated_at').single()
+    if(error)return NextResponse.json({error:'Creazione tabellone non riuscita'},{status:error.code==='23505'?409:500})
+    return NextResponse.json({ok:true,updated_at:data.updated_at})
   }
   const { error } = await s.from('bracket_states').upsert(payload)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
