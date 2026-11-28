@@ -237,6 +237,7 @@ else notFull.push(r)
     if(!tId)return
     const onLine=()=>{void syncPayments()}
     window.addEventListener('online',onLine)
+    if(navigator.onLine&&readOfflineQueue<PaymentChange[]>(offlineQueueKey('payments',tId),[]).length)void syncPayments()
     return ()=>window.removeEventListener('online',onLine)
   },[tId,paymentsConflict])
 
@@ -332,7 +333,7 @@ else body.paid_d = value
       {paymentsConflict&&<div role="alert" className="rounded border border-red-500 p-2 text-red-300">
        {paymentsConflict}
        <button type="button" className="ml-3 underline" onClick={()=>{
-         if(!window.confirm('Scartare i pagamenti SOLO LOCALI non sincronizzati? Non sarà possibile recuperarli.'))return
+         if(!window.confirm('Annullare i pagamenti non ancora salvati? I dati Supabase restano invariati.'))return
          volatileDrafts.removeItem(keyPayments)
          setPendingPayments([])
          setPaymentsConflict('')
