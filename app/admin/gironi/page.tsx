@@ -881,7 +881,7 @@ function commitTimeUncontrolled(
         Lo stesso dato è cambiato su Supabase. Nessun dato remoto è stato sovrascritto.
         <button type="button" className="ml-3 underline" onClick={()=>{
           const raw=volatileDrafts.getItem(draftKey(tId))
-          if(!raw)return alert('Nessuna bozza locale trovata.')
+          if(!raw)return alert('Nessuna modifica in attesa trovata.')
           const blob=new Blob([raw],{type:'application/json'})
           const url=URL.createObjectURL(blob)
           const link=document.createElement('a')
@@ -889,9 +889,9 @@ function commitTimeUncontrolled(
           link.download='mattabel-bozza-gironi-'+tId+'.json'
           link.click()
           setTimeout(()=>URL.revokeObjectURL(url),1000)
-        }}>Scarica copia della bozza</button>
+        }}>Scarica copia delle modifiche</button>
         <button type="button" className="ml-3 underline" onClick={()=>{
-          if(!window.confirm('Scartare le modifiche LOCALI ai gironi? Questa operazione non è reversibile.'))return
+          if(!window.confirm('Annullare le modifiche non ancora salvate? I dati Supabase restano invariati.'))return
           volatileDrafts.removeItem(draftKey(tId))
           window.location.reload()
         }}>Annulla modifiche non salvate</button>
@@ -924,7 +924,7 @@ function commitTimeUncontrolled(
             </div>
           <div className="mt-groups-actions flex items-end gap-2">
             <div className="mt-groups-save-line mt-groups-save-top" role="status" aria-live="polite"
-              data-save-state={saveStatus.toLowerCase().includes('errore') || saveStatus.toLowerCase().includes('fallit') ? 'error' : saveStatus.toLowerCase().includes('corso') ? 'saving' : saveStatus.toLowerCase().includes('salvat') && !saveStatus.toLowerCase().includes('salvato') ? 'pending' : 'saved'}>
+              data-save-state={saveStatus.toLowerCase().includes('errore') || saveStatus.toLowerCase().includes('fallit') || saveStatus.toLowerCase().includes('non riuscito') || offlineGroupsConflict ? 'error' : saveStatus.toLowerCase().includes('corso') ? 'saving' : saveStatus.toLowerCase().includes('salvat') && !saveStatus.toLowerCase().includes('salvato') ? 'pending' : 'saved'}>
               <span className="mt-groups-save-dot" aria-hidden="true" />
               <span>{saveStatus}</span>
               {saveStatus.includes('non riuscito') && <button type="button" className="btn" onClick={() => setRetrySave(x => x + 1)}>Riprova salvataggio</button>}
@@ -969,7 +969,7 @@ function commitTimeUncontrolled(
 
           </div>
           <div className="mt-groups-save-line mt-groups-save-bottom" role="status" aria-live="polite"
-            data-save-state={saveStatus.toLowerCase().includes('errore') || saveStatus.toLowerCase().includes('fallit') ? 'error' : saveStatus.toLowerCase().includes('corso') ? 'saving' : saveStatus.toLowerCase().includes('salvat') && !saveStatus.toLowerCase().includes('salvato') ? 'pending' : 'saved'}>
+            data-save-state={saveStatus.toLowerCase().includes('errore') || saveStatus.toLowerCase().includes('fallit') || saveStatus.toLowerCase().includes('non riuscito') || offlineGroupsConflict ? 'error' : saveStatus.toLowerCase().includes('corso') ? 'saving' : saveStatus.toLowerCase().includes('salvat') && !saveStatus.toLowerCase().includes('salvato') ? 'pending' : 'saved'}>
             <span className="mt-groups-save-dot" aria-hidden="true" />
             <span>{saveStatus}</span>
             {saveStatus.includes('non riuscito') && <button type="button" className="btn" onClick={() => setRetrySave(x => x + 1)}>Riprova salvataggio</button>}
