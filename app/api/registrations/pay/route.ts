@@ -31,7 +31,12 @@ export async function PATCH(req: Request) {
         .eq('id', id).eq(side, expected[side])
         .select('id').maybeSingle()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      if (!data) return NextResponse.json({ error:'Pagamento modificato su altro dispositivo', conflict:true }, { status:409 })
+      if(!data){
+        const {data:current,error:readError}=await s.from('registrations').select(side).eq('id',id).maybeSingle()
+        if(readError)return NextResponse.json({error:readError.message},{status:500})
+        if(current&&(current as any)[side]===updates[side])return NextResponse.json({ok:true})
+        return NextResponse.json({error:'Pagamento modificato su altro dispositivo',conflict:true},{status:409})
+      }
       return NextResponse.json({ok:true})
     }
     const { error } = await s.from('registrations').update(updates).eq('id', id)
