@@ -1,3 +1,4 @@
+import {volatileDrafts} from './volatileDrafts'
 // Shared, in-memory autosave primitives. No persistent drafts or database changes.
 export class SaveConflict extends Error {
  constructor(){super('Lo stesso dato è cambiato su Supabase. Nessuna sovrascrittura effettuata.')}
@@ -27,6 +28,7 @@ export function mergeChanges<T>(base:T,desired:T,remote:T):T{
   // Score/time arrays are indexed by match; merge independently changed indices
   // only when the shape is unchanged. Structural edits with divergent lengths conflict.
   if(Array.isArray(b)&&Array.isArray(d)&&Array.isArray(r)&&b.length===d.length&&b.length===r.length){
+   if(b.some((v,i)=>record(v)&&typeof v.id==='string'&&(d[i]?.id!==v.id||r[i]?.id!==v.id)))throw new SaveConflict()
    return d.map((v,i)=>merge(b[i],v,r[i]))
   }
   throw new SaveConflict()
@@ -58,7 +60,6 @@ export async function saveWithRetry<T>(read:()=>Promise<T>,write:(remote:T)=>Pro
 }
 
 
-import {volatileDrafts} from './volatileDrafts'
 export type SnapshotDraft={snapshot:string;baseSnapshot:string}
 export function readSnapshot(key:string):SnapshotDraft|null{
  const raw=volatileDrafts.getItem(key)
@@ -72,7 +73,7 @@ export function stageSnapshot(key:string,baseline:string,desired:unknown):boolea
 }
 type RemoteState={state?:any;updated_at?:string;is_public?:boolean}
 export async function readTournamentState(endpoint:string,id:string):Promise<RemoteState>{
- const response=await fetch(endpoint+'?tournament_id='+encodeURIComponent(id),{cache:'no-store',headers:{'x-role':'admin'}})
+ const response=await fetch(endpoint+'?tournament_id='+encodeURIComponent(id),{cache:'no-store',headers:{'x-role':'admin'},signal:AbortSignal.timeout(15000)})
  if(!response.ok)throw new Error('Lettura Supabase non riuscita ('+response.status+')')
  const remote=await response.json()
  if(!remote?.updated_at)throw new Error('Versione Supabase mancante')
