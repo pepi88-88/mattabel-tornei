@@ -1,6 +1,7 @@
 'use client'
 
 
+import {flushSnapshot,stageSnapshot,readSnapshot,readTournamentState,SaveConflict,saveMessage} from '../../../lib/autosave'
 import {volatileDrafts,hasUnsavedChanges} from '../../../lib/volatileDrafts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
@@ -207,6 +208,7 @@ const [isPublic, setIsPublic] = useState(false)
 
 
 const [ready, setReady] = useState(false)
+const [groupsLoadedFor,setGroupsLoadedFor]=useState('')
 const [saveStatus, setSaveStatus] = useState('Caricamento...')
 const versionRef = useRef<string | null>(null)
 const savedSnapshotRef = useRef('')
@@ -227,6 +229,7 @@ useEffect(()=>{
 useEffect(() => {
   let cancelled = false
   setReady(false)
+  setGroupsLoadedFor('')
   setSaveStatus('Caricamento...')
   versionRef.current = null
   pendingRef.current = null
@@ -246,41 +249,9 @@ useEffect(() => {
         isPublic: typeof st.isPublic === 'boolean' ? st.isPublic : false
       }
       savedSnapshotRef.current = JSON.stringify(serverDraft)
-      let loaded = serverDraft
-      const pending = volatileDrafts.getItem(draftKey(tId))
-      if (pending) {
-        try {
-          const parsed = JSON.parse(pending)
-          if (parsed?.data && JSON.stringify(parsed.data) === JSON.stringify(serverDraft)) {
-            volatileDrafts.removeItem(draftKey(tId))
-            setSaveStatus('Salvato su Supabase')
-          } else if (parsed?.data) {
-            loaded = parsed.data
-            pendingRef.current = JSON.stringify(loaded)
-            // Recover remote changes to *different* groups/slots automatically,
-            // while refusing to overwrite a slot that both devices changed.
-            if (parsed.baseData && !equalDraftValue(parsed.baseData,serverDraft)) {
-              const merged=mergeGroupDraft(parsed.baseData,parsed.data,serverDraft)
-              if (merged) {
-                loaded={...merged,matchFields:merged.matchFields??{},matchOrder:merged.matchOrder??{}}
-                volatileDrafts.setItem(draftKey(tId),JSON.stringify({
-                  ...parsed,data:merged,baseData:serverDraft,baseVersion:js.updated_at
-                }))
-                pendingRef.current=JSON.stringify(merged)
-                setSaveStatus('Modifiche compatibili recuperate: invio automatico a Supabase…')
-              } else {
-                setOfflineGroupsConflict(true)
-                setSaveStatus('Conflitto: due dispositivi hanno modificato gli stessi gironi. Bozza locale protetta.')
-              }
-            } else if (!parsed.baseData && navigator.onLine) {
-              setOfflineGroupsConflict(true)
-              setSaveStatus('Bozza precedente senza versione: verifica prima di sincronizzare.')
-            } else {
-              setSaveStatus('Bozza locale recuperata, sincronizzazione automatica in corso…')
-            }
-          }
-        } catch { setSaveStatus('Bozza locale non leggibile') }
-      }
+      const pending=readSnapshot(draftKey(tId))
+      const loaded=pending?JSON.parse(pending.snapshot) as typeof serverDraft:serverDraft
+      if(pending)savedSnapshotRef.current=pending.baseSnapshot
       setGroupsCount(loaded.groupsCount)
       setMeta(loaded.meta)
       setAssign(loaded.assign)
@@ -290,6 +261,7 @@ useEffect(() => {
       setMatchOrder(loaded.matchOrder ?? {})
       setScores(loaded.scores)
       setIsPublic(loaded.isPublic)
+      setGroupsLoadedFor(tId)
       setReady(true)
       if (!pending) setSaveStatus(navigator.onLine?'Salvato su Supabase':'Gironi disponibili offline')
     } catch (e) {
@@ -299,115 +271,24 @@ useEffect(() => {
   return () => { cancelled = true }
 }, [tId])
 
-// Bozza locale sincrona anche senza rete; sincronizzazione protetta da
-// versione e confronto dei dati, senza cancellare le modifiche di altri Staff.
-useEffect(() => {
-  if (!ready || !tId || !versionRef.current) return
-  const data = { groupsCount, meta, assign, times, gField, matchFields, matchOrder, scores, isPublic }
-  const snapshot=JSON.stringify(data)
-  const existingRaw=volatileDrafts.getItem(draftKey(tId))
-  if(snapshot===savedSnapshotRef.current && !existingRaw)return
-  let draft:any
-  try{
-    const old=existingRaw?JSON.parse(existingRaw):null
-    draft={
-      data,
-      baseData:old?.baseData??JSON.parse(savedSnapshotRef.current),
-      baseVersion:old?.baseVersion??versionRef.current,
-      savedAt:Date.now()
-    }
-    volatileDrafts.setItem(draftKey(tId),JSON.stringify(draft))
-  }catch{
-    setSaveStatus('Memoria locale non disponibile: non uscire dalla pagina')
-    return
-  }
-  if(offlineGroupsConflict)return
-  if(!navigator.onLine){
-    setSaveStatus('Offline: modifiche NON salvate. Riconnettiti senza chiudere la pagina')
-    return
-  }
-  setSaveStatus('Sincronizzazione gironi in corso…')
-  let cancelled=false
-  const currentTournament=tId
-  const timer=setTimeout(async()=>{
-    try{
-      for(let attempt=0;attempt<4;attempt++){
-        if(cancelled)return
-        const read=await fetch('/api/groups/state?tournament_id='+encodeURIComponent(currentTournament),
-          {cache:'no-store',headers:{'x-role':'admin'}})
-        if(!read.ok)throw new Error('Lettura non riuscita')
-        const current=await read.json()
-        if(!current?.updated_at)throw new Error('Versione mancante')
-        const st=current.state||{}
-        const serverData={
-          groupsCount:st.groupsCount??4,meta:st.meta??{},assign:st.assign??{},
-          times:st.times??{},gField:st.gField??{},matchFields:st.matchFields??{},
-          matchOrder:st.matchOrder??{},scores:st.scores??{},
-          isPublic:typeof st.isPublic==='boolean'?st.isPublic:false
-        }
-        const serverSnapshot=JSON.stringify(serverData)
-        if(serverSnapshot!==JSON.stringify(draft.baseData)&&serverSnapshot!==snapshot){
-          const merged=mergeGroupDraft(draft.baseData,draft.data,serverData)
-          if(merged && !cancelled){
-            // New baseline from the server; React schedules the next autosave.
-            versionRef.current=current.updated_at
-            savedSnapshotRef.current=serverSnapshot
-            volatileDrafts.setItem(draftKey(currentTournament),JSON.stringify({
-              ...draft,data:merged,baseData:serverData,baseVersion:current.updated_at
-            }))
-            setGroupsCount(merged.groupsCount)
-            setMeta(merged.meta)
-            setAssign(merged.assign)
-            setTimes(merged.times)
-            setGField(merged.gField)
-            setMatchFields(merged.matchFields||{})
-            setMatchOrder(merged.matchOrder||{})
-            setScores(merged.scores)
-            setIsPublic(merged.isPublic)
-            setSaveStatus('Modifiche di altri Staff unite: sincronizzazione automatica…')
-          } else if(!cancelled){
-            setOfflineGroupsConflict(true)
-            setSaveStatus('Conflitto sullo stesso dato: bozza protetta. Verifica prima di sostituire dati Supabase.')
-          }
-          return
-        }
-        if(serverSnapshot===snapshot){
-          if(!cancelled){
-            savedSnapshotRef.current=snapshot
-            const latest=volatileDrafts.getItem(draftKey(currentTournament))
-            if(latest && JSON.stringify(JSON.parse(latest).data)===snapshot)
-              volatileDrafts.removeItem(draftKey(currentTournament))
-            pendingRef.current=null
-            setSaveStatus('Salvato su Supabase')
-          }
-          return
-        }
-        const changes={...data,labels:{...(st.labels||{}),...(regMap||{})}}
-        const res=await fetch('/api/groups/state',{
-          method:'PATCH',headers:{'Content-Type':'application/json','x-role':'admin'},
-          body:JSON.stringify({tournament_id:currentTournament,changes,base_updated_at:current.updated_at})
-        })
-        if(res.status===409)continue
-        if(!res.ok)throw new Error('Salvataggio fallito ('+res.status+')')
-        if(!cancelled){
-          const result=await res.json()
-          versionRef.current=result.updated_at
-          savedSnapshotRef.current=snapshot
-          const latest=volatileDrafts.getItem(draftKey(currentTournament))
-          if(latest && JSON.stringify(JSON.parse(latest).data)===snapshot)
-            volatileDrafts.removeItem(draftKey(currentTournament))
-          pendingRef.current=null
-          setSaveStatus('Salvato su Supabase')
-        }
-        return
-      }
-      throw new Error('Conflitto tra salvataggi')
-    }catch{
-      if(!cancelled)setSaveStatus('Salvataggio Supabase non riuscito. Non chiudere la pagina.')
-    }
-  },450)
-  return ()=>{cancelled=true;clearTimeout(timer)}
-},[ready,tId,groupsCount,meta,assign,times,gField,matchFields,matchOrder,scores,isPublic,retrySave,offlineGroupsConflict])
+// Save all changes in sequence, sharing the same queue as group results.
+useEffect(()=>{
+ if(!ready||!tId||groupsLoadedFor!==tId||!versionRef.current)return
+ const id=tId,key=draftKey(id)
+ const data={groupsCount,meta,assign,times,gField,matchFields,matchOrder,scores,isPublic}
+ if(!stageSnapshot(key,savedSnapshotRef.current,data))return
+ if(offlineGroupsConflict)return
+ setSaveStatus('Salvataggio su Supabase in corso…')
+ const timer=setTimeout(()=>{
+  void flushSnapshot({
+   key,resource:'groups:'+id,read:()=>readTournamentState('/api/groups/state',id),
+   project:r=>{const s=r.state||{};return {groupsCount:s.groupsCount??4,meta:s.meta??{},assign:s.assign??{},times:s.times??{},gField:s.gField??{},matchFields:s.matchFields??{},matchOrder:s.matchOrder??{},scores:s.scores??{},isPublic:typeof s.isPublic==='boolean'?s.isPublic:false}},
+   write:(remote,merged)=>fetch('/api/groups/state',{method:'PATCH',headers:{'Content-Type':'application/json','x-role':'admin'},body:JSON.stringify({tournament_id:id,base_updated_at:remote.updated_at,changes:{...merged,labels:{...(remote.state?.labels||{}),...(regMap||{})}}})}),
+   acknowledge:s=>{savedSnapshotRef.current=s}
+  }).then(()=>{setOfflineGroupsConflict(false);setSaveStatus('Salvato su Supabase')}).catch(e=>{setOfflineGroupsConflict(e instanceof SaveConflict);setSaveStatus(saveMessage(e))})
+ },350)
+ return ()=>clearTimeout(timer)
+},[ready,tId,groupsLoadedFor,groupsCount,meta,assign,times,gField,matchFields,matchOrder,scores,isPublic,retrySave,offlineGroupsConflict])
 
   // util
   const regToLetter = useMemo(() => { const m: Record<string, string> = {}; for (const [k, v] of Object.entries(assign)) { if (!v) continue; const L = k.split('-')[0]; m[v] = L } return m }, [assign])
@@ -997,7 +878,7 @@ function commitTimeUncontrolled(
         Connessione assente. I cambiamenti non vengono salvati fino al ritorno della rete. Non chiudere la pagina.
       </div>}
       {offlineGroupsConflict&&<div role="alert" className="my-2 rounded border border-red-500 p-3 text-red-200">
-        Due versioni dello stesso girone risultano diverse. Il salvataggio automatico continua normalmente negli altri casi; qui è necessaria una scelta per non perdere modifiche.
+        Lo stesso dato è cambiato su Supabase. Nessun dato remoto è stato sovrascritto.
         <button type="button" className="ml-3 underline" onClick={()=>{
           const raw=volatileDrafts.getItem(draftKey(tId))
           if(!raw)return alert('Nessuna bozza locale trovata.')
@@ -1013,7 +894,7 @@ function commitTimeUncontrolled(
           if(!window.confirm('Scartare le modifiche LOCALI ai gironi? Questa operazione non è reversibile.'))return
           volatileDrafts.removeItem(draftKey(tId))
           window.location.reload()
-        }}>Scarta bozza locale</button>
+        }}>Annulla modifiche non salvate</button>
       </div>}
       <div className="mt-groups-workspace card p-3 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 xl:gap-6">
         {/* colonna sinistra */}
