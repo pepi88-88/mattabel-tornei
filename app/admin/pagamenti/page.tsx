@@ -200,48 +200,45 @@ else notFull.push(r)
   }, [payableItems, search])
 
   const syncPayments=async()=>{
-    if(!tId || syncingPayments.current || !navigator.onLine || paymentsConflict)return
+    if(!tId||syncingPayments.current||!navigator.onLine||paymentsConflict)return
+    const key=offlineQueueKey('payments',tId)
     syncingPayments.current=true
+    setPaymentsMessage('Salvataggio pagamenti in corso…')
     try{
-      let list=readOfflineQueue<PaymentChange[]>(offlineQueueKey('payments',tId),[])
-      for(const entry of [...list]){
+      for(;;){
+        const entry=readOfflineQueue<PaymentChange[]>(key,[])[0]
+        if(!entry)break
         const field='paid_'+entry.side.toLowerCase()
-        let response:Response
-        try{
-          response=await fetch('/api/registrations/pay',{
-            method:'PATCH',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({id:entry.id,[field]:entry.value,expected:{[field]:entry.expected}})
-          })
-        }catch{
-          setPaymentsMessage('Connessione assente: pagamenti NON salvati. Non chiudere la pagina.')
-          return
+        let response:Response|undefined
+        for(let attempt=0;attempt<3;attempt++){
+          try{
+            response=await fetch('/api/registrations/pay',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:entry.id,[field]:entry.value,expected:{[field]:entry.expected}})})
+            if(response.ok||response.status===409||response.status<500)break
+          }catch{}
+          await new Promise(resolve=>setTimeout(resolve,150*(attempt+1)))
         }
-        if(response.status===409){
-          setPaymentsConflict('Pagamento modificato da un altro Staff. Controllare prima di sincronizzare.')
-          return
-        }
-        if(!response.ok){
-          setPaymentsMessage('Sincronizzazione pagamenti non riuscita ('+response.status+').')
-          return
-        }
-        list=readOfflineQueue<PaymentChange[]>(offlineQueueKey('payments',tId),[])
-          .filter(x=>!(x.id===entry.id&&x.side===entry.side&&x.value===entry.value&&x.expected===entry.expected))
-        putOfflineQueue(offlineQueueKey('payments',tId),list)
+        if(response?.status===409){setPaymentsConflict('Lo stesso pagamento è cambiato su Supabase. Nessuna sovrascrittura effettuata.');return}
+        if(!response?.ok){setPaymentsMessage('Salvataggio pagamenti non riuscito. Riprova senza chiudere la pagina.');return}
+        // Update the SWR server baseline before removing the optimistic overlay.
+        await mutate((prev:any)=>prev?{...prev,items:(prev.items||[]).map((r:any)=>r.id===entry.id?{...r,[field]:entry.value}:r)}:prev,false)
+        // A second click while this request was running must use the acknowledged value.
+        const list=readOfflineQueue<PaymentChange[]>(key,[]).flatMap(x=>{
+          if(x.id!==entry.id||x.side!==entry.side)return [x]
+          return x.value===entry.value?[]:[{...x,expected:entry.value}]
+        })
+        putOfflineQueue(key,list)
         setPendingPayments(list)
       }
-      if(!list.length){
-        setPaymentsMessage('Pagamenti sincronizzati con Supabase.')
-        mutate()
-      }
+      setPaymentsMessage('🟢 Pagamenti salvati su Supabase.')
+      void mutate()
     }finally{syncingPayments.current=false}
   }
   useEffect(()=>{
-    if(!tId || !pendingPayments.length)return
+    if(!tId)return
     const onLine=()=>{void syncPayments()}
     window.addEventListener('online',onLine)
-    if(navigator.onLine) void syncPayments()
     return ()=>window.removeEventListener('online',onLine)
-  },[tId,pendingPayments.length,paymentsConflict])
+  },[tId,paymentsConflict])
 
   async function togglePaid(id: string, side: 'A' | 'B' | 'C' | 'D', value: boolean) {
     // trova la riga per messaggio più chiaro
@@ -278,20 +275,16 @@ else body.paid_d = value
 
 
     const field='paid_'+side.toLowerCase()
-    const old=pendingPayments.find(x=>x.id===id&&x.side===side)
+    const currentQueue=readOfflineQueue<PaymentChange[]>(keyPayments,[])
+    const old=currentQueue.find(x=>x.id===id&&x.side===side)
     const previousValue=!!reg?.[field]
     const updated=[
-      ...pendingPayments.filter(x=>!(x.id===id&&x.side===side)),
+      ...currentQueue.filter(x=>!(x.id===id&&x.side===side)),
       {id,side,value,expected:old?.expected??previousValue}
     ]
     // Prima persistiamo, poi rendiamo visibile la spunta, così un blackout
     // non lascia una modifica che non sia stata memorizzata.
     if(!queueUpdate(updated))return
-    const updatedData={...data,items:(data?.items||[]).map((r:any)=>
-      r.id===id?{...r,[field]:value}:r
-    )}
-    mutate(updatedData,false)
-    cacheOfflineJSON('/api/registrations/for-payments?tournament_id='+tId,updatedData)
     setPaymentsMessage(navigator.onLine?'Pagamento da sincronizzare…':'Pagamento NON salvato: riconnettiti senza chiudere la pagina.')
     if(navigator.onLine)void syncPayments()
   }
@@ -344,7 +337,7 @@ else body.paid_d = value
          setPendingPayments([])
          setPaymentsConflict('')
          mutate()
-       }}>Scarta bozza locale e aggiorna</button>
+       }}>Annulla modifiche non salvate e aggiorna</button>
      </div>}
       {/* intestazione: stessi selettori di Iscrizioni */}
       <div className="flex flex-wrap items-end gap-3">
